@@ -1,6 +1,7 @@
 # Project rules
 
 ## Product
+Name: Docent. Brand assets and usage rules live in brand/README.md.
 Multi-tenant AI support agent SaaS. Companies embed a widget with a script tag,
 teach the agent from their documents, define their own ticket types, and receive
 escalations in an admin inbox with an AI summary.
@@ -12,9 +13,13 @@ and predictable usage pricing with hard caps. Change this line if the wedge chan
 - Database: Postgres with pgvector, hosted on Neon free tier during build
 - Cache and rate limits: Redis on Upstash free tier (optional, must degrade gracefully)
 - Frontend: Next.js with TypeScript
-- Models: provider-agnostic layer (LiteLLM or OpenAI-compatible clients).
+- Models: provider-agnostic layer over OpenAI-compatible clients.
   Local dev with Ollama. Never send real customer data through free API tiers.
-- Embeddings: open model (bge-m3 or multilingual-e5), 384 or 768 dimensions
+  Dev chat model: gemma4:cloud (Ollama free plan, synthetic data only). This dev
+  machine is an Intel Mac, so local chat models run on CPU and are too slow.
+- Embeddings: qwen3-embedding:0.6b via Ollama, truncated to 768 dimensions,
+  stored as halfvec(768). Same model in every environment. Changing it means a
+  full re-embed.
 
 ## Tooling
 - Monorepo. JS and TS packages use pnpm workspaces. Python backend uses uv.
@@ -40,6 +45,8 @@ and predictable usage pricing with hard caps. Change this line if the wedge chan
   Server-side actions are scoped to the verified user id, never to chat claims.
 - Widget: tiny loader script, iframe, postMessage with strict origin checks,
   per-tenant public key and allowed-domains list.
+- Widget has two modes. Anonymous: docs-only answers, tighter caps, tenant can
+  turn it off. Identified: tenant-signed token, account-aware answers.
 - Agent: retrieval with citations, structured outputs, explicit escalation rules
   (no supporting source, low confidence, user asks for human, restricted topics).
   Treat all visitor input as untrusted (prompt injection).
