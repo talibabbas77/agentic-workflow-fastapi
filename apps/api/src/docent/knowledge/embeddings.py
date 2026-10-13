@@ -5,6 +5,7 @@ always come from the same weights. embeddinggemma expects task prefixes, which
 are applied here and nowhere else.
 """
 
+from collections import OrderedDict
 from typing import Protocol
 
 import httpx
@@ -55,6 +56,30 @@ class OllamaEmbedder:
         if len(vectors) != len(inputs) or any(len(v) != self._dims for v in vectors):
             raise EmbeddingError(f"expected {len(inputs)} vectors of {self._dims} dimensions")
         return vectors
+
+
+class QueryCache:
+    """Remembers recent query vectors. Customers ask the same things in the same words."""
+
+    def __init__(self, inner: Embedder, size: int = 1024) -> None:
+        self._inner = inner
+        self.model = inner.model
+        self._size = size
+        self._vectors: OrderedDict[str, list[float]] = OrderedDict()
+
+    async def embed_documents(self, items: list[tuple[str, str]]) -> list[list[float]]:
+        return await self._inner.embed_documents(items)
+
+    async def embed_query(self, text: str) -> list[float]:
+        key = " ".join(text.lower().split())
+        if (vector := self._vectors.get(key)) is not None:
+            self._vectors.move_to_end(key)
+            return vector
+        vector = await self._inner.embed_query(text)
+        self._vectors[key] = vector
+        if len(self._vectors) > self._size:
+            self._vectors.popitem(last=False)
+        return vector
 
 
 def to_pgvector(vector: list[float]) -> str:

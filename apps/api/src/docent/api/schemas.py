@@ -280,3 +280,129 @@ class SearchOut(BaseModel):
     mode: Literal["hybrid", "keyword"] = Field(
         description="keyword when the embedding service is unavailable"
     )
+
+
+# Agent
+
+Tone = Literal["friendly", "neutral", "formal"]
+Topic = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=80)]
+ClaimKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,39}$")]
+ClaimValue = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
+FieldKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,39}$")]
+
+
+class AgentSettingsOut(BaseModel):
+    name: str
+    tone: Tone
+    restricted_topics: list[str]
+
+
+class AgentSettingsIn(Model):
+    name: Name | None = None
+    tone: Tone | None = None
+    restricted_topics: list[Topic] | None = Field(default=None, max_length=30)
+
+
+class ConversationCreateIn(Model):
+    mode: Literal["anonymous", "identified"] = "anonymous"
+    claims: dict[ClaimKey, ClaimValue] = Field(default_factory=dict, max_length=20)
+
+
+class MessageIn(Model):
+    content: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+
+
+class CitationOut(BaseModel):
+    marker: int
+    document_title: str
+    heading_path: str
+    url: str | None
+    excerpt: str
+
+
+class DecisionOut(BaseModel):
+    type: Literal["answer", "clarify", "escalate"]
+    confidence: Literal["high", "medium", "low"] | None
+    reason: str | None
+    citations: list[int]
+
+
+class MessageOut(BaseModel):
+    id: uuid.UUID
+    role: Literal["visitor", "agent", "human", "system"]
+    content: str
+    decision: DecisionOut | None
+    citations: list[CitationOut]
+    created_at: datetime | None = None
+
+
+class EscalationSummaryOut(BaseModel):
+    issue: str
+    tried: str
+    user_context: str
+    sentiment: Literal["calm", "frustrated", "angry", "unknown"]
+    suggested_next_step: str
+
+
+class EscalationOut(BaseModel):
+    id: uuid.UUID
+    reason: str
+    status: Literal["open", "assigned", "waiting", "resolved"]
+    ticket_type: str | None
+    fields: dict[str, str]
+    summary: EscalationSummaryOut | None
+    created_at: datetime
+
+
+class ConversationOut(BaseModel):
+    id: uuid.UUID
+    channel: Literal["preview", "widget"]
+    mode: Literal["anonymous", "identified"]
+    claims: dict[str, str]
+    status: Literal["open", "escalated", "closed"]
+    messages: list[MessageOut]
+    escalation: EscalationOut | None
+
+
+class TicketField(Model):
+    key: FieldKey
+    label: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+    type: Literal["text", "email", "number", "select"] = "text"
+    required: bool = False
+    options: list[
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+    ] = Field(default_factory=list, max_length=20)
+
+
+class TicketTypeIn(Model):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    description: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+    ]
+    fields: list[TicketField] = Field(default_factory=list, max_length=12)
+    notify_emails: list[EmailStr] = Field(default_factory=list, max_length=10)
+    priority: Literal["low", "normal", "high", "urgent"] = "normal"
+    active: bool = True
+
+    @field_validator("fields")
+    @classmethod
+    def _unique_keys(cls, fields: list[TicketField]) -> list[TicketField]:
+        keys = [f.key for f in fields]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Field keys must be unique.")
+        for f in fields:
+            if f.type == "select" and not f.options:
+                raise ValueError(f"Field {f.key} needs at least one option.")
+        return fields
+
+
+class TicketTypeOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str
+    fields: list[TicketField]
+    notify_emails: list[str]
+    priority: Literal["low", "normal", "high", "urgent"]
+    active: bool
+    created_at: datetime
+    updated_at: datetime

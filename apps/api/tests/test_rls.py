@@ -78,6 +78,17 @@ async def two_tenants(
         )
         assert upload.status_code == 201, upload.text
     await drain()
+    for c in (a_client, b_client):
+        ticket = await c.post(
+            "/v1/ticket-types", json={"name": "Billing", "description": "Payments and refunds."}
+        )
+        assert ticket.status_code == 201, ticket.text
+        conversation = (await c.post("/v1/agent/conversations", json={})).json()
+        for text in ("shared text in both tenants", "talk to a human please"):
+            sent = await c.post(
+                f"/v1/agent/conversations/{conversation['id']}/messages", json={"content": text}
+            )
+            assert "event: message" in sent.text, sent.text
     return a, b
 
 

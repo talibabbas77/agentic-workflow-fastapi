@@ -8,6 +8,7 @@ from docent.config import Settings
 from docent.db.pool import Pool
 from docent.jobs.wake import WorkerWaker
 from docent.knowledge.embeddings import Embedder
+from docent.llm.client import ChatModel
 from docent.redis_hub import RedisHub
 from docent.security.ratelimit import RateLimiter
 from docent.storage import ObjectStore
@@ -23,3 +24,4 @@ class AppState:
     waker: WorkerWaker
     store: ObjectStore
     embedder: Embedder
+    llm: ChatModel

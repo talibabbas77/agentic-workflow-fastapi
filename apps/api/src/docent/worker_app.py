@@ -10,6 +10,7 @@ import httpx
 from fastapi import FastAPI, Header
 from fastapi.responses import JSONResponse
 
+from docent.agent.escalation import make_escalation_handlers
 from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
 from docent.email.sender import SmtpEmailSender
@@ -18,6 +19,7 @@ from docent.jobs.worker import Lane, Worker
 from docent.knowledge.embeddings import OllamaEmbedder
 from docent.knowledge.fetch import guarded_client
 from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
+from docent.llm.client import chat_model
 from docent.log import configure_logging
 from docent.storage import ObjectStore
 
@@ -48,7 +50,8 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             ),
             http=crawler,
         )
-        io = make_handlers(SmtpEmailSender(settings))
+        summarizer = chat_model(settings, ollama, settings.llm_summary_model or settings.llm_model)
+        io = make_handlers(SmtpEmailSender(settings)) | make_escalation_handlers(summarizer)
         ingest = make_knowledge_handlers(knowledge)
         worker = Worker(
             pool,

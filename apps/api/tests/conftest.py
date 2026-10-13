@@ -14,6 +14,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi import FastAPI
 
+from docent.agent.escalation import make_escalation_handlers
 from docent.api.app import create_app
 from docent.cli import API_ROOT
 from docent.config import Settings
@@ -24,7 +25,7 @@ from docent.jobs.worker import Worker
 from docent.knowledge.fetch import guarded_client
 from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
 from docent.security.ratelimit import RateLimiter
-from tests.fakes import FakeEmbedder
+from tests.fakes import FakeChat, FakeEmbedder
 
 PG_HOST = os.environ.get("TEST_PG_HOST", "127.0.0.1")
 PG_PORT = os.environ.get("TEST_PG_PORT", "5432")
@@ -38,8 +39,22 @@ TENANT_TABLES = [
     "knowledge_sources",
     "documents",
     "chunks",
+    "ticket_types",
+    "conversations",
+    "messages",
+    "message_citations",
+    "escalations",
+    "usage_events",
+    "usage_periods",
 ]
 ALL_TABLES = [
+    "usage_events",
+    "usage_periods",
+    "message_citations",
+    "escalations",
+    "messages",
+    "conversations",
+    "ticket_types",
     "chunks",
     "documents",
     "knowledge_sources",
@@ -71,6 +86,9 @@ def make_settings(**overrides: Any) -> Settings:
         "object_store_url": "memory://",
         "crawl_allow_private": True,
         "crawl_delay_seconds": 0.0,
+        # The bag-of-words fake embedder scores lower than the real model the
+        # production threshold was calibrated on.
+        "retrieval_min_similarity": 0.2,
     }
     values.update(overrides)
     return Settings(**values)
@@ -109,13 +127,19 @@ def embedder() -> FakeEmbedder:
     return FakeEmbedder()
 
 
+@pytest.fixture(scope="session")
+def chat() -> FakeChat:
+    return FakeChat()
+
+
 @pytest_asyncio.fixture(scope="session")
 async def app(
-    settings: Settings, owner_pool: Pool, embedder: FakeEmbedder
+    settings: Settings, owner_pool: Pool, embedder: FakeEmbedder, chat: FakeChat
 ) -> AsyncIterator[FastAPI]:
     application = create_app(settings)
     async with application.router.lifespan_context(application):
         application.state.docent.embedder = embedder
+        application.state.docent.llm = chat
         yield application
 
 
@@ -138,6 +162,8 @@ async def clean(owner_pool: Pool, app: FastAPI) -> AsyncIterator[None]:
         await conn.execute(f"truncate {', '.join(ALL_TABLES)} restart identity cascade")
     state = app.state.docent
     state.limiter = RateLimiter(state.redis)
+    state.llm.calls.clear()
+    state.llm.replies.clear()
     yield
 
 
@@ -153,12 +179,17 @@ async def worker(
     app: FastAPI,
     settings: Settings,
     embedder: FakeEmbedder,
+    chat: FakeChat,
 ) -> AsyncIterator[Worker]:
     async with guarded_client(user_agent="DocentTest", timeout=5, allow_private=True) as http:
         knowledge = KnowledgeDeps(
             settings=settings, store=app.state.docent.store, embedder=embedder, http=http
         )
-        handlers = make_handlers(mailbox) | make_knowledge_handlers(knowledge)
+        handlers = (
+            make_handlers(mailbox)
+            | make_knowledge_handlers(knowledge)
+            | make_escalation_handlers(chat)
+        )
         yield Worker(worker_pool, handlers, idle_poll_seconds=60, lease_seconds=30, worker_id="t1")
 
 

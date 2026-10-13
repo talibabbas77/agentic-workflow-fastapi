@@ -13,12 +13,22 @@ from docent.api.middleware import (
     OriginCheckMiddleware,
     RequestContextMiddleware,
 )
-from docent.api.routes import auth, health, knowledge, members, public, workspace
+from docent.api.routes import (
+    agent,
+    auth,
+    health,
+    knowledge,
+    members,
+    public,
+    ticket_types,
+    workspace,
+)
 from docent.api.state import AppState
 from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
 from docent.jobs.wake import WorkerWaker
-from docent.knowledge.embeddings import OllamaEmbedder
+from docent.knowledge.embeddings import OllamaEmbedder, QueryCache
+from docent.llm.client import chat_model
 from docent.log import configure_logging
 from docent.redis_hub import RedisHub
 from docent.security.ratelimit import RateLimiter
@@ -50,13 +60,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 http, settings.worker_url, settings.internal_token.get_secret_value()
             ),
             store=ObjectStore.from_url(settings.object_store),
-            embedder=OllamaEmbedder(
-                http,
-                settings.ollama_base_url,
-                settings.embedding_model,
-                settings.embedding_dims,
-                timeout=15.0,  # a search query must not hang the request
+            embedder=QueryCache(
+                OllamaEmbedder(
+                    http,
+                    settings.ollama_base_url,
+                    settings.embedding_model,
+                    settings.embedding_dims,
+                    timeout=15.0,  # a search query must not hang the request
+                )
             ),
+            llm=chat_model(settings, http, settings.llm_model),
         )
         try:
             yield
@@ -88,6 +101,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         workspace.router,
         members.router,
         knowledge.router,
+        agent.router,
+        ticket_types.router,
         public.router,
     ):
         app.include_router(router)

@@ -39,3 +39,45 @@ def _vector(text: str) -> list[float]:
         vector[index] += 1.0
     norm = math.sqrt(sum(x * x for x in vector)) or 1.0
     return [x / norm for x in vector]
+
+
+class FakeChat:
+    """Scripted chat model. Queue replies (dicts, models, or exceptions) or use the defaults:
+    answer from the first source, and summarize into the first ticket type."""
+
+    model = "fake-chat"
+
+    def __init__(self) -> None:
+        self.calls: list[list[dict[str, str]]] = []
+        self.replies: list[object] = []
+
+    async def structured(self, messages, schema, *, name, max_tokens):  # type: ignore[no-untyped-def]
+        from docent.llm.client import Structured
+
+        self.calls.append(messages)
+        item = self.replies.pop(0) if self.replies else _default(messages, name)
+        if isinstance(item, Exception):
+            raise item
+        value = item if isinstance(item, schema) else schema.model_validate(item)
+        return Structured(value, self.model, 120, 30, 7, 1)
+
+
+def _default(messages: list[dict[str, str]], name: str) -> dict[str, object]:
+    if name == "agent_decision":
+        return {
+            "type": "answer",
+            "answer": "Here is what our help center says [1].",
+            "citations": [1],
+            "confidence": "high",
+            "escalation_reason": None,
+        }
+    match = re.search(r"- ([^:\n]+): ", messages[-1]["content"])
+    return {
+        "ticket_type": match.group(1) if match else None,
+        "fields": [{"key": "order_id", "value": "A-1001"}, {"key": "unknown", "value": "x"}],
+        "issue": "Customer asked for a person.",
+        "tried": "Nothing yet.",
+        "user_context": "Signed in.",
+        "sentiment": "calm",
+        "suggested_next_step": "Reply by email.",
+    }

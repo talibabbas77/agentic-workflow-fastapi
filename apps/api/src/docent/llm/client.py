@@ -21,6 +21,8 @@ from typing import Any, Literal, Protocol
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from docent.config import Settings
+
 Strategy = Literal["json_schema", "tool", "prompt"]
 Message = dict[str, str]
 
@@ -181,4 +183,17 @@ def _json_text(raw: str) -> str:
 def _brief(exc: ValidationError) -> str:
     return "; ".join(
         f"{'.'.join(str(p) for p in e['loc']) or 'root'}: {e['msg']}" for e in exc.errors()[:5]
+    )
+
+
+def chat_model(settings: Settings, http: httpx.AsyncClient, model: str) -> OpenAICompatibleChat:
+    return OpenAICompatibleChat(
+        http,
+        base_url=settings.llm_base_url,
+        model=model,
+        api_key=settings.llm_api_key.get_secret_value() if settings.llm_api_key else None,
+        strategy=choose_strategy(settings.llm_structured_output, model, settings.llm_base_url),
+        reasoning_effort=settings.llm_reasoning_effort,
+        timeout=settings.llm_timeout_seconds,
+        max_concurrency=settings.llm_max_concurrency,
     )
