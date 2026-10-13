@@ -12,6 +12,7 @@ from docent.config import get_settings, repo_root
 API_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = (repo_root() or API_ROOT) / "fixtures" / "golden"
 SAFETY = (repo_root() or API_ROOT) / "fixtures" / "agent"
+DEMO_KEYS = (repo_root() or API_ROOT) / ".data" / "demo-host"
 
 
 def _alembic_config() -> object:
@@ -61,6 +62,9 @@ def main(argv: list[str] | None = None) -> None:
     seed.add_argument("--reset", action="store_true", help="Rebuild the demo data from scratch")
     seed.add_argument("--api-url", default="http://127.0.0.1:8000", help="Used to upload docs")
     seed.add_argument("--fixtures", type=Path, default=FIXTURES)
+    seed.add_argument(
+        "--demo-keys", type=Path, default=DEMO_KEYS, help="Where the demo host's signing keys go"
+    )
 
     evaluate = sub.add_parser("eval", help="Quality checks")
     eval_sub = evaluate.add_subparsers(dest="eval_command", required=True)
@@ -105,6 +109,7 @@ def main(argv: list[str] | None = None) -> None:
                 reset=args.reset,
                 api_url=args.api_url,
                 fixtures=args.fixtures,
+                demo_keys=args.demo_keys,
             )
         ):
             print(line)

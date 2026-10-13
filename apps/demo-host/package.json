@@ -1,0 +1,19 @@
+{
+  "name": "@docent/demo-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A pretend customer website that embeds the Docent widget and signs visitor identity.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^5.9.3"
+  }
+}

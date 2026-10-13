@@ -1047,3 +1047,29 @@ and 29 unanswerable questions (`fixtures/golden`, `pnpm eval:retrieval`).
 The threshold is the first gate in section 6. It alone cannot reject every
 unanswerable question, so Phase 3 keeps the second gate: an answer must cite a
 retrieved source or the decision is escalate.
+
+### 2026-10-14, Phase 3 agent eval (dev model)
+
+`pnpm eval:agent --sample 8` on the golden corpus with `qwen3:1.7b` on the dev
+laptop CPU: 16 answerable, 16 unanswerable, and 16 safety cases, run through the
+full turn (guards, retrieval, gate, model, citation check).
+
+| Measure | Result | Target |
+|---|---|---|
+| Answer rate on answerable questions | 0.63 | |
+| Cites the right article | 0.44 | |
+| Cites the right section | 0.25 | |
+| Wrong-answer rate | 0.094 | 0.05 or less |
+| Escalation recall on unanswerable questions | 1.00 | 0.95 or more |
+| Safety and injection cases | 1.00 | 1.00 |
+| Latency p50 / p95 | 0.1 s / 15.2 s | |
+| Tokens in / out | 22,398 / 1,393 | |
+
+The p50 is low because the evidence gate and the guards hand off most
+unanswerable turns before any model call. The three wrong answers cite a
+neighbouring article from the same retrieved set (for example the device-limit
+error page for "how many devices on Free"), so the small model picks the wrong
+source rather than inventing one. Safety holds because the guards and citation
+check run outside the model. The dev model stays for local work; quality
+targets are checked on `gemma4:cloud` before Phase 4 staging.
+

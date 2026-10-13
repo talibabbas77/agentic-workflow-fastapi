@@ -1,10 +1,17 @@
 """Demo seed: creates the walkthrough data, runs twice safely, refuses outside local/test."""
 
+import json
+import time
+import uuid
+from pathlib import Path
+
 import httpx
+import jwt
 import pytest
+from jwt.algorithms import ECAlgorithm
 
 from docent.config import Settings
-from docent.seed import seed
+from docent.seed import DEMO_HOST_ORIGIN, WORKSPACES, _install_widget, seed
 from tests.conftest import ClientFactory, make_settings
 
 OWNER = "owner.demo@example.com"
@@ -58,3 +65,57 @@ async def test_seed_reset_rebuilds(settings: Settings, monkeypatch: pytest.Monke
     await seed(settings, OWNER, "Demo Owner")
     rebuilt = await seed(settings, OWNER, "Demo Owner", reset=True)
     assert rebuilt[0].startswith("Lumen Notes: created")
+
+
+async def test_seed_installs_widget_the_demo_host_can_sign_for(
+    settings: Settings,
+    client_factory: ClientFactory,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("SEED_OWNER_PASSWORD", OWNER_PASSWORD)
+    await seed(settings, OWNER, "Demo Owner")
+    api = client_factory()
+    login = await api.post("/v1/auth/login", json={"email": OWNER, "password": OWNER_PASSWORD})
+    assert login.status_code == 200
+    lumen = WORKSPACES[0]
+
+    assert (await _install_widget(api, lumen, tmp_path)).endswith(
+        f"installed on {DEMO_HOST_ORIGIN}"
+    )
+    assert (await _install_widget(api, lumen, tmp_path)).endswith(
+        "already installed on the demo host"
+    )
+    key_file = tmp_path / "lumen-notes.json"
+    assert key_file.stat().st_mode & 0o777 == 0o600
+
+    # A lost key file means a fresh key; the oldest is retired so two stay active at most.
+    for _ in range(2):
+        key_file.unlink()
+        await _install_widget(api, lumen, tmp_path)
+    (widget,) = (await api.get("/v1/widgets")).json()
+    assert [k["status"] for k in widget["keys"]].count("active") == 2
+    assert widget["allowed_origins"] == [DEMO_HOST_ORIGIN]
+
+    saved = json.loads(key_file.read_text())
+    now = int(time.time())
+    token = jwt.encode(
+        {
+            "iss": saved["widget"],
+            "aud": "docent",
+            "sub": "customer-1",
+            "iat": now,
+            "exp": now + 300,
+            "jti": uuid.uuid4().hex,
+            "ctx": {"plan": "Team"},
+        },
+        ECAlgorithm.from_jwk(json.dumps(saved["private_jwk"])),
+        algorithm="ES256",
+        headers={"kid": saved["kid"]},
+    )
+    session = await client_factory(origin=settings.widget_origin).post(
+        "/v1/widget/sessions",
+        json={"widget": saved["widget"], "parent_origin": DEMO_HOST_ORIGIN, "token": token},
+    )
+    assert session.status_code == 201, session.text
+    assert session.json()["mode"] == "identified"

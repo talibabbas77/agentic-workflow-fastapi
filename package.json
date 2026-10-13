@@ -9,6 +9,7 @@
     "dev:api": "uv run --directory apps/api docent api --reload",
     "dev:worker": "uv run --directory apps/api docent worker --reload",
     "dev:web": "pnpm --filter @docent/web dev",
+    "demo-host": "pnpm --filter @docent/demo-host start",
     "infra:up": "docker compose up -d --wait postgres redis mailpit",
     "infra:down": "docker compose down",
     "stack:up": "docker compose --profile app up -d --build --wait",

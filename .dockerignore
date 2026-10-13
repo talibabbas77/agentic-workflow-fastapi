@@ -14,5 +14,7 @@
 !.env.example
 backups
 .docker-data
+.data
+**/dist
 docs
 brand/*.png

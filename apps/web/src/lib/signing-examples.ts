@@ -1,0 +1,29 @@
+// Generated from examples/signing by scripts/gen-signing-examples.mjs. Do not edit.
+
+export const SIGNING_EXAMPLES: { name: string; label: string; code: string }[] = [
+  {
+    name: "Node",
+    label: "Node, with jose",
+    code: "// npm install jose\nimport { randomUUID } from \"node:crypto\";\nimport { importPKCS8, SignJWT } from \"jose\";\n\nconst privateKey = await importPKCS8(process.env.DOCENT_PRIVATE_KEY, \"ES256\");\n\nexport function docentToken(user) {\n  return new SignJWT({ name: user.name, email: user.email, ctx: { plan: user.plan } })\n    .setProtectedHeader({ alg: \"ES256\", kid: process.env.DOCENT_KEY_ID })\n    .setIssuer(process.env.DOCENT_WIDGET_ID)\n    .setAudience(\"docent\")\n    .setSubject(String(user.id))\n    .setIssuedAt()\n    .setExpirationTime(\"5m\")\n    .setJti(randomUUID())\n    .sign(privateKey);\n}\n\n// Express, behind your login check:\n// app.get(\"/docent-token\", requireLogin, async (req, res) =>\n//   res.type(\"text\").send(await docentToken(req.user)));\n\nif (import.meta.main) {\n  const user = { id: \"user-123\", name: \"Ana Souza\", email: \"ana@example.com\", plan: \"Team\" };\n  console.log(await docentToken(user));\n}",
+  },
+  {
+    name: "Python",
+    label: "Python, with PyJWT",
+    code: "# pip install \"pyjwt[crypto]\"\nimport os\nimport time\nimport uuid\n\nimport jwt\n\nPRIVATE_KEY = os.environ[\"DOCENT_PRIVATE_KEY\"]\n\n\ndef docent_token(user: dict[str, str | int]) -> str:\n    now = int(time.time())\n    claims = {\n        \"iss\": os.environ[\"DOCENT_WIDGET_ID\"],\n        \"aud\": \"docent\",\n        \"sub\": str(user[\"id\"]),\n        \"iat\": now,\n        \"exp\": now + 300,\n        \"jti\": uuid.uuid4().hex,\n        \"name\": user[\"name\"],\n        \"email\": user[\"email\"],\n        \"ctx\": {\"plan\": user[\"plan\"]},\n    }\n    return jwt.encode(\n        claims, PRIVATE_KEY, algorithm=\"ES256\", headers={\"kid\": os.environ[\"DOCENT_KEY_ID\"]}\n    )\n\n\n# Flask, behind your login check:\n# @app.get(\"/docent-token\")\n# @login_required\n# def token():\n#     return docent_token(current_user.to_dict())\n\nif __name__ == \"__main__\":\n    user = {\"id\": \"user-123\", \"name\": \"Ana Souza\", \"email\": \"ana@example.com\", \"plan\": \"Team\"}\n    print(docent_token(user))",
+  },
+  {
+    name: "Ruby",
+    label: "Ruby, with the jwt gem",
+    code: "# gem install jwt\nrequire \"jwt\"\nrequire \"openssl\"\nrequire \"securerandom\"\n\nPRIVATE_KEY = OpenSSL::PKey::EC.new(ENV.fetch(\"DOCENT_PRIVATE_KEY\"))\n\ndef docent_token(user)\n  now = Time.now.to_i\n  claims = {\n    iss: ENV.fetch(\"DOCENT_WIDGET_ID\"),\n    aud: \"docent\",\n    sub: user[:id].to_s,\n    iat: now,\n    exp: now + 300,\n    jti: SecureRandom.uuid,\n    name: user[:name],\n    email: user[:email],\n    ctx: { plan: user[:plan] }\n  }\n  JWT.encode(claims, PRIVATE_KEY, \"ES256\", { kid: ENV.fetch(\"DOCENT_KEY_ID\") })\nend\n\n# Rails, in a controller behind your login check:\n#   def docent_token_endpoint\n#     render plain: docent_token(current_user.slice(:id, :name, :email, :plan))\n#   end\n\nif $PROGRAM_NAME == __FILE__\n  puts docent_token(id: \"user-123\", name: \"Ana Souza\", email: \"ana@example.com\", plan: \"Team\")\nend",
+  },
+  {
+    name: "PHP",
+    label: "PHP, with firebase/php-jwt",
+    code: "<?php\n// composer require firebase/php-jwt\nuse Firebase\\JWT\\JWT;\n\nfunction docent_token(array $user): string\n{\n    $now = time();\n    $claims = [\n        'iss' => getenv('DOCENT_WIDGET_ID'),\n        'aud' => 'docent',\n        'sub' => (string) $user['id'],\n        'iat' => $now,\n        'exp' => $now + 300,\n        'jti' => bin2hex(random_bytes(16)),\n        'name' => $user['name'],\n        'email' => $user['email'],\n        'ctx' => ['plan' => $user['plan']],\n    ];\n    return JWT::encode($claims, getenv('DOCENT_PRIVATE_KEY'), 'ES256', getenv('DOCENT_KEY_ID'));\n}\n\n// Laravel, behind your login check:\n// Route::get('/docent-token', fn () => response(\n//     docent_token(auth()->user()->only('id', 'name', 'email', 'plan'))\n// ))->middleware('auth');\n\nif (realpath($_SERVER['SCRIPT_FILENAME']) === __FILE__) {\n    require __DIR__ . '/vendor/autoload.php';\n    $user = [\n        'id' => 'user-123', 'name' => 'Ana Souza', 'email' => 'ana@example.com', 'plan' => 'Team',\n    ];\n    echo docent_token($user), PHP_EOL;\n}",
+  },
+  {
+    name: "Go",
+    label: "Go, with golang-jwt",
+    code: "// go get github.com/golang-jwt/jwt/v5\npackage main\n\nimport (\n\t\"crypto/rand\"\n\t\"encoding/hex\"\n\t\"fmt\"\n\t\"os\"\n\t\"time\"\n\n\t\"github.com/golang-jwt/jwt/v5\"\n)\n\ntype User struct{ ID, Name, Email, Plan string }\n\nfunc DocentToken(user User) (string, error) {\n\tkey, err := jwt.ParseECPrivateKeyFromPEM([]byte(os.Getenv(\"DOCENT_PRIVATE_KEY\")))\n\tif err != nil {\n\t\treturn \"\", err\n\t}\n\tjti := make([]byte, 16)\n\tif _, err := rand.Read(jti); err != nil {\n\t\treturn \"\", err\n\t}\n\tnow := time.Now()\n\ttoken := jwt.NewWithClaims(jwt.SigningMethodES256, jwt.MapClaims{\n\t\t\"iss\":   os.Getenv(\"DOCENT_WIDGET_ID\"),\n\t\t\"aud\":   \"docent\",\n\t\t\"sub\":   user.ID,\n\t\t\"iat\":   now.Unix(),\n\t\t\"exp\":   now.Add(5 * time.Minute).Unix(),\n\t\t\"jti\":   hex.EncodeToString(jti),\n\t\t\"name\":  user.Name,\n\t\t\"email\": user.Email,\n\t\t\"ctx\":   map[string]string{\"plan\": user.Plan},\n\t})\n\ttoken.Header[\"kid\"] = os.Getenv(\"DOCENT_KEY_ID\")\n\treturn token.SignedString(key)\n}\n\n// net/http, behind your login check:\n//   token, err := DocentToken(currentUser(r))\n//   w.Header().Set(\"Content-Type\", \"text/plain\")\n//   w.Write([]byte(token))\n\nfunc main() {\n\tuser := User{ID: \"user-123\", Name: \"Ana Souza\", Email: \"ana@example.com\", Plan: \"Team\"}\n\ttoken, err := DocentToken(user)\n\tif err != nil {\n\t\tfmt.Fprintln(os.Stderr, err)\n\t\tos.Exit(1)\n\t}\n\tfmt.Println(token)\n}",
+  },
+];

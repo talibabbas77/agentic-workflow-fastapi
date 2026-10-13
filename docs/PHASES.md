@@ -105,9 +105,9 @@ by the database from the first table.
 
 ## Phase 2. Document ingestion and retrieval
 
-**Status: backend built and measured 2026-10-14; Knowledge screens in progress.**
-Check 2: recall at 8 is 0.984 on 124 questions. Checks 3 to 7 run in the API
-suite. Checks 8 and 9 are recorded in the architecture change log.
+**Status: built and measured 2026-10-14.** Check 2: recall at 8 is 0.984 on
+124 questions. Checks 3 to 7 run in the API suite. Checks 8 and 9 are recorded
+in the architecture change log.
 
 **Goal:** a tenant can teach the agent from files and web pages, and staff can
 see exactly which passages a question would retrieve.
@@ -158,6 +158,14 @@ see exactly which passages a question would retrieve.
 
 ## Phase 3. Agent loop with citations and escalation
 
+**Status: backend built 2026-10-14; preview chat and ticket types screens in
+progress.** Checks 1, 3, 4, 5, and 9 run in the API suite. Check 2 with the dev
+model `qwen3:1.7b`: escalation recall 1.00 and injection cases 1.00 pass, but
+the wrong-answer rate is 9.4 percent against the 5 percent target. The misses
+cite a neighbouring article, so the gap is the model, not retrieval (recall at
+8 is 0.98). Checks 2 and 8 are rerun on `gemma4:cloud` once you run
+`ollama signin`. Check 10 is recorded in the architecture change log.
+
 **Goal:** staff can chat with their agent in a preview panel; every answer is
 cited, and anything the agent cannot back up goes to a human.
 
@@ -203,6 +211,10 @@ cited, and anything the agent cannot back up goes to a human.
 ---
 
 ## Phase 4. Widget with signed identity
+
+**Status: API built 2026-10-14 (checks 3, 6, 7, 9, 10 run in the API suite);
+widget package, admin Widget pages, and demo host in progress.** Checks 11 and
+12 wait on O2, O3, and O5.
 
 **Goal:** a tenant pastes one script tag (anonymous) or adds server-side signing
 (identified), and the agent works on their site with every widget security rule

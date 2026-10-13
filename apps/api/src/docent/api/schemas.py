@@ -455,7 +455,7 @@ class WidgetOut(BaseModel):
 class WidgetSessionIn(Model):
     widget: Annotated[str, StringConstraints(pattern=r"^wid_[A-Za-z0-9]{16}$")]
     parent_origin: Annotated[str, StringConstraints(max_length=200)]
-    token: Annotated[str, StringConstraints(max_length=8192)] | None = None
+    token: Annotated[str, StringConstraints(min_length=1, max_length=8192)] | None = None
     visitor_id: Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{16,64}$")] | None = None
 
 

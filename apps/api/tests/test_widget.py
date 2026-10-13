@@ -1,5 +1,6 @@
 """Widget: admin setup, signed identity, origins, frame policy, sessions, ownership, limits."""
 
+import runpy
 import time
 import uuid
 from pathlib import Path
@@ -8,10 +9,12 @@ from typing import Any
 import httpx
 import jwt
 import pytest
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi import FastAPI
 from jwt.algorithms import ECAlgorithm
 
+from docent.config import repo_root
 from docent.db.pool import Pool
 from tests.conftest import ClientFactory, Drain, verified_owner
 
@@ -217,10 +220,7 @@ async def test_rejected_tokens(frame: httpx.AsyncClient, tenant: Tenant, case: s
         )
     elif case == "hs256_with_public_key":
         public_pem = tenant.key.public_key().public_bytes(
-            encoding=__import__("cryptography").hazmat.primitives.serialization.Encoding.PEM,
-            format=__import__(
-                "cryptography"
-            ).hazmat.primitives.serialization.PublicFormat.SubjectPublicKeyInfo,
+            serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
         )
         token = _hs256(public_pem, tenant)
     elif case == "tampered":
@@ -258,6 +258,35 @@ def _hs256(secret: bytes, tenant: Tenant) -> str:
     )
     signature = b64(hmac.new(secret, f"{header}.{payload}".encode(), hashlib.sha256).digest())
     return f"{header}.{payload}.{signature}"
+
+
+async def test_empty_token_is_rejected_not_downgraded(
+    frame: httpx.AsyncClient, tenant: Tenant
+) -> None:
+    """A host that meant identified mode must not silently get an anonymous session."""
+    response = await session(frame, tenant, token="")
+    assert response.status_code == 422
+
+
+async def test_python_signing_example_is_accepted(
+    frame: httpx.AsyncClient, tenant: Tenant, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The snippet customers copy from the install guide signs tokens the API accepts."""
+    root = repo_root()
+    assert root is not None
+    pem = tenant.key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    monkeypatch.setenv("DOCENT_WIDGET_ID", tenant.widget["public_id"])
+    monkeypatch.setenv("DOCENT_KEY_ID", tenant.kid)
+    monkeypatch.setenv("DOCENT_PRIVATE_KEY", pem)
+    example = runpy.run_path(str(root / "examples" / "signing" / "python.py"))
+    user = {"id": 42, "name": "Ana Souza", "email": "ana@example.com", "plan": "Team"}
+    response = await session(frame, tenant, token=example["docent_token"](user))
+    assert response.status_code == 201, response.text
+    assert response.json()["user"]["name"] == "Ana Souza"
 
 
 async def test_replayed_token_and_retired_key_are_rejected(

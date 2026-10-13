@@ -93,6 +93,8 @@ jobs:
         run: |
           pnpm --filter @docent/api-client generate
           git diff --exit-code packages/api-client/src/schema.d.ts
+      - name: Signing examples in the install guide are current
+        run: node scripts/gen-signing-examples.mjs --check
       - run: pnpm -r typecheck
       - run: pnpm --filter @docent/web lint
       - run: pnpm --filter @docent/web build

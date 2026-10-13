@@ -96,10 +96,13 @@ def verify_token(
     jwk = keys.get(str(header.get("kid")))
     if jwk is None:
         raise IdentityError("unknown or retired key id")
+    key = ECAlgorithm.from_jwk(json.dumps(jwk))
+    if not isinstance(key, ec.EllipticCurvePublicKey):
+        raise IdentityError("unknown or retired key id")
     try:
         claims = jwt.decode(
             token,
-            ECAlgorithm.from_jwk(json.dumps(jwk)),  # type: ignore[arg-type]
+            key,
             algorithms=["ES256"],
             audience=AUDIENCE,
             issuer=widget_public_id,
