@@ -211,3 +211,13 @@ async def test_switch_tenant(client_factory: ClientFactory, drain: Drain) -> Non
     back = await user.post("/v1/auth/switch-tenant", json={"tenant_id": me["active_tenant"]["id"]})
     assert back.status_code == 200
     assert back.json()["active_tenant"]["name"] == "First"
+
+
+async def test_oversized_body_rejected(client: httpx.AsyncClient) -> None:
+    response = await client.post(
+        "/v1/auth/login",
+        content=b'{"email": "' + b"a" * 1_100_000 + b'"}',
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "payload_too_large"

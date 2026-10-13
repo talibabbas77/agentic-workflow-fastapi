@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 def _repo_env_file() -> Path | None:
     """The monorepo's root .env, if running from a checkout. Containers use real env vars."""
     for parent in Path(__file__).resolve().parents:
@@ -53,6 +54,7 @@ class Settings(BaseSettings):
     session_ttl_days: int = 14
     cookie_secure: bool | None = None
     forwarded_allow_ips: str = "127.0.0.1"
+    max_body_bytes: int = 1_000_000
 
     # Email
     smtp_host: str = "127.0.0.1"

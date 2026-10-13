@@ -51,6 +51,50 @@ class RequestContextMiddleware:
             request_id_var.reset(token)
 
 
+class BodySizeLimitMiddleware:
+    """Reject request bodies over a limit before they are read into memory."""
+
+    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        declared = Headers(scope=scope).get("content-length")
+        if declared is not None and (not declared.isdigit() or int(declared) > self.max_bytes):
+            await self._reject(scope, receive, send)
+            return
+        received = 0
+
+        async def limited_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise _BodyTooLarge
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except _BodyTooLarge:
+            await self._reject(scope, receive, send)
+
+    @staticmethod
+    async def _reject(scope: Scope, receive: Receive, send: Send) -> None:
+        response = JSONResponse(
+            {"error": {"code": "payload_too_large", "message": "Request body is too large."}},
+            status_code=413,
+        )
+        await response(scope, receive, send)
+
+
+class _BodyTooLarge(Exception):
+    pass
+
+
 class OriginCheckMiddleware:
     """Reject cookie-authenticated writes that do not come from an allowed origin."""
 

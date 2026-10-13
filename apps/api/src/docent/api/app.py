@@ -8,7 +8,11 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
 from docent.api.errors import install_error_handlers
-from docent.api.middleware import OriginCheckMiddleware, RequestContextMiddleware
+from docent.api.middleware import (
+    BodySizeLimitMiddleware,
+    OriginCheckMiddleware,
+    RequestContextMiddleware,
+)
 from docent.api.routes import auth, health, members, workspace
 from docent.api.state import AppState
 from docent.config import Settings, get_settings
@@ -62,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     install_error_handlers(app)
     app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.allowed_origins)
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(RequestContextMiddleware)
     for router in (health.router, auth.router, workspace.router, members.router):
         app.include_router(router)
