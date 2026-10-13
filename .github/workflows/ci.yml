@@ -110,7 +110,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build and start every service from the production images
-        run: docker compose --profile app up -d --build --wait
+        env:
+          OLLAMA_BASE_URL: http://ollama:11434
+        run: |
+          docker compose --profile app --profile ollama up -d --build --wait
+          docker compose exec -T ollama ollama pull embeddinggemma
       - name: Backup image builds
         run: docker build -f infra/docker/backup.Dockerfile -t docent-backup:ci .
       - run: pnpm --filter @docent/web exec playwright install --with-deps chromium

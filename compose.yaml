@@ -3,7 +3,9 @@ name: docent
 # Local development stack.
 #   pnpm infra:up          Postgres, Redis, Mailpit
 #   pnpm stack:up          everything, including API, worker and web in containers
-# Ollama runs natively on the host, not here (Docker on macOS has no GPU).
+# Ollama runs natively on the host (Docker on macOS has no GPU). On Linux and in
+# CI, the "ollama" profile runs it in a container instead:
+#   OLLAMA_BASE_URL=http://ollama:11434 docker compose --profile app --profile ollama up
 
 x-api-env: &api-env
   DOCENT_ENV: local
@@ -16,7 +18,7 @@ x-api-env: &api-env
   WORKER_URL: http://worker:8001
   INTERNAL_TOKEN: local-internal-token-change-me
   WEB_ORIGIN: http://localhost:3000
-  OLLAMA_BASE_URL: http://host.docker.internal:11434
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
   OBJECT_STORE_URL: file:///data/objects
 
 services:
@@ -130,6 +132,18 @@ services:
     depends_on:
       - api
 
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:0.40.3
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
 volumes:
   postgres-data:
   objects:
+  ollama-models:
