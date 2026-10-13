@@ -1,0 +1,87 @@
+{
+  "identified_only": ["enterprise-admin.md"],
+  "questions": [
+    {"q": "I never clicked the verification link in the welcome email and now it says it expired. What do I do?", "doc": "getting-started.md", "section": "Create your account"},
+    {"q": "Will the app run on my old Android 9 phone?", "doc": "getting-started.md", "section": "Install the desktop and mobile apps"},
+    {"q": "how deep can I nest pages inside a note", "doc": "getting-started.md", "section": "How your content is organized"},
+    {"q": "How quickly will someone from support get back to me if we're on the Team plan?", "doc": "getting-started.md", "section": "Getting help"},
+    {"q": "shortcut to open today's daily note on mac", "doc": "getting-started.md", "section": "Keyboard shortcuts"},
+
+    {"q": "What does the Team plan cost per person if we pay for a whole year up front?", "doc": "plans-and-pricing.md", "section": "Plan overview"},
+    {"q": "free plan how many devices", "doc": "plans-and-pricing.md", "section": "What the Free plan includes"},
+    {"q": "What's the biggest attachment I can upload on Plus?", "doc": "plans-and-pricing.md", "section": "Storage and file size limits"},
+    {"q": "On the Team plan, how far back can I roll a note back to an older version?", "doc": "plans-and-pricing.md", "section": "Version history by plan"},
+    {"q": "Do outside collaborators we invite to one notebook count as paid seats, and how many can we add?", "doc": "plans-and-pricing.md", "section": "Seats and guests"},
+    {"q": "Is there a discount for a registered charity?", "doc": "plans-and-pricing.md", "section": "Discounts for nonprofits and education"},
+    {"q": "If I move from Team down to Plus, does that happen right away or at renewal?", "doc": "plans-and-pricing.md", "section": "Changing your plan"},
+
+    {"q": "Can I get my money back if I cancel an annual Plus plan after two weeks?", "doc": "billing-and-refunds.md", "section": "Refunds"},
+    {"q": "Our accountant needs to get copies of the invoices but shouldn't be able to change anything. Is that possible?", "doc": "billing-and-refunds.md", "section": "Who can manage billing"},
+    {"q": "my card got declined, what happens to our workspace now", "doc": "billing-and-refunds.md", "section": "Failed payments"},
+    {"q": "Can we pay by bank transfer instead of a card?", "doc": "billing-and-refunds.md", "section": "Payment methods"},
+    {"q": "I need our VAT number added to an invoice you sent last month", "doc": "billing-and-refunds.md", "section": "Invoices and receipts"},
+    {"q": "We're a tax-exempt organization. How do we stop being charged sales tax?", "doc": "billing-and-refunds.md", "section": "Taxes"},
+    {"q": "How do I stop my subscription from renewing but keep using it until the period I paid for ends?", "doc": "billing-and-refunds.md", "section": "Canceling your subscription"},
+
+    {"q": "2fa lost phone", "doc": "account-security.md", "section": "If you lose your phone or security key"},
+    {"q": "Can I get my sign-in codes by text message instead of using an app?", "doc": "account-security.md", "section": "Two-factor authentication"},
+    {"q": "minimum password length", "doc": "account-security.md", "section": "Password requirements"},
+    {"q": "I've used most of my backup codes. How do I get a fresh set?", "doc": "account-security.md", "section": "Recovery codes"},
+    {"q": "I left my laptop at a coworking space and I'm still logged in on it. How do I kick it out remotely?", "doc": "account-security.md", "section": "Active sessions and devices"},
+    {"q": "I typed the wrong password too many times and now I'm locked out. How long do I have to wait?", "doc": "account-security.md", "section": "Sign-in alerts and lockouts"},
+    {"q": "As an admin, can I force everyone in our workspace to turn on two-step login?", "doc": "account-security.md", "section": "Requiring 2FA for your team"},
+
+    {"q": "Can I keep using the browser version on a flight with no wifi?", "doc": "sync-and-offline.md", "section": "Offline access in each app"},
+    {"q": "I edited the same paragraph on my phone and my laptop while offline and now there's a strange duplicate note", "doc": "sync-and-offline.md", "section": "Sync conflicts"},
+    {"q": "accidentally deleted a note last week, can I still get it back?", "doc": "sync-and-offline.md", "section": "Recovering deleted notes"},
+    {"q": "The desktop app is taking up too much disk space. Can I keep only some notebooks on my laptop?", "doc": "sync-and-offline.md", "section": "Selective sync on desktop"},
+    {"q": "how can i tell if all my changes finished uploading", "doc": "sync-and-offline.md", "section": "How sync works"},
+
+    {"q": "What's the difference between letting someone comment and letting them only view?", "doc": "sharing-and-permissions.md", "section": "Permission levels"},
+    {"q": "Can I put a password on a note I published to the web?", "doc": "sharing-and-permissions.md", "section": "Public links"},
+    {"q": "I'm leaving the company and need to hand the whole workspace over to a colleague", "doc": "sharing-and-permissions.md", "section": "Transferring ownership"},
+    {"q": "What happens to the private notebooks of someone we remove from the team?", "doc": "sharing-and-permissions.md", "section": "Removing access"},
+    {"q": "How long does an invite stay valid for someone who doesn't have an account yet?", "doc": "sharing-and-permissions.md", "section": "Share a note or notebook"},
+
+    {"q": "Can Lumen create meeting notes from my calendar events automatically?", "doc": "integrations.md", "section": "Calendar"},
+    {"q": "how many API calls per minute can one token make", "doc": "integrations.md", "section": "API tokens"},
+    {"q": "Is there a limit on how many web pages I can save from my browser on the free plan?", "doc": "integrations.md", "section": "Web clipper"},
+    {"q": "Can a notebook post updates into one of our team chat channels when notes change?", "doc": "integrations.md", "section": "Rookery Chat"},
+
+    {"q": "If I upload a zip full of markdown files, will my folder structure be kept?", "doc": "import-export.md", "section": "Importing files"},
+    {"q": "Do the comments in my Word documents come across when I import them?", "doc": "import-export.md", "section": "What does not carry over"},
+    {"q": "I want a full backup of everything in our team workspace, notes and attachments", "doc": "import-export.md", "section": "Exporting a whole workspace"},
+    {"q": "can I import a spreadsheet as a csv and is there a row limit", "doc": "import-export.md", "section": "Supported import formats"},
+    {"q": "How do I save a single note as a PDF on Letter paper?", "doc": "import-export.md", "section": "Exporting a note or notebook"},
+
+    {"q": "It keeps telling me my session expired every few minutes even though I just signed in", "doc": "troubleshooting.md", "section": "LN-101: Your session has expired"},
+    {"q": "Getting LN-310 and none of my images will upload", "doc": "troubleshooting.md", "section": "LN-310: Sync paused, storage full"},
+    {"q": "The desktop app just opens to a white blank window", "doc": "troubleshooting.md", "section": "Desktop app won't open or shows a blank window"},
+    {"q": "search isn't finding a note I know exists, how do I fix the index", "doc": "troubleshooting.md", "section": "Search doesn't find a note"},
+    {"q": "Where do I get the log files your support team asked me to send?", "doc": "troubleshooting.md", "section": "Sending logs to support"},
+    {"q": "Our corporate firewall seems to block the app. Which domains and ports need to be allowed?", "doc": "troubleshooting.md", "section": "LN-502: Can't reach Lumen servers"},
+
+    {"q": "What ACS URL and entity ID do I put into our identity provider for SAML?", "doc": "enterprise-admin.md", "section": "Configuring SAML single sign-on"},
+    {"q": "How long are audit log events kept before they're deleted?", "doc": "enterprise-admin.md", "section": "Audit log"},
+    {"q": "Can our workspace content be stored only in the EU?", "doc": "enterprise-admin.md", "section": "Data residency"},
+    {"q": "When we deactivate someone in our directory, what happens to their Lumen account and notes?", "doc": "enterprise-admin.md", "section": "SCIM provisioning"},
+    {"q": "If our identity provider goes down after we make SSO mandatory, how does anyone get in?", "doc": "enterprise-admin.md", "section": "Enforcing SSO"},
+    {"q": "Can we restrict access so people can only sign in from our office network?", "doc": "enterprise-admin.md", "section": "Session and network policies"}
+  ],
+  "unanswerable": [
+    "Do you offer a phone app for smart watches?",
+    "Can I use my own custom domain for notes I publish to the web?",
+    "Does Lumen have a dark mode?",
+    "Can I dictate notes by voice and have them transcribed?",
+    "Can we bring our own encryption keys for end-to-end encryption?",
+    "Is there a one-time lifetime license instead of a subscription?",
+    "Does the Lumen API send webhooks when a note changes?",
+    "Does SCIM provisioning support custom attributes like department or cost center?",
+    "How do I embed a note on my website in an iframe?",
+    "Will you sign a BAA so we can store health information in Lumen?",
+    "Can I schedule an automatic weekly export of my workspace to cloud storage?",
+    "Is there a maximum number of characters in a single note?",
+    "Do you have a referral program that gives credit for inviting friends?",
+    "Can I change the default font in the editor?"
+  ]
+}

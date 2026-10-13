@@ -105,6 +105,10 @@ by the database from the first table.
 
 ## Phase 2. Document ingestion and retrieval
 
+**Status: backend built and measured 2026-10-14; Knowledge screens in progress.**
+Check 2: recall at 8 is 0.984 on 124 questions. Checks 3 to 7 run in the API
+suite. Checks 8 and 9 are recorded in the architecture change log.
+
 **Goal:** a tenant can teach the agent from files and web pages, and staff can
 see exactly which passages a question would retrieve.
 

@@ -98,6 +98,8 @@ class Settings(BaseSettings):
     embedding_batch_size: int = 16
     embedding_timeout_seconds: float = 300.0
     search_rate_per_minute: int = 60
+    # Calibrated on the golden corpus (docs/ARCHITECTURE.md change log, 2026-10-14).
+    retrieval_min_similarity: float = 0.45
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> Settings:

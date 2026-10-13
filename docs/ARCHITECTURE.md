@@ -1029,3 +1029,21 @@ customer's real data arrives**.
 - Object storage: Docker volume now, Cloudinary later, behind one interface.
 - Demo data seeds use public Mailinator inboxes for teammates.
 - Interface type is Geist; the root size is fluid with the screen width.
+
+### 2026-10-14, Phase 2 measurements
+
+Golden corpus: 21 help articles for two fictional companies, 124 answerable
+and 29 unanswerable questions (`fixtures/golden`, `pnpm eval:retrieval`).
+
+| Measure | Result |
+|---|---|
+| Section recall at 8 | 0.984 (Lumen Notes 1.000, Parcelwise 0.970) |
+| Document recall at 8 | 0.992 |
+| Mean reciprocal rank | 0.886 |
+| Evidence threshold (top similarity) | 0.45: keeps 91% of answerable, rejects 76% of unanswerable |
+| Embedding throughput, dev laptop CPU | 1.2 passages per second end to end (159 passages in 137 s) |
+| Storage per passage, rows plus indexes | 8.9 KB (about 110K passages per GB) |
+
+The threshold is the first gate in section 6. It alone cannot reject every
+unanswerable question, so Phase 3 keeps the second gate: an answer must cite a
+retrieved source or the decision is escalate.
