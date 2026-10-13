@@ -38,14 +38,31 @@ Newsreader is by Production Type under the SIL Open Font License 1.1.
 
 ## Color
 
-| Token | Hex | Role |
-|---|---|---|
-| Paper | `#F5F0E6` | Background. |
-| Ink | `#1B1916` | Text, the bubble, borders. |
-| Rust | `#B5431F` | The one accent: the ribbon, links, focus rings, key actions. |
+Three brand colors: paper, ink, and one rust accent. Interface tokens are tints
+of those three, with a lifted rust in dark mode so it keeps its contrast.
 
-Contrast: ink on paper 15.4:1, rust on paper 4.9:1 (passes WCAG AA for text),
-rust on ink 3.2:1 (fine for the ribbon and large shapes, not for body text).
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `paper` | `#F5F0E6` | `#161412` | Page background. |
+| `surface` | `#FBF8F2` | `#1E1B18` | Cards, panels, inputs. |
+| `surface-2` | `#EFE8DC` | `#26221E` | Hover and selected rows. |
+| `ink` | `#1B1916` | `#F1EBE0` | Primary text and icons. |
+| `ink-muted` | `#5E574F` | `#B3AA9E` | Secondary text. |
+| `ink-subtle` | `#8A8178` | `#857C71` | Placeholders and disabled text only. |
+| `line` | `#DDD5C8` | `#2E2A26` | 1px borders and dividers. |
+| `line-strong` | `#C9BFAF` | `#3D3833` | Input borders, emphasized dividers. |
+| `rust` | `#B5431F` | `#E0673F` | The accent: primary actions, links, focus, the ribbon. |
+| `rust-hover` | `#9A3818` | `#EA7C57` | Hover state of rust. |
+| `rust-soft` | `#F2E1D8` | `#3A2219` | Tinted background for active nav, notices. |
+| `on-rust` | `#FBF8F2` | `#161412` | Text on rust. |
+
+Contrast (WCAG): ink on paper 15.4:1, ink-muted on paper 6.2:1, rust on paper
+4.9:1, on-rust on rust 5.2:1. Dark: ink-muted on paper 8.0:1, rust on paper
+5.4:1. Rust on ink is 3.2:1: fine for the ribbon and large shapes, not body text.
+
+Status colors come from the same palette. Success is ink with a check icon.
+Errors and warnings are rust with an icon and a sentence. Never rely on color
+alone.
 
 There are no other colors. No blue, green, or purple anywhere.
 

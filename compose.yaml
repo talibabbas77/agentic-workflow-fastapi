@@ -1,0 +1,121 @@
+name: docent
+
+# Local development stack.
+#   pnpm infra:up          Postgres, Redis, Mailpit
+#   pnpm stack:up          everything, including API, worker and web in containers
+# Ollama runs natively on the host, not here (Docker on macOS has no GPU).
+
+x-api-env: &api-env
+  DOCENT_ENV: local
+  DATABASE_URL: postgresql://docent_app:docent_app@postgres:5432/docent
+  WORKER_DATABASE_URL: postgresql://docent_worker:docent_worker@postgres:5432/docent
+  MIGRATION_DATABASE_URL: postgresql://docent_owner:docent_owner@postgres:5432/docent
+  REDIS_URL: redis://redis:6379/0
+  SMTP_HOST: mailpit
+  SMTP_PORT: "1025"
+  WORKER_URL: http://worker:8001
+  INTERNAL_TOKEN: local-internal-token-change-me
+  WEB_ORIGIN: http://localhost:3000
+  OLLAMA_BASE_URL: http://host.docker.internal:11434
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      DOCENT_OWNER_PASSWORD: docent_owner
+      DOCENT_APP_PASSWORD: docent_app
+      DOCENT_WORKER_PASSWORD: docent_worker
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+      - ./infra/db/sql:/docent-sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:1025:1025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    command: ["docent", "db", "migrate"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    command: ["docent", "api", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *api-env
+    ports:
+      - "127.0.0.1:8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+
+  worker:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: infra/docker/api.Dockerfile
+    command: ["docent", "worker", "--host", "0.0.0.0", "--port", "8001"]
+    environment: *api-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:
