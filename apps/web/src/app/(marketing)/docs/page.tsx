@@ -35,6 +35,8 @@ const init = `<script>
 </script>
 <script src="${loader}" async></script>`;
 
+const csp = `Content-Security-Policy: script-src 'self' ${WIDGET_ORIGIN}; frame-src ${WIDGET_ORIGIN}`;
+
 const reset = `// Before you sign the customer out, so the next person on this device starts fresh.
 await Docent.reset();`;
 
@@ -94,7 +96,7 @@ export default function DocsPage() {
           <Step number={2} title="Sign a token for the logged-in user">
             <p>
               Return the token as plain text from a route that only logged-in users can reach. Keep the lifetime
-              short; five minutes is plenty.
+              short; five minutes is plenty. Sign a new token on every request: each one works once.
             </p>
             <CodeTabs
               label="Signing examples"
@@ -111,6 +113,14 @@ export default function DocsPage() {
             <CodeBlock label="JavaScript" code={reset} />
           </Step>
         </ol>
+      </Section>
+
+      <Section
+        id="csp"
+        title="If your site has a Content Security Policy"
+        intro="Allow the widget's origin for scripts and frames. The launcher brings its own styles and the chat runs inside the frame, so nothing else is needed. If you paste the identified-mode snippet inline, allow it the way you allow your other inline scripts, with a nonce or a hash."
+      >
+        <CodeBlock label="HTTP header" code={csp} />
       </Section>
 
       <Section id="claims" title="Token claims" intro="Docent checks every claim below before it starts a session.">

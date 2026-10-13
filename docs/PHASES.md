@@ -197,7 +197,9 @@ cited, and anything the agent cannot back up goes to a human.
    escalate. **(auto)**
 4. Restricted-topic cases all escalate. **(auto)**
 5. Questions with no supporting source escalate without any LLM call (no
-   `llm_call` usage event for that turn). **(auto)**
+   `llm_call` usage event for that turn), unless the visitor has verified
+   claims; then the model sees only the claims and may answer an account
+   question. **(auto)**
 6. An escalation has a ticket type, filled fields, and a summary within 30
    seconds.
 7. Every LLM call has a usage event with cost. Totals for a test run match the

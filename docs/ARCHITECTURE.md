@@ -488,7 +488,12 @@ on pages (section 10) keep this in check.
 - **Evidence gate**: pass if the best vector similarity is at or above a
   threshold calibrated per embedding model in the eval suite, or the best
   keyword match ranks above its threshold. Otherwise the decision is
-  `escalate` with reason `no_source`, without calling the LLM.
+  `escalate` with reason `no_source`, without calling the LLM. The one
+  exception is a visitor with verified claims: the LLM then sees no sources,
+  only the claims, so it can answer questions about the visitor's own account
+  ("what plan am I on") or hand off. Such an answer must list the claim keys it
+  used in `account_facts` and repeat a verified value as a whole word, or the
+  turn becomes a handoff.
 
 ### Chunking
 
