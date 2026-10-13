@@ -15,7 +15,6 @@ import { route, WorkflowDiagram, type WorkflowLayout } from "./workflow-diagram"
 const narrow: WorkflowLayout = {
   width: 480,
   height: 296,
-  labels: "right",
   labelWidth: 360,
   nodes: {
     sign: { x: 20, y: 20 },
@@ -42,7 +41,6 @@ const narrow: WorkflowLayout = {
 const wide: WorkflowLayout = {
   width: 740,
   height: 112,
-  labels: "below",
   labelWidth: 176,
   nodes: {
     sign: { x: 68, y: 20 },
@@ -66,12 +64,11 @@ const wide: WorkflowLayout = {
   },
 };
 
-export function IdentityFlow({ className }: { className?: string }) {
+export function IdentityFlow() {
   return (
     <WorkflowDiagram
       label="How Docent knows who is asking"
       loop
-      className={className}
       narrow={narrow}
       wide={wide}
       nodes={[

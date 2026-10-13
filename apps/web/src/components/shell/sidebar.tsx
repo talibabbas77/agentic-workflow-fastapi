@@ -23,7 +23,7 @@ function NavLink({ item, pathname, onNavigate }: { item: NavItem; pathname: stri
     >
       <Icon
         aria-hidden="true"
-        className={cn("size-[1.125rem] shrink-0", active ? "text-rust" : "text-ink-muted group-hover:text-ink")}
+        className={cn("size-4.5 shrink-0", active ? "text-rust" : "text-ink-muted group-hover:text-ink")}
         weight={active ? "fill" : "regular"}
       />
       {item.label}

@@ -8,9 +8,9 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { TextLink } from "@/components/ui/text-link";
 import { api } from "@/lib/api/browser";
 import { settle } from "@/lib/api/result";
-import { safeNext } from "@/lib/safe-next";
-import { useApiForm } from "./use-api-form";
 import { hardNavigate } from "@/lib/navigation";
+import { safeNext } from "@/lib/safe-next";
+import { useApiForm } from "@/lib/use-api-form";
 
 export function LoginForm() {
   const form = useApiForm();
@@ -27,10 +27,7 @@ export function LoginForm() {
     if (!ok) return;
     await form.run(
       () => settle(api.POST("/v1/auth/login", { body: { email, password } })),
-      () => {
-        const next = safeNext(new URLSearchParams(window.location.search).get("next"));
-        hardNavigate(next);
-      },
+      () => hardNavigate(safeNext(new URLSearchParams(window.location.search).get("next"))),
     );
   }
 

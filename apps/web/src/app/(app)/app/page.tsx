@@ -8,8 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { AnswerFlow } from "@/components/workflow/answer-flow";
 import { IdentityFlow } from "@/components/workflow/identity-flow";
-import { getOnboarding } from "@/lib/api/data";
-import { getMe } from "@/lib/api/server";
+import { getMe, getOnboarding } from "@/lib/api/server";
 import { firstName } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Overview" };
@@ -48,7 +47,7 @@ async function Overview() {
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-48">
             <p className="text-sm text-ink-muted sm:text-right">
-              <span className="font-display text-lg font-semibold text-ink tabular">{onboarding.completed}</span> of {total} done
+              <span className="text-lg font-semibold text-ink tabular-nums">{onboarding.completed}</span> of {total} done
             </p>
             <ProgressBar value={onboarding.completed} max={total} label="Setup progress" />
           </div>
@@ -60,7 +59,7 @@ async function Overview() {
 
       <section aria-labelledby="how-heading" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h2 id="how-heading" className="font-display text-xl text-ink">
+          <h2 id="how-heading" className="text-xl text-ink">
             How Docent works
           </h2>
           <p className="text-sm text-ink-muted">
@@ -69,7 +68,9 @@ async function Overview() {
         </div>
         <Card aria-labelledby="answer-flow-heading">
           <CardHeader>
-            <CardTitle id="answer-flow-heading">How Docent answers</CardTitle>
+            <CardTitle as="h3" id="answer-flow-heading">
+              How Docent answers
+            </CardTitle>
             <CardDescription>
               Every answer cites the page it came from. When no source supports an answer, a person
               takes over.
@@ -81,7 +82,9 @@ async function Overview() {
         </Card>
         <Card aria-labelledby="identity-flow-heading">
           <CardHeader>
-            <CardTitle id="identity-flow-heading">How Docent knows who is asking</CardTitle>
+            <CardTitle as="h3" id="identity-flow-heading">
+              How Docent knows who is asking
+            </CardTitle>
             <CardDescription>
               Your server vouches for the logged-in user. Docent never reads your cookies and never
               trusts a name typed into the chat.

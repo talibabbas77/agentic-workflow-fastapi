@@ -5,14 +5,7 @@ import { SignOutIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { MenuItem, MenuSeparator, PopoverMenu } from "@/components/ui/popover-menu";
-import { api } from "@/lib/api/browser";
-import { settle } from "@/lib/api/result";
-import { hardNavigate } from "@/lib/navigation";
-
-export async function logOut() {
-  await settle(api.POST("/v1/auth/logout"));
-  hardNavigate("/login");
-}
+import { logOut } from "@/lib/api/browser";
 
 export function UserMenu({ me }: { me: Me }) {
   const [pending, setPending] = useState(false);
@@ -40,9 +33,9 @@ export function UserMenu({ me }: { me: Me }) {
       <MenuItem
         disabled={pending}
         icon={<SignOutIcon aria-hidden="true" className="size-4 text-ink-muted" />}
-        onClick={async () => {
+        onClick={() => {
           setPending(true);
-          await logOut();
+          logOut();
         }}
       >
         {pending ? "Logging out" : "Log out"}

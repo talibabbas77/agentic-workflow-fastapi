@@ -1,20 +1,15 @@
 /*
- * LogoLoader: one 2.4s loop.
+ * AppLoader logo: one 2.4s loop.
  *   0 to 35%   the bubble outline draws
  *   30 to 45%  the bubble fills
  *   40 to 55%  the bookmark drops in with a small settle
  *   55 to 80%  hold
  *   80 to 100% everything fades, then the loop restarts
+ * With reduced motion the global rule stops the loop and the static mark shows.
  */
 @layer components {
   .logo-loader {
-    display: inline-grid;
-    place-items: center;
     color: var(--ink);
-  }
-  .logo-loader svg {
-    width: 100%;
-    height: 100%;
     overflow: visible;
   }
   .logo-loader-stroke {
@@ -34,16 +29,6 @@
     transform-box: fill-box;
     transform-origin: top;
     animation: logo-loader-ribbon 2.4s cubic-bezier(0.34, 1.4, 0.64, 1) infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .logo-loader-stroke {
-      display: none;
-    }
-    .logo-loader-fill,
-    .logo-loader-ribbon {
-      animation: logo-loader-breathe 2.4s ease-in-out infinite;
-    }
   }
 }
 
@@ -91,15 +76,5 @@
   100% {
     opacity: 0;
     transform: translateY(0) scaleY(1);
-  }
-}
-
-@keyframes logo-loader-breathe {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
   }
 }

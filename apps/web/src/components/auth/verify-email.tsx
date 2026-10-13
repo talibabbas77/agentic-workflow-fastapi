@@ -16,9 +16,6 @@ type State =
   | { kind: "failed"; message: string; loggedIn: boolean }
   | { kind: "resent" };
 
-// One request per token, even if the effect runs twice in development.
-const inflight = new Map<string, Promise<State>>();
-
 async function verify(token: string): Promise<State> {
   const result = await settle(api.POST("/v1/auth/verify-email", { body: { token } }));
   if (result.ok) return { kind: "done" };
@@ -31,23 +28,19 @@ export function VerifyEmail() {
   const [state, setState] = useState<State>({ kind: "verifying" });
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
+  // Tokens are single use, so the request must go out once even when development runs effects twice.
   const started = useRef(false);
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    if (!token) {
-      settle(api.GET("/v1/auth/me")).then((me) =>
-        setState({ kind: "failed", message: "This confirmation link is incomplete.", loggedIn: me.ok }),
-      );
+    if (token) {
+      verify(token).then(setState);
       return;
     }
-    let pending = inflight.get(token);
-    if (!pending) {
-      pending = verify(token);
-      inflight.set(token, pending);
-    }
-    pending.then(setState);
+    settle(api.GET("/v1/auth/me")).then((me) =>
+      setState({ kind: "failed", message: "This confirmation link is incomplete.", loggedIn: me.ok }),
+    );
   }, [token]);
 
   async function resend() {

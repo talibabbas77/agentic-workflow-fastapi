@@ -15,7 +15,6 @@ import { route, WorkflowDiagram, type WorkflowLayout } from "./workflow-diagram"
 const narrow: WorkflowLayout = {
   width: 480,
   height: 296,
-  labels: "right",
   labelWidth: 196,
   nodes: {
     ask: { x: 20, y: 20 },
@@ -49,7 +48,6 @@ const narrow: WorkflowLayout = {
 const wide: WorkflowLayout = {
   width: 740,
   height: 224,
-  labels: "below",
   labelWidth: 176,
   nodes: {
     ask: { x: 68, y: 20 },

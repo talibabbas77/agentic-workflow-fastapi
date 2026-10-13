@@ -8,13 +8,13 @@ import { Field, Input } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { PasswordInput } from "@/components/ui/password-input";
 import { TextLink } from "@/components/ui/text-link";
-import { api } from "@/lib/api/browser";
+import { api, logOut } from "@/lib/api/browser";
 import { settle } from "@/lib/api/result";
+import { hardNavigate } from "@/lib/navigation";
+import { useApiForm } from "@/lib/use-api-form";
 import { AuthHeading } from "./auth-heading";
 import { AuthSkeleton } from "./auth-skeleton";
 import { PASSWORD_MIN, PasswordHint } from "./password-hint";
-import { useApiForm } from "./use-api-form";
-import { hardNavigate } from "@/lib/navigation";
 
 type Loaded =
   | { kind: "loading" }
@@ -85,7 +85,7 @@ export function InviteFlow() {
     return (
       <>
         {heading}
-        <AcceptButton token={token!} />
+        <AcceptButton token={token} />
       </>
     );
   }
@@ -100,7 +100,7 @@ export function InviteFlow() {
   }
 
   if (invite.account_exists) {
-    const next = `/invite?token=${encodeURIComponent(token!)}`;
+    const next = `/invite?token=${encodeURIComponent(token)}`;
     return (
       <>
         {heading}
@@ -117,7 +117,7 @@ export function InviteFlow() {
   return (
     <>
       {heading}
-      <CreateAccount token={token!} email={invite.email} />
+      <CreateAccount token={token} email={invite.email} />
     </>
   );
 }
@@ -155,10 +155,9 @@ function SwitchAccount({ current, invited }: { current: string; invited: string 
         block
         variant="secondary"
         loading={pending}
-        onClick={async () => {
+        onClick={() => {
           setPending(true);
-          await settle(api.POST("/v1/auth/logout"));
-          window.location.reload();
+          logOut(window.location.pathname + window.location.search);
         }}
       >
         Log out and continue

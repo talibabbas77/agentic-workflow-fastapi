@@ -9,8 +9,9 @@ export function CardHeader({ className, ...rest }: ComponentProps<"div">) {
   return <div className={cn("flex flex-col gap-1 border-b border-line px-6 py-5", className)} {...rest} />;
 }
 
-export function CardTitle({ className, ...rest }: ComponentProps<"h2">) {
-  return <h2 className={cn("font-display text-lg text-ink", className)} {...rest} />;
+/** A card's heading. Use `as="h3"` when the card sits inside a section that has its own h2. */
+export function CardTitle({ as: Heading = "h2", className, ...rest }: ComponentProps<"h2"> & { as?: "h2" | "h3" }) {
+  return <Heading className={cn("text-lg text-ink", className)} {...rest} />;
 }
 
 export function CardDescription({ className, ...rest }: ComponentProps<"p">) {

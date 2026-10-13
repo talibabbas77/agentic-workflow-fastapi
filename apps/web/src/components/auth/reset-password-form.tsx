@@ -9,10 +9,10 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { TextLink } from "@/components/ui/text-link";
 import { api } from "@/lib/api/browser";
 import { settle } from "@/lib/api/result";
+import { hardNavigate } from "@/lib/navigation";
+import { useApiForm } from "@/lib/use-api-form";
 import { AuthHeading } from "./auth-heading";
 import { PASSWORD_MIN, PasswordHint } from "./password-hint";
-import { useApiForm } from "./use-api-form";
-import { hardNavigate } from "@/lib/navigation";
 
 export function ResetPasswordForm() {
   const token = useSearchParams().get("token");
@@ -30,16 +30,16 @@ export function ResetPasswordForm() {
     );
   }
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form.check({ password: password.length < PASSWORD_MIN && `Use at least ${PASSWORD_MIN} characters.` })) {
       return;
     }
     await form.run(
-      () => settle(api.POST("/v1/auth/password/reset", { body: { token: token!, password } })),
+      () => settle(api.POST("/v1/auth/password/reset", { body: { token, password } })),
       () => hardNavigate("/app"),
     );
-  }
+  };
 
   const tokenProblem = form.error && !form.error.fields && form.error.code !== "rate_limited";
 

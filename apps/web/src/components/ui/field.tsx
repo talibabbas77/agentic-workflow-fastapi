@@ -13,10 +13,6 @@ export function useField() {
   return useContext(FieldContext);
 }
 
-export function Label({ className, ...rest }: ComponentProps<"label">) {
-  return <label className={cn("block text-sm font-medium text-ink", className)} {...rest} />;
-}
-
 type FieldProps = {
   label: ReactNode;
   children: ReactNode;
@@ -24,22 +20,21 @@ type FieldProps = {
   error?: string;
   /** Extra content on the label row, such as a "Forgot password?" link. */
   aside?: ReactNode;
-  id?: string;
-  className?: string;
 };
 
-export function Field({ label, children, hint, error, aside, id, className }: FieldProps) {
-  const generated = useId();
-  const controlId = id ?? `field-${generated}`;
+export function Field({ label, children, hint, error, aside }: FieldProps) {
+  const controlId = `field-${useId()}`;
   const hintId = hint ? `${controlId}-hint` : undefined;
   const errorId = `${controlId}-error`;
   const describedBy = [error ? errorId : undefined, hintId].filter(Boolean).join(" ") || undefined;
 
   return (
     <FieldContext value={{ id: controlId, describedBy, invalid: Boolean(error) }}>
-      <div className={cn("flex flex-col gap-1.5", className)}>
+      <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-3">
-          <Label htmlFor={controlId}>{label}</Label>
+          <label htmlFor={controlId} className="block text-sm font-medium text-ink">
+            {label}
+          </label>
           {aside}
         </div>
         {children}
@@ -49,19 +44,15 @@ export function Field({ label, children, hint, error, aside, id, className }: Fi
           </div>
         ) : null}
         <div id={errorId} aria-live="polite">
-          {error ? <FieldError>{error}</FieldError> : null}
+          {error ? (
+            <p className="flex items-start gap-1.5 text-sm text-rust">
+              <WarningCircleIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" weight="bold" />
+              <span>{error}</span>
+            </p>
+          ) : null}
         </div>
       </div>
     </FieldContext>
-  );
-}
-
-export function FieldError({ children }: { children: ReactNode }) {
-  return (
-    <p className="flex items-start gap-1.5 text-sm text-rust">
-      <WarningCircleIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" weight="bold" />
-      <span>{children}</span>
-    </p>
   );
 }
 

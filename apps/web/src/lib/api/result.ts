@@ -4,7 +4,7 @@ export type Result<T> =
   | { ok: true; data: T; status: number }
   | { ok: false; error: ApiError; status: number };
 
-type FetchOutcome<T> = { data?: T; error?: unknown; response: Response };
+export type FetchOutcome<T> = { data?: T; error?: unknown; response: Response };
 
 const NETWORK_ERROR: ApiError = {
   code: "network_error",
@@ -22,8 +22,4 @@ export async function settle<T>(call: Promise<FetchOutcome<T>>): Promise<Result<
   } catch {
     return { ok: false, error: NETWORK_ERROR, status: 0 };
   }
-}
-
-export function isUnauthenticated(result: { ok: boolean; status: number }) {
-  return !result.ok && result.status === 401;
 }

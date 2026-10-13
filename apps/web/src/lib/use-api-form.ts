@@ -13,21 +13,18 @@ export function useApiForm() {
   const [error, setError] = useState<ApiError | null>(null);
   const [local, setLocal] = useState<Record<string, string>>({});
 
-  async function run<T>(
-    call: () => Promise<Result<T>>,
-    onSuccess: (data: T) => void | Promise<void>,
-  ): Promise<boolean> {
+  /**
+   * Run a request. Pending ends when the request fails or the success handler
+   * returns. A handler that navigates away never returns, so the form stays pending.
+   */
+  async function run<T>(call: () => Promise<Result<T>>, onSuccess: (data: T) => void | Promise<void>) {
     setPending(true);
     setError(null);
     setLocal({});
     const result = await call();
-    if (!result.ok) {
-      setError(result.error);
-      setPending(false);
-      return false;
-    }
-    await onSuccess(result.data);
-    return true;
+    if (result.ok) await onSuccess(result.data);
+    else setError(result.error);
+    setPending(false);
   }
 
   /** Show client-side problems without a request. Returns true when there are none. */
@@ -45,5 +42,5 @@ export function useApiForm() {
   /** The top-level message, unless it only says that fields need attention. */
   const formError = error && !(error.code === "invalid_request" && error.fields) ? error.message : null;
 
-  return { pending, setPending, error, setError, run, check, fieldError, formError };
+  return { pending, error, run, check, fieldError, formError };
 }

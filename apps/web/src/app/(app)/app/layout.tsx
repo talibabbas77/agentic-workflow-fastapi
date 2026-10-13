@@ -1,13 +1,8 @@
-import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import { AppLoader } from "@/components/brand/logo-loader";
 import { AppShell } from "@/components/shell/app-shell";
 import { NoWorkspace } from "@/components/shell/no-workspace";
 import { getMe } from "@/lib/api/server";
-
-export const metadata: Metadata = {
-  title: { default: "Overview", template: "%s · Docent" },
-};
 
 /**
  * The shell renders as soon as the session is known. Until then there is no

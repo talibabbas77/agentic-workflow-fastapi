@@ -4,10 +4,10 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
-import { TextLink } from "@/components/ui/text-link";
+import { TextLink, textLinkClasses } from "@/components/ui/text-link";
 import { api } from "@/lib/api/browser";
 import { settle } from "@/lib/api/result";
-import { useApiForm } from "./use-api-form";
+import { useApiForm } from "@/lib/use-api-form";
 
 export function ForgotPasswordForm() {
   const form = useApiForm();
@@ -19,10 +19,7 @@ export function ForgotPasswordForm() {
     if (!form.check({ email: !email && "Enter the email you log in with." })) return;
     await form.run(
       () => settle(api.POST("/v1/auth/password/forgot", { body: { email } })),
-      () => {
-        setSentTo(email);
-        form.setPending(false);
-      },
+      () => setSentTo(email),
     );
   }
 
@@ -35,11 +32,7 @@ export function ForgotPasswordForm() {
         </FormAlert>
         <p className="text-base text-ink-muted">
           No email after a few minutes? Check spam, or{" "}
-          <button
-            type="button"
-            className="rounded-sm font-medium text-rust underline decoration-rust/30 underline-offset-[3px] hover:text-rust-hover"
-            onClick={() => setSentTo(null)}
-          >
+          <button type="button" className={textLinkClasses} onClick={() => setSentTo(null)}>
             try another address
           </button>
           .

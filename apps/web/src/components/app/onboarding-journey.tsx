@@ -38,7 +38,6 @@ const WIDE_PITCH = 140;
 const narrow: WorkflowLayout = {
   width: 320,
   height: 20 + NARROW_PITCH * (steps.length - 1) + 20,
-  labels: "right",
   labelWidth: 260,
   nodes: Object.fromEntries(steps.map((s, i) => [s.key, { x: 20, y: 20 + i * NARROW_PITCH }])),
   edges: Object.fromEntries(
@@ -55,7 +54,6 @@ const narrow: WorkflowLayout = {
 const wide: WorkflowLayout = {
   width: WIDE_PITCH * steps.length,
   height: 92,
-  labels: "below",
   labelWidth: 128,
   nodes: Object.fromEntries(steps.map((s, i) => [s.key, { x: WIDE_PITCH / 2 + i * WIDE_PITCH, y: 20 }])),
   edges: Object.fromEntries(
@@ -89,11 +87,8 @@ export function OnboardingJourney({ onboarding, role }: { onboarding: Onboarding
 
     if (step.status === "done") {
       node.detail = "Done";
-      node.status = "Done";
     } else if (step.status === "locked") {
       node.detail = "Not available yet";
-      node.tooltip = "Not available yet";
-      node.status = "Not available yet";
       node.badge = <LockSimpleIcon weight="bold" />;
     } else {
       node.detail = step.todo;

@@ -1,10 +1,9 @@
-import { cn } from "@/lib/cn";
+import { Loading } from "./loading";
 
-export function Spinner({ className, label = "Loading" }: { className?: string; label?: string }) {
+export function Spinner({ label }: { label?: string }) {
   return (
-    <span role="status" className={cn("inline-flex items-center", className)}>
+    <Loading label={label} className="inline-flex items-center">
       <span className="spinner" aria-hidden="true" />
-      <span className="sr-only">{label}</span>
-    </span>
+    </Loading>
   );
 }

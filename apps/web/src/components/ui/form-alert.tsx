@@ -11,11 +11,9 @@ import { cn } from "@/lib/cn";
 export function FormAlert({
   tone = "error",
   children,
-  className,
 }: {
   tone?: "error" | "success";
   children: ReactNode;
-  className?: string;
 }) {
   return (
     <div
@@ -23,7 +21,6 @@ export function FormAlert({
       className={cn(
         "fade-in flex items-start gap-2.5 rounded-md border px-3.5 py-3 text-base",
         tone === "error" ? "border-rust/40 bg-rust-soft text-ink" : "border-line-strong bg-surface text-ink",
-        className,
       )}
     >
       {tone === "error" ? (

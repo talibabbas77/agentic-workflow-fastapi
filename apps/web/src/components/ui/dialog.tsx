@@ -3,6 +3,7 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { Button } from "./button";
 
 type DialogProps = {
   open: boolean;
@@ -10,14 +11,13 @@ type DialogProps = {
   title: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
-  className?: string;
 };
 
 /**
  * Native modal dialog. showModal() gives us the focus trap, inert background,
  * Escape to close, and top-layer stacking for free.
  */
-export function Dialog({ open, onClose, title, description, children, className }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const pressedOnBackdrop = useRef(false);
   const titleId = useId();
@@ -43,14 +43,11 @@ export function Dialog({ open, onClose, title, description, children, className 
         if (pressedOnBackdrop.current && event.target === event.currentTarget) onClose();
         pressedOnBackdrop.current = false;
       }}
-      className={cn(
-        "dialog m-auto w-[calc(100%-2rem)] max-w-md rounded-md border border-line bg-surface p-0 text-ink",
-        className,
-      )}
+      className="dialog m-auto w-[calc(100%-2rem)] max-w-md rounded-md border border-line bg-surface p-0 text-ink"
     >
       <div className="flex items-start justify-between gap-4 px-6 pt-5">
         <div className="flex flex-col gap-1">
-          <h2 id={titleId} className="font-display text-xl text-ink">
+          <h2 id={titleId} className="text-xl text-ink">
             {title}
           </h2>
           {description ? (
@@ -59,14 +56,9 @@ export function Dialog({ open, onClose, title, description, children, className 
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="-mr-2 inline-flex size-8 shrink-0 items-center justify-center rounded-sm text-ink-muted transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
-        >
-          <XIcon aria-hidden="true" className="size-4" />
-        </button>
+        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="-mt-1.5 -mr-2 shrink-0">
+          <XIcon aria-hidden="true" className="size-4.5" />
+        </Button>
       </div>
       {children}
     </dialog>
@@ -77,9 +69,9 @@ export function DialogBody({ className, children }: { className?: string; childr
   return <div className={cn("px-6 pt-4 pb-6", className)}>{children}</div>;
 }
 
-export function DialogFooter({ className, children }: { className?: string; children: ReactNode }) {
+export function DialogFooter({ children }: { children: ReactNode }) {
   return (
-    <div className={cn("flex flex-col-reverse gap-2 border-t border-line px-6 py-4 sm:flex-row sm:justify-end", className)}>
+    <div className="flex flex-col-reverse gap-2 border-t border-line px-6 py-4 sm:flex-row sm:justify-end">
       {children}
     </div>
   );

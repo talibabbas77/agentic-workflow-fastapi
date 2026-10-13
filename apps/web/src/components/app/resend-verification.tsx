@@ -3,17 +3,15 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { api, redirectToLogin } from "@/lib/api/browser";
-import { settle } from "@/lib/api/result";
+import { api, request } from "@/lib/api/browser";
 
 function useResend() {
   const toast = useToast();
   const [pending, setPending] = useState(false);
   async function resend() {
     setPending(true);
-    const result = await settle(api.POST("/v1/auth/verify-email/resend"));
+    const result = await request(api.POST("/v1/auth/verify-email/resend"));
     setPending(false);
-    if (result.status === 401) return redirectToLogin();
     if (result.ok) {
       toast({ tone: "success", title: "Confirmation email sent", description: "The link works for 24 hours." });
     } else {

@@ -3,15 +3,14 @@
 import type { Tenant } from "@docent/api-client";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { useApiForm } from "@/components/auth/use-api-form";
 import { Button } from "@/components/ui/button";
 import { CardBody, CardFooter } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { useToast } from "@/components/ui/toast";
-import { api, redirectToLogin } from "@/lib/api/browser";
-import { settle } from "@/lib/api/result";
+import { api, request } from "@/lib/api/browser";
 import { formatDate } from "@/lib/format";
+import { useApiForm } from "@/lib/use-api-form";
 
 export function WorkspaceForm({ tenant, canEdit }: { tenant: Tenant; canEdit: boolean }) {
   const router = useRouter();
@@ -25,13 +24,8 @@ export function WorkspaceForm({ tenant, canEdit }: { tenant: Tenant; canEdit: bo
     const trimmed = name.trim();
     if (!form.check({ name: !trimmed && "Enter a workspace name." })) return;
     await form.run(
-      async () => {
-        const result = await settle(api.PATCH("/v1/tenant", { body: { name: trimmed } }));
-        if (result.status === 401) redirectToLogin();
-        return result;
-      },
+      () => request(api.PATCH("/v1/tenant", { body: { name: trimmed } })),
       () => {
-        form.setPending(false);
         toast({ tone: "success", title: "Workspace name saved" });
         router.refresh();
       },
@@ -61,7 +55,7 @@ export function WorkspaceForm({ tenant, canEdit }: { tenant: Tenant; canEdit: bo
         </Field>
         <div className="flex flex-col gap-1.5">
           <p className="text-sm font-medium text-ink">Created</p>
-          <p className="text-base text-ink-muted tabular">{formatDate(tenant.created_at)}</p>
+          <p className="text-base text-ink-muted tabular-nums">{formatDate(tenant.created_at)}</p>
         </div>
       </CardBody>
       {canEdit ? (

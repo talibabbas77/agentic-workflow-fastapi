@@ -1,7 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-
-const SESSION_COOKIE = "docent_session";
-const PATH_HEADER = "x-docent-path";
+import { PATH_HEADER, SESSION_COOKIE } from "@/lib/session";
 
 /**
  * Fast path for the admin app: no session cookie means a straight redirect to

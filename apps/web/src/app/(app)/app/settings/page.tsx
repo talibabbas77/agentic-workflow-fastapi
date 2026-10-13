@@ -2,14 +2,21 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { WorkspaceForm } from "@/components/app/workspace-form";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loading } from "@/components/ui/loading";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getTenant } from "@/lib/api/data";
+import { getTenant } from "@/lib/api/server";
 
 export const metadata: Metadata = { title: "Workspace settings" };
 
 export default function WorkspaceSettingsPage() {
   return (
-    <Suspense fallback={<Skeleton className="h-80 w-full rounded-md" />}>
+    <Suspense
+      fallback={
+        <Loading className="max-w-2xl">
+          <Skeleton className="h-80 w-full rounded-md" />
+        </Loading>
+      }
+    >
       <WorkspaceSettings />
     </Suspense>
   );

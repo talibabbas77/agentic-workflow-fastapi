@@ -26,10 +26,6 @@ export function Badge({ tone = "neutral", className, ...rest }: ComponentProps<"
 
 const roleTone: Record<Role, Tone> = { owner: "accent", admin: "neutral", agent: "outline" };
 
-export function RoleBadge({ role, className }: { role: Role; className?: string }) {
-  return (
-    <Badge tone={roleTone[role]} className={className}>
-      {roleLabel[role]}
-    </Badge>
-  );
+export function RoleBadge({ role }: { role: Role }) {
+  return <Badge tone={roleTone[role]}>{roleLabel[role]}</Badge>;
 }

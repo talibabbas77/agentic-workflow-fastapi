@@ -4,15 +4,14 @@ import { WorkflowRoot } from "./workflow-root";
 
 export type NodeState = "idle" | "done" | "todo" | "current" | "locked";
 export type EdgeState = "idle" | "done" | "active" | "locked";
-export type Point = { x: number; y: number };
+type Point = { x: number; y: number };
 
+/** Geometry in design units. Narrow layouts put labels right of the tiles, wide layouts below them. */
 export type WorkflowLayout = {
   width: number;
   height: number;
-  /** Where labels sit relative to the tile. */
-  labels: "right" | "below";
   /** Label width in design units. */
-  labelWidth?: number;
+  labelWidth: number;
   nodes: Record<string, Point>;
   /** SVG path data per edge id, in the same design units. */
   edges: Record<string, string>;
@@ -26,8 +25,6 @@ export type WorkflowNodeSpec = {
   state?: NodeState;
   /** Small corner badge, for example a lock on steps that are not available yet. */
   badge?: ReactNode;
-  /** Native tooltip text. */
-  tooltip?: string;
   /** Status read by screen readers after the title. */
   status?: string;
   /** Position in the looping walkthrough. */
@@ -39,7 +36,7 @@ export type WorkflowNodeSpec = {
   render?: (content: ReactNode, className: string) => ReactNode;
 };
 
-export type WorkflowEdgeSpec = {
+type WorkflowEdgeSpec = {
   id: string;
   state?: EdgeState;
   /** Beat of the node this edge leads into, for the looping walkthrough. */
@@ -51,7 +48,7 @@ type WorkflowDiagramProps = {
   nodes: WorkflowNodeSpec[];
   edges: WorkflowEdgeSpec[];
   narrow: WorkflowLayout;
-  wide?: WorkflowLayout;
+  wide: WorkflowLayout;
   /** Light up each node in turn on a loop instead of showing static states. */
   loop?: boolean;
   className?: string;
@@ -59,11 +56,13 @@ type WorkflowDiagramProps = {
 
 type Vars = CSSProperties & Record<`--${string}`, string | number>;
 
+const CORNER_RADIUS = 12;
+
 /**
  * Smooth orthogonal path through a list of points, with rounded corners.
  * Every edge in a diagram is built from this or a straight line.
  */
-export function route(points: Point[], radius = 12): string {
+export function route(points: Point[]): string {
   if (points.length === 0) return "";
   const [first, ...rest] = points;
   let d = `M${first!.x} ${first!.y}`;
@@ -77,7 +76,7 @@ export function route(points: Point[], radius = 12): string {
     const prev = i === 0 ? first! : rest[i - 1]!;
     const inLen = Math.hypot(corner.x - prev.x, corner.y - prev.y);
     const outLen = Math.hypot(next.x - corner.x, next.y - corner.y);
-    const r = Math.min(radius, inLen / 2, outLen / 2);
+    const r = Math.min(CORNER_RADIUS, inLen / 2, outLen / 2);
     const ax = corner.x - ((corner.x - prev.x) / inLen) * r;
     const ay = corner.y - ((corner.y - prev.y) / inLen) * r;
     const bx = corner.x + ((next.x - corner.x) / outLen) * r;
@@ -142,7 +141,7 @@ export function WorkflowDiagram({
   nodes,
   edges,
   narrow,
-  wide = narrow,
+  wide,
   loop = false,
   className,
 }: WorkflowDiagramProps) {
@@ -155,14 +154,9 @@ export function WorkflowDiagram({
 
   return (
     <WorkflowRoot label={label} loop={loop} className={cn("wf", className)}>
-      <div
-        className="wf-stage"
-        data-narrow-labels={narrow.labels}
-        data-wide-labels={wide.labels}
-        style={stageVars}
-      >
+      <div className="wf-stage" style={stageVars}>
         <EdgeLayer layout={narrow} edges={edges} name="narrow" loop={loop} />
-        {wide !== narrow ? <EdgeLayer layout={wide} edges={edges} name="wide" loop={loop} /> : null}
+        <EdgeLayer layout={wide} edges={edges} name="wide" loop={loop} />
         <ol className="wf-nodes">
           {nodes.map((node, index) => {
             const n = narrow.nodes[node.id] ?? { x: 0, y: 0 };
@@ -172,8 +166,8 @@ export function WorkflowDiagram({
               "--ny": n.y,
               "--wx": w.x,
               "--wy": w.y,
-              "--nlw": narrow.labelWidth ?? 200,
-              "--wlw": wide.labelWidth ?? 200,
+              "--nlw": narrow.labelWidth,
+              "--wlw": wide.labelWidth,
               "--i": index,
               "--beat": node.beat ?? index,
             };
@@ -191,13 +185,7 @@ export function WorkflowDiagram({
               </>
             );
             return (
-              <li
-                key={node.id}
-                className="wf-node"
-                data-state={node.state ?? "idle"}
-                title={node.tooltip}
-                style={vars}
-              >
+              <li key={node.id} className="wf-node" data-state={node.state ?? "idle"} style={vars}>
                 {node.render ? node.render(content, "wf-body") : <div className="wf-body">{content}</div>}
               </li>
             );

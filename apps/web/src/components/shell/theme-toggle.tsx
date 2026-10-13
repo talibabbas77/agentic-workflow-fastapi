@@ -3,7 +3,8 @@
 import { CheckIcon, DesktopIcon, MoonIcon, SunIcon, type Icon } from "@phosphor-icons/react";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
-import { PopoverMenu, MenuItem } from "@/components/ui/popover-menu";
+import { Button } from "@/components/ui/button";
+import { MenuItem, PopoverMenu } from "@/components/ui/popover-menu";
 
 const options: { value: "light" | "dark" | "system"; label: string; icon: Icon }[] = [
   { value: "light", label: "Light", icon: SunIcon },
@@ -34,14 +35,9 @@ export function ThemeToggle() {
       align="end"
       className="w-40"
       trigger={(props) => (
-        <button
-          type="button"
-          {...props}
-          aria-label={`Theme: ${current.label}`}
-          className="inline-flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
-        >
-          <CurrentIcon aria-hidden="true" className="size-[1.125rem]" />
-        </button>
+        <Button variant="ghost" size="icon" {...props} aria-label={`Theme: ${current.label}`}>
+          <CurrentIcon aria-hidden="true" className="size-4.5" />
+        </Button>
       )}
     >
       {(close) =>

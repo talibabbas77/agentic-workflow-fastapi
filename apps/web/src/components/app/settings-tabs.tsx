@@ -2,19 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { settingsPages } from "@/components/shell/nav";
 import { cn } from "@/lib/cn";
-
-const tabs = [
-  { href: "/app/settings", label: "Workspace" },
-  { href: "/app/settings/members", label: "Members" },
-];
 
 export function SettingsTabs() {
   const pathname = usePathname();
   return (
     <nav aria-label="Settings" className="border-b border-line">
       <ul className="-mb-px flex gap-6">
-        {tabs.map((tab) => {
+        {settingsPages.map((tab) => {
           const active = pathname === tab.href;
           return (
             <li key={tab.href}>

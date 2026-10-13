@@ -4,7 +4,6 @@ import type { Invitation, Me, Member, Members, Role } from "@docent/api-client";
 import { EnvelopeSimpleIcon, UserPlusIcon } from "@phosphor-icons/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { useApiForm } from "@/components/auth/use-api-form";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, RoleBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,10 +13,10 @@ import { Field, Input } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { api, redirectToLogin } from "@/lib/api/browser";
-import { settle, type Result } from "@/lib/api/result";
+import { api, request } from "@/lib/api/browser";
 import { formatDate, roleLabel } from "@/lib/format";
 import { hardNavigate } from "@/lib/navigation";
+import { useApiForm } from "@/lib/use-api-form";
 
 type Confirm = { member: Member; leaving: boolean } | null;
 
@@ -42,12 +41,6 @@ export function MembersManager({ data, me }: { data: Members; me: Me }) {
     return myRole === "admin" && member.role === "agent";
   }
 
-  async function guarded<T>(call: Promise<Result<T>>) {
-    const result = await call;
-    if (result.status === 401) redirectToLogin();
-    return result;
-  }
-
   function openInvite() {
     setInviteKey((k) => k + 1);
     setInviteOpen(true);
@@ -60,8 +53,8 @@ export function MembersManager({ data, me }: { data: Members; me: Me }) {
 
   async function changeRole(member: Member, role: Role) {
     setBusy(member.user_id);
-    const result = await guarded(
-      settle(api.PATCH("/v1/members/{user_id}", { params: { path: { user_id: member.user_id } }, body: { role } })),
+    const result = await request(
+      api.PATCH("/v1/members/{user_id}", { params: { path: { user_id: member.user_id } }, body: { role } }),
     );
     setBusy(null);
     if (result.ok) {
@@ -75,8 +68,8 @@ export function MembersManager({ data, me }: { data: Members; me: Me }) {
 
   async function revoke(invitation: Invitation) {
     setBusy(invitation.id);
-    const result = await guarded(
-      settle(api.DELETE("/v1/invitations/{invitation_id}", { params: { path: { invitation_id: invitation.id } } })),
+    const result = await request(
+      api.DELETE("/v1/invitations/{invitation_id}", { params: { path: { invitation_id: invitation.id } } }),
     );
     setBusy(null);
     if (result.ok) {
@@ -157,7 +150,7 @@ export function MembersManager({ data, me }: { data: Members; me: Me }) {
                       <RoleBadge role={member.role} />
                     )}
                   </td>
-                  <td className="hidden px-3 py-3 text-ink-muted tabular md:table-cell">
+                  <td className="hidden px-3 py-3 text-ink-muted md:table-cell">
                     {formatDate(member.joined_at)}
                   </td>
                   <td className="px-6 py-3 text-right max-sm:ml-auto max-sm:p-0">
@@ -248,10 +241,7 @@ export function MembersManager({ data, me }: { data: Members; me: Me }) {
         onClose={() => setConfirm(null)}
         onDone={(leaving, name) => {
           setConfirm(null);
-          if (leaving) {
-            hardNavigate("/app");
-            return;
-          }
+          if (leaving) return hardNavigate("/app");
           toast({ tone: "success", title: `${name} was removed` });
           router.refresh();
         }}
@@ -277,18 +267,11 @@ function InviteDialog({
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const email = String(data.get("email") ?? "").trim();
-    const role = (String(data.get("role") ?? "agent") as "admin" | "agent") || "agent";
+    const role = data.get("role") === "admin" ? "admin" : "agent";
     if (!form.check({ email: !email && "Enter their work email." })) return;
     await form.run(
-      async () => {
-        const result = await settle(api.POST("/v1/invitations", { body: { email, role } }));
-        if (result.status === 401) redirectToLogin();
-        return result;
-      },
-      () => {
-        form.setPending(false);
-        onInvited(email);
-      },
+      () => request(api.POST("/v1/invitations", { body: { email, role } })),
+      () => onInvited(email),
     );
   }
 
@@ -360,11 +343,10 @@ function ConfirmRemove({
     if (!target) return;
     setPending(true);
     setError(null);
-    const result = await settle(
+    const result = await request(
       api.DELETE("/v1/members/{user_id}", { params: { path: { user_id: target.member.user_id } } }),
     );
     setPending(false);
-    if (result.status === 401) return redirectToLogin();
     if (!result.ok) {
       setError(result.error.message);
       return;

@@ -6,8 +6,7 @@ import { useState } from "react";
 import { RoleBadge } from "@/components/ui/badge";
 import { PopoverMenu } from "@/components/ui/popover-menu";
 import { useToast } from "@/components/ui/toast";
-import { api } from "@/lib/api/browser";
-import { settle } from "@/lib/api/result";
+import { api, request } from "@/lib/api/browser";
 import { cn } from "@/lib/cn";
 import { roleLabel } from "@/lib/format";
 import { hardNavigate } from "@/lib/navigation";
@@ -17,7 +16,7 @@ function WorkspaceTile({ name, className }: { name: string; className?: string }
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-line bg-surface-2 font-display text-sm font-semibold text-ink",
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-line bg-surface-2 text-sm font-semibold text-ink",
         className,
       )}
     >
@@ -38,11 +37,8 @@ export function WorkspaceSwitcher({ me }: { me: Me }) {
       return;
     }
     setSwitching(tenantId);
-    const result = await settle(api.POST("/v1/auth/switch-tenant", { body: { tenant_id: tenantId } }));
-    if (result.ok) {
-      hardNavigate("/app");
-      return;
-    }
+    const result = await request(api.POST("/v1/auth/switch-tenant", { body: { tenant_id: tenantId } }));
+    if (result.ok) return hardNavigate("/app");
     setSwitching(null);
     close();
     toast({ tone: "error", title: "Could not switch workspace", description: result.error.message });

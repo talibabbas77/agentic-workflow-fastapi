@@ -1,10 +1,11 @@
 /*
  * WorkflowDiagram: nodes and edges in plain HTML, SVG, and CSS.
  *
- * Geometry is authored in design units for two layouts (wide and narrow). One
- * design unit (--u) is 1/16 rem, shrinking uniformly when the container is narrower
- * than the layout, so nodes, labels, and edges always stay aligned. The wide
- * layout takes over when the container is at least 760px wide.
+ * Geometry is authored in design units for two layouts: narrow, with labels
+ * right of the tiles, and wide, with labels below them. One design unit (--u)
+ * is 1/16 rem, shrinking uniformly when the container is narrower than the
+ * layout, so nodes, labels, and edges always stay aligned. The wide layout
+ * takes over when the container is at least 760px wide.
  */
 
 @layer components {
@@ -86,7 +87,7 @@
   .wf-node {
     --x: var(--nx);
     --y: var(--ny);
-    --lw: var(--nlw, 200);
+    --lw: var(--nlw);
     position: absolute;
     left: calc(var(--x) * var(--u));
     top: calc(var(--y) * var(--u));
@@ -113,15 +114,6 @@
     text-decoration: none;
     color: inherit;
     border-radius: 6px;
-  }
-
-  .wf-stage[data-narrow-labels="below"] .wf-body {
-    flex-direction: column;
-    gap: calc(10 * var(--u));
-    width: calc(var(--lw) * var(--u));
-    max-width: none;
-    left: calc(var(--lw) * var(--u) / -2);
-    text-align: center;
   }
 
   .wf-tile {
@@ -217,10 +209,6 @@
   }
 
   /* Interactive nodes */
-  a.wf-body,
-  button.wf-body {
-    cursor: pointer;
-  }
   a.wf-body:hover .wf-tile,
   button.wf-body:hover .wf-tile {
     background: var(--rust-soft);
@@ -232,7 +220,6 @@
     text-underline-offset: 3px;
   }
   button.wf-body:disabled {
-    cursor: progress;
     opacity: 0.7;
   }
   .wf-body:focus-visible {
@@ -287,17 +274,10 @@
     .wf-node {
       --x: var(--wx);
       --y: var(--wy);
-      --lw: var(--wlw, 200);
+      --lw: var(--wlw);
     }
-    .wf-stage[data-wide-labels="right"] .wf-body {
-      flex-direction: row;
-      gap: calc(12 * var(--u));
-      width: max-content;
-      max-width: calc((var(--lw) + 52) * var(--u));
-      left: calc(-20 * var(--u));
-      text-align: left;
-    }
-    .wf-stage[data-wide-labels="below"] .wf-body {
+    /* Wide layouts put labels below the tiles. */
+    .wf-body {
       flex-direction: column;
       gap: calc(10 * var(--u));
       width: calc(var(--lw) * var(--u));

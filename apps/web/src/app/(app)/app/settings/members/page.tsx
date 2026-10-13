@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { MembersManager } from "@/components/app/members-manager";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Loading } from "@/components/ui/loading";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getMembers } from "@/lib/api/data";
-import { getMe } from "@/lib/api/server";
+import { getMe, getMembers } from "@/lib/api/server";
 
 export const metadata: Metadata = { title: "Members" };
 
@@ -44,9 +44,9 @@ async function MembersSection() {
 
 function MembersSkeleton() {
   return (
-    <div className="flex flex-col gap-8" aria-busy="true" aria-label="Loading members">
+    <Loading label="Loading members" className="flex flex-col gap-8">
       <Skeleton className="h-72 w-full rounded-md" />
       <Skeleton className="h-36 w-full rounded-md" />
-    </div>
+    </Loading>
   );
 }
