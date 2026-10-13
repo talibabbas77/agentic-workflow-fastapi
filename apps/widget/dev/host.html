@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Widget harness</title>
+<style>
+  body { margin: 0; padding: 32px 16px; font: 15px/1.5 system-ui, sans-serif; background: #FFFFFF; color: #222222; }
+  main { max-width: 640px; margin: 0 auto; }
+  button { font: inherit; padding: 6px 12px; margin: 0 8px 8px 0; cursor: pointer; }
+  /* Hostile host styles: none of these may reach the launcher or the panel. */
+  div, button, iframe { border-radius: 0 !important; }
+  * { box-sizing: content-box; font-family: Georgia, serif; }
+  iframe { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Widget harness</h1>
+  <p>A fake customer page on another origin. Served by <code>pnpm dev</code> (dev/mock-server.mjs).</p>
+  <p>
+    <button id="sign-in" type="button">Sign in (identified)</button>
+    <button id="sign-out" type="button">Sign out (await Docent.reset)</button>
+    <button id="open" type="button">Docent.open()</button>
+    <button id="close" type="button">Docent.close()</button>
+  </p>
+  <p id="log">Anonymous.</p>
+  <p>Try: "how do refunds work", "talk to a human", "arabic", "slow", "fail", "limit".</p>
+</main>
+
+<!-- Queue stub: lets the page call Docent.* before loader.js arrives. -->
+<script>
+  window.Docent=window.Docent||{q:[]};["init","open","close","reset"].forEach(function(m){Docent[m]=Docent[m]||function(){Docent.q.push([m,arguments])}});
+</script>
+<script src="__WIDGET_ORIGIN__/widget/v1/loader.js" data-widget="__WIDGET_ID__" async></script>
+<script>
+  const log = (t) => (document.getElementById("log").textContent = t);
+  document.getElementById("sign-in").onclick = () => {
+    Docent.init({ widget: "__WIDGET_ID__", getToken: async () => (await fetch("/docent-token")).text() });
+    log("Signed in. The widget is identified.");
+  };
+  document.getElementById("sign-out").onclick = async () => {
+    log("Signing out...");
+    const started = performance.now();
+    await Docent.reset();
+    log(`Signed out. Docent.reset() resolved in ${Math.round(performance.now() - started)} ms.`);
+  };
+  document.getElementById("open").onclick = () => Docent.open();
+  document.getElementById("close").onclick = () => Docent.close();
+</script>
+</body>
+</html>

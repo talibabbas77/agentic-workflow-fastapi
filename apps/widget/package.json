@@ -1,0 +1,24 @@
+{
+  "name": "@docent/widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Embeddable support chat: a tiny loader script and the iframe app it opens.",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "vite build --mode loader && vite build --mode frame",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "size": "node scripts/size.mjs",
+    "dev": "node dev/mock-server.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "happy-dom": "^21.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
+  }
+}

@@ -96,6 +96,11 @@ jobs:
       - name: Signing examples in the install guide are current
         run: node scripts/gen-signing-examples.mjs --check
       - run: pnpm -r typecheck
+      - name: Widget tests and loader size budget
+        run: |
+          pnpm --filter @docent/widget test
+          pnpm --filter @docent/widget build
+          pnpm --filter @docent/widget size
       - run: pnpm --filter @docent/web lint
       - run: pnpm --filter @docent/web build
 
