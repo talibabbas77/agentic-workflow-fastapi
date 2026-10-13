@@ -2,7 +2,7 @@
  * WorkflowDiagram: nodes and edges in plain HTML, SVG, and CSS.
  *
  * Geometry is authored in design units for two layouts (wide and narrow). One
- * design unit (--u) is 1px, shrinking uniformly when the container is narrower
+ * design unit (--u) is 1/16 rem, shrinking uniformly when the container is narrower
  * than the layout, so nodes, labels, and edges always stay aligned. The wide
  * layout takes over when the container is at least 760px wide.
  */
@@ -18,7 +18,7 @@
     --W: var(--nw);
     --H: var(--nh);
     /* One design unit. Shrinks with the container; grows only up to --wf-max. */
-    --u: min(var(--wf-max, 1px), 100cqw / var(--W));
+    --u: min(var(--wf-max, 0.0625rem), 100cqw / var(--W));
     position: relative;
     width: calc(var(--W) * var(--u));
     height: calc(var(--H) * var(--u));

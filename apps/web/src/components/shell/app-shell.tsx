@@ -16,7 +16,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
   const closeDrawer = () => drawer.current?.close();
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)]">
       <a
         href="#main"
         className="sr-only z-50 rounded-md border border-line-strong bg-surface px-3 py-2 text-base font-medium text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -41,13 +41,14 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
           aria-label="Close navigation"
           className="absolute top-2.5 right-2.5 z-10 inline-flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
         >
-          <XIcon aria-hidden="true" className="size-[18px]" />
+          <XIcon aria-hidden="true" className="size-[1.125rem]" />
         </button>
         <SidebarContent me={me} onNavigate={closeDrawer} />
       </dialog>
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-paper px-4 sm:px-8 lg:px-10">
+        <header className="sticky top-0 z-20 shrink-0 border-b border-line bg-paper">
+          <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-4 sm:px-8 lg:px-10">
           <button
             type="button"
             onClick={() => drawer.current?.showModal()}
@@ -74,8 +75,9 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
             <ThemeToggle />
             <UserMenu me={me} />
           </div>
+          </div>
         </header>
-        <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-8 lg:px-10 lg:py-10">
+        <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-8 lg:px-10 lg:py-10">
           {children}
         </main>
       </div>

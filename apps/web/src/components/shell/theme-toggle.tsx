@@ -40,7 +40,7 @@ export function ThemeToggle() {
           aria-label={`Theme: ${current.label}`}
           className="inline-flex size-9 items-center justify-center rounded-md text-ink-muted transition-colors duration-150 hover:bg-surface-2 hover:text-ink"
         >
-          <CurrentIcon aria-hidden="true" className="size-[18px]" />
+          <CurrentIcon aria-hidden="true" className="size-[1.125rem]" />
         </button>
       )}
     >

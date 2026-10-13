@@ -101,6 +101,13 @@
 
 @layer base {
   html {
+    /*
+     * Fluid root size. Every rem in the interface (type, spacing, widths)
+     * scales with it: 16px on laptops up to 1280px wide, about 17px at 1440,
+     * 18px from 1792 (a 16 inch MacBook Pro) upward. Percent units keep the
+     * user's own browser text size setting in charge.
+     */
+    font-size: clamp(100%, 0.75rem + 0.35vw, 112.5%);
     background: var(--paper);
     color: var(--ink);
     -webkit-text-size-adjust: 100%;

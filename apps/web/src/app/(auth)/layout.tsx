@@ -12,18 +12,18 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
           </Link>
         </header>
         <main className="flex flex-1 items-center justify-center py-12 sm:py-16">
-          <div className="w-full max-w-[400px]">{children}</div>
+          <div className="w-full max-w-[26rem]">{children}</div>
         </main>
       </div>
       <aside
         aria-labelledby="how-docent-answers"
         className="hidden border-l border-line bg-surface lg:flex lg:items-center lg:justify-center lg:px-12 xl:px-16"
       >
-        <div className="w-full max-w-[520px]">
+        <div className="w-full max-w-[34rem]">
           <h2 id="how-docent-answers" className="font-display text-2xl text-ink">
             How Docent answers
           </h2>
-          <AnswerFlow className="mt-10 [--wf-max:1.125px]" />
+          <AnswerFlow className="mt-10 [--wf-max:0.0703rem]" />
           <p className="mt-10 text-md text-ink-muted">
             Docent answers from the documents you teach it, cites the page behind every answer, and hands
             the conversation to your team when no source supports one.

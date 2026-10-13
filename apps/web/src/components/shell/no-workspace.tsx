@@ -12,7 +12,7 @@ export function NoWorkspace({ me }: { me: Me }) {
     <div className="flex min-h-dvh flex-col px-4 py-6 sm:px-10 sm:py-8">
       <Logo className="self-start" />
       <main className="flex flex-1 items-center justify-center py-16">
-        <div className="fade-in flex w-full max-w-[440px] flex-col gap-4">
+        <div className="fade-in flex w-full max-w-[28rem] flex-col gap-4">
           <h1 className="font-display text-3xl text-ink">You are not in a workspace</h1>
           <p className="text-md text-ink-muted">
             You are logged in as <span className="font-medium text-ink">{me.user.email}</span>, but this
