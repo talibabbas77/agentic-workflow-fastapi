@@ -1,9 +1,13 @@
 """Tenant isolation enforced by the database itself."""
 
+import time
 import uuid
 
 import asyncpg
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import ec
+from jwt.algorithms import ECAlgorithm
 
 from docent.db.pool import Pool, transaction
 from docent.ids import new_id
@@ -11,6 +15,7 @@ from tests.conftest import TENANT_TABLES, ClientFactory, Drain, signup, verified
 
 # Tables with tenant_id that are deliberately outside RLS, with the reason.
 RLS_EXEMPT = {"jobs": "system queue; worker sets tenant context per job"}
+SITE = "http://localhost:5173"
 
 
 async def test_every_tenant_table_has_forced_rls_and_a_policy(owner_pool: Pool) -> None:
@@ -89,6 +94,33 @@ async def two_tenants(
                 f"/v1/agent/conversations/{conversation['id']}/messages", json={"content": text}
             )
             assert "event: message" in sent.text, sent.text
+        widget = (
+            await c.post("/v1/widgets", json={"name": "Help", "allowed_origins": [SITE]})
+        ).json()
+        private = ec.generate_private_key(ec.SECP256R1())
+        key = await c.post(
+            f"/v1/widgets/{widget['id']}/keys",
+            json={"public_jwk": ECAlgorithm.to_jwk(private.public_key(), as_dict=True)},
+        )
+        now = int(time.time())
+        token = jwt.encode(
+            {
+                "iss": widget["public_id"],
+                "aud": "docent",
+                "sub": "u1",
+                "iat": now,
+                "exp": now + 300,
+                "jti": uuid.uuid4().hex,
+            },
+            private,
+            algorithm="ES256",
+            headers={"kid": key.json()["kid"]},
+        )
+        created = await client_factory(origin="http://localhost:8000").post(
+            "/v1/widget/sessions",
+            json={"widget": widget["public_id"], "parent_origin": SITE, "token": token},
+        )
+        assert created.status_code == 201, created.text
     return a, b
 
 

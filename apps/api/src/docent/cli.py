@@ -125,9 +125,9 @@ def main(argv: list[str] | None = None) -> None:
             report = asyncio.run(
                 run_agent(get_settings(), corpus, load_safety(args.safety), args.sample)
             )
-        if args.out:
-            args.out.write_text(json.dumps(report, indent=2) + "\n")
         print(json.dumps({k: v for k, v in report.items() if not isinstance(v, list)}, indent=2))
+        if args.out:
+            args.out.write_text(json.dumps(report, indent=2, default=str) + "\n")
         if args.eval_command == "retrieval":
             for company in report["companies"]:
                 print(f"{company['name']}: recall@8 {company['section_recall_at_8']}")

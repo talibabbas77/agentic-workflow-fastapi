@@ -172,9 +172,9 @@ async def _usage(corpus: Ingested) -> dict[str, int]:
                 " coalesce(sum(cost_micros), 0) as c from usage_events"
             )
         assert row is not None
-        totals["tokens_in"] += row["i"]
-        totals["tokens_out"] += row["o"]
-        totals["cost_micros"] += row["c"]
+        totals["tokens_in"] += int(row["i"])  # sum() over bigint returns numeric
+        totals["tokens_out"] += int(row["o"])
+        totals["cost_micros"] += int(row["c"])
     return totals
 
 

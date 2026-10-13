@@ -21,6 +21,9 @@ from docent.api.routes import (
     members,
     public,
     ticket_types,
+    widget_api,
+    widget_assets,
+    widgets,
     workspace,
 )
 from docent.api.state import AppState
@@ -103,6 +106,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         knowledge.router,
         agent.router,
         ticket_types.router,
+        widgets.router,
+        widget_api.router,
+        widget_assets.router,
         public.router,
     ):
         app.include_router(router)

@@ -122,8 +122,15 @@ async def send_message(
         llm=state.llm,
         waker=state.waker,
     )
+    return stream_turn(deps, member.tenant_id, conversation_id, body.content)
+
+
+def stream_turn(
+    deps: AgentDeps, tenant_id: uuid.UUID, conversation_id: uuid.UUID, text: str
+) -> StreamingResponse:
+    """One agent turn as Server-Sent Events. Shared by staff previews and the widget."""
     return StreamingResponse(
-        _events(deps, member.tenant_id, conversation_id, body.content),
+        _events(deps, tenant_id, conversation_id, text),
         media_type="text/event-stream",
         headers={"cache-control": "no-store", "x-accel-buffering": "no"},
     )

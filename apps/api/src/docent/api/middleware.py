@@ -40,6 +40,9 @@ class RequestContextMiddleware:
                 headers = MutableHeaders(scope=message)
                 headers["x-request-id"] = rid
                 for key, value in SECURITY_HEADERS.items():
+                    # The widget frame is meant to be framed; its CSP frame-ancestors decides where.
+                    if key == "x-frame-options" and path.startswith("/widget/v1/frame/"):
+                        continue
                     headers.setdefault(key, value)
                 if path.startswith("/v1/") and not path.startswith("/v1/public/"):
                     headers.setdefault("cache-control", "no-store")

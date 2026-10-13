@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs once when the local Postgres volume is first created.
-# Creates Docent roles plus the dev and test databases.
+# Creates Docent roles plus the dev, test, and evaluation databases.
 set -euo pipefail
 
 psql_admin() {
@@ -13,7 +13,7 @@ psql_admin --dbname postgres \
   -v worker_password="$DOCENT_WORKER_PASSWORD" \
   -f /docent-sql/roles.sql
 
-for db in docent docent_test; do
+for db in docent docent_test docent_eval; do
   psql_admin --dbname postgres -c "create database ${db} owner docent_owner"
   psql_admin --dbname "${db}" -f /docent-sql/database.sql
 done

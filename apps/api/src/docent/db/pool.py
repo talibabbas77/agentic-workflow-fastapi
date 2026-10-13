@@ -50,15 +50,21 @@ async def set_context(
     tenant_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
     invite_token_hash: bytes | None = None,
+    widget_public_id: str | None = None,
+    widget_session_hash: bytes | None = None,
 ) -> None:
     """Replace the RLS context for the rest of the current transaction."""
     await conn.execute(
         "select set_config('app.tenant_id', $1, true),"
         " set_config('app.user_id', $2, true),"
-        " set_config('app.invite_token', $3, true)",
+        " set_config('app.invite_token', $3, true),"
+        " set_config('app.widget_public_id', $4, true),"
+        " set_config('app.widget_session', $5, true)",
         _ctx(tenant_id),
         _ctx(user_id),
         _ctx(invite_token_hash),
+        widget_public_id or "",
+        _ctx(widget_session_hash),
     )
 
 
@@ -69,15 +75,24 @@ async def transaction(
     tenant_id: uuid.UUID | None = None,
     user_id: uuid.UUID | None = None,
     invite_token_hash: bytes | None = None,
+    widget_public_id: str | None = None,
+    widget_session_hash: bytes | None = None,
 ) -> AsyncIterator[Connection]:
     """Run a transaction with RLS context.
 
-    tenant_id         rows of this tenant are visible and writable
-    user_id           the user's own memberships and tenants are readable
-    invite_token_hash the one invitation matching this hash is readable
+    tenant_id            rows of this tenant are visible and writable
+    user_id              the user's own memberships and tenants are readable
+    invite_token_hash    the one invitation matching this hash is readable
+    widget_public_id     the one widget with this public id, and its keys, are readable
+    widget_session_hash  the one widget session with this token hash is readable
     """
     async with pool.acquire() as conn, conn.transaction():
         await set_context(
-            conn, tenant_id=tenant_id, user_id=user_id, invite_token_hash=invite_token_hash
+            conn,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            invite_token_hash=invite_token_hash,
+            widget_public_id=widget_public_id,
+            widget_session_hash=widget_session_hash,
         )
         yield conn

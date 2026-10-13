@@ -232,8 +232,8 @@ async def test_onboarding_progress(
         "verify_email": "todo",
         "invite_team": "todo",
         "teach_agent": "todo",
-        "install_widget": "locked",
-        "first_answer": "locked",
+        "install_widget": "todo",
+        "first_answer": "todo",
     }
     assert steps["completed"] == 1
     token = token_from((await drain())[0])

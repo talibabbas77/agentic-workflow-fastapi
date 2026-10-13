@@ -119,6 +119,15 @@ class Settings(BaseSettings):
     agent_turns_per_minute: int = 20
     default_replies_cap: int = 1000  # until plans exist (Phase 7)
 
+    # Widget. Served from the API origin, never from the admin app's origin.
+    widget_origin: str = "http://localhost:8000"
+    widget_dist_dir: Path | None = None  # default apps/widget/dist in a checkout
+    widget_session_minutes: int = 30
+    widget_token_max_lifetime_seconds: int = 900
+    widget_clock_skew_seconds: int = 60
+    widget_anonymous_per_hour: int = 10
+    widget_identified_per_hour: int = 30
+
     @model_validator(mode="after")
     def _check_production_secrets(self) -> Settings:
         if self.env in ("staging", "production"):
@@ -140,6 +149,12 @@ class Settings(BaseSettings):
         if self.object_store_url:
             return self.object_store_url
         return ((repo_root() or Path.cwd()) / ".data" / "objects").as_uri()
+
+    @property
+    def widget_dist(self) -> Path:
+        if self.widget_dist_dir:
+            return self.widget_dist_dir
+        return (repo_root() or Path("/app")) / "apps" / "widget" / "dist"
 
     @property
     def allowed_origins(self) -> set[str]:

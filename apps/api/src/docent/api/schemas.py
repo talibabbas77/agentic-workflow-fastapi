@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
@@ -406,3 +406,86 @@ class TicketTypeOut(BaseModel):
     active: bool
     created_at: datetime
     updated_at: datetime
+
+
+# Widget (admin)
+
+
+class WidgetIn(Model):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    allowed_origins: list[Annotated[str, StringConstraints(max_length=200)]] = Field(
+        default_factory=list, max_length=20
+    )
+    anonymous_enabled: bool = True
+    anonymous_daily_cap: int = Field(default=200, ge=0, le=100_000)
+    allowed_claims: list[ClaimKey] = Field(default_factory=list, max_length=20)
+    greeting: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = ""
+
+
+class SigningKeyIn(Model):
+    public_jwk: dict[str, Any]
+
+
+class SigningKeyOut(BaseModel):
+    kid: str
+    status: Literal["active", "retired"]
+    public_jwk: dict[str, str]
+    created_at: datetime
+    retired_at: datetime | None
+
+
+class WidgetOut(BaseModel):
+    id: uuid.UUID
+    public_id: str
+    name: str
+    allowed_origins: list[str]
+    anonymous_enabled: bool
+    anonymous_daily_cap: int
+    allowed_claims: list[str]
+    greeting: str
+    keys: list[SigningKeyOut]
+    embed_origin: str = Field(description="Origin that serves the loader and the frame")
+    created_at: datetime
+    updated_at: datetime
+
+
+# Widget (public, called from the widget frame)
+
+
+class WidgetSessionIn(Model):
+    widget: Annotated[str, StringConstraints(pattern=r"^wid_[A-Za-z0-9]{16}$")]
+    parent_origin: Annotated[str, StringConstraints(max_length=200)]
+    token: Annotated[str, StringConstraints(max_length=8192)] | None = None
+    visitor_id: Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{16,64}$")] | None = None
+
+
+class WidgetInfo(BaseModel):
+    name: str
+    greeting: str
+
+
+class WidgetUser(BaseModel):
+    name: str | None
+
+
+class WidgetSessionOut(BaseModel):
+    session_token: str
+    expires_at: datetime
+    mode: Literal["anonymous", "identified"]
+    visitor_id: str | None
+    user: WidgetUser
+    widget: WidgetInfo
+
+
+class WidgetConversationIn(Model):
+    resume_id: uuid.UUID | None = None
+
+
+class WidgetConversationOut(BaseModel):
+    id: uuid.UUID
+    status: Literal["open", "escalated", "closed"]
+    messages: list[MessageOut]
+
+
+class ContactIn(Model):
+    email: EmailStr

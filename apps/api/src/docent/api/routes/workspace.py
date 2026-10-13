@@ -62,12 +62,20 @@ async def onboarding(member: CurrentMember, state: State) -> OnboardingOut:
             member.tenant_id,
         )
         taught = await knowledge.ready_source_exists(conn)
+        installed = await conn.fetchval("select exists(select 1 from widget_sessions)")
+        answered = await conn.fetchval(
+            """
+            select exists(select 1 from messages m join conversations c on c.id = m.conversation_id
+                          where c.channel = 'widget' and m.role = 'agent'
+                            and m.decision ->> 'type' = 'answer')
+            """
+        )
     steps = [
         OnboardingStep(key="create_workspace", status="done"),
         OnboardingStep(key="verify_email", status="done" if member.user.email_verified else "todo"),
         OnboardingStep(key="invite_team", status="done" if team > 1 else "todo"),
         OnboardingStep(key="teach_agent", status="done" if taught else "todo"),
-        OnboardingStep(key="install_widget", status="locked"),
-        OnboardingStep(key="first_answer", status="locked"),
+        OnboardingStep(key="install_widget", status="done" if installed else "todo"),
+        OnboardingStep(key="first_answer", status="done" if answered else "todo"),
     ]
     return OnboardingOut(steps=steps, completed=sum(s.status == "done" for s in steps))

@@ -28,8 +28,8 @@
     "backup:restore-drill": "bash infra/backup/restore-drill.sh",
     "backup:keygen": "bash infra/backup/keygen.sh",
     "seed": "uv run --directory apps/api docent seed",
-    "eval:retrieval": "uv run --directory apps/api docent eval retrieval",
-    "eval:agent": "uv run --directory apps/api docent eval agent"
+    "eval:retrieval": "DATABASE_URL=postgresql://docent_app:docent_app@127.0.0.1:5432/docent_eval WORKER_DATABASE_URL=postgresql://docent_worker:docent_worker@127.0.0.1:5432/docent_eval uv run --directory apps/api docent eval retrieval",
+    "eval:agent": "DATABASE_URL=postgresql://docent_app:docent_app@127.0.0.1:5432/docent_eval WORKER_DATABASE_URL=postgresql://docent_worker:docent_worker@127.0.0.1:5432/docent_eval uv run --directory apps/api docent eval agent"
   },
   "engines": {
     "node": ">=24"

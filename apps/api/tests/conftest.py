@@ -46,8 +46,16 @@ TENANT_TABLES = [
     "escalations",
     "usage_events",
     "usage_periods",
+    "widgets",
+    "signing_keys",
+    "end_users",
+    "widget_sessions",
 ]
 ALL_TABLES = [
+    "widget_sessions",
+    "end_users",
+    "signing_keys",
+    "widgets",
     "usage_events",
     "usage_periods",
     "message_citations",
