@@ -25,7 +25,8 @@
     "typecheck": "uv run --directory apps/api mypy && pnpm -r typecheck",
     "check:rules": "node scripts/check-rules.mjs",
     "backup": "bash infra/backup/backup.sh",
-    "backup:restore-drill": "bash infra/backup/restore-drill.sh"
+    "backup:restore-drill": "bash infra/backup/restore-drill.sh",
+    "backup:keygen": "bash infra/backup/keygen.sh"
   },
   "engines": {
     "node": ">=24"

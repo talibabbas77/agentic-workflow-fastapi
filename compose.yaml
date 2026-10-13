@@ -69,6 +69,8 @@ services:
       dockerfile: infra/docker/api.Dockerfile
     command: ["docent", "db", "migrate"]
     environment: *api-env
+    healthcheck:
+      disable: true
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,7 +81,9 @@ services:
       context: .
       dockerfile: infra/docker/api.Dockerfile
     command: ["docent", "api", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *api-env
+    environment:
+      <<: *api-env
+      FORWARDED_ALLOW_IPS: "*"
     ports:
       - "127.0.0.1:8000:8000"
     extra_hosts:
@@ -98,7 +102,9 @@ services:
       context: .
       dockerfile: infra/docker/api.Dockerfile
     command: ["docent", "worker", "--host", "0.0.0.0", "--port", "8001"]
-    environment: *api-env
+    environment:
+      <<: *api-env
+      HEALTH_PORT: "8001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -110,6 +116,8 @@ services:
     build:
       context: .
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:8000
     environment:
       API_INTERNAL_URL: http://api:8000
     ports:

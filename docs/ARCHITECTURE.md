@@ -86,7 +86,7 @@ flowchart LR
 
 | Component | Tech | Responsibility |
 |---|---|---|
-| `apps/api` | FastAPI (async), Pydantic, SQLAlchemy Core with asyncpg, Alembic | Public widget API, admin API, auth, agent loop, billing webhooks. |
+| `apps/api` | FastAPI (async), Pydantic, asyncpg with plain SQL, Alembic (psycopg) | Public widget API, admin API, auth, agent loop, billing webhooks. |
 | `apps/api` worker entrypoint | Same Python package, separate process | Ingestion, embedding, summaries, email, evals, rollups, retention. |
 | `apps/web` | Next.js, TypeScript | Admin app and landing page. |
 | `apps/widget` | TypeScript, Vite library build | `loader.js` (target under 6 KB gzipped) and the iframe app. |
@@ -181,13 +181,31 @@ The API gets the tenant from exactly one trusted place per request type:
 
 Request bodies, URLs and chat content never set the tenant.
 
+### Capability context (no BYPASSRLS anywhere in the app)
+
+Some lookups must cross tenants before a tenant is known. Instead of
+`security definer` functions owned by a role that bypasses RLS, the transaction
+carries a narrow capability that a dedicated `for select` policy honors:
+
+| Setting | Grants read access to | Used by |
+|---|---|---|
+| `app.tenant_id` | Every row of that tenant | All tenant work |
+| `app.user_id` | The user's own `memberships` rows and the `tenants` they belong to | Log in, tenant switcher, `/me` |
+| `app.invite_token` | The one `invitations` row whose token hash matches, and its tenant's name | Invitation lookup and accept |
+
+The widget id lookup in Phase 4 uses the same pattern (`app.widget_public_id`).
+
 ### Tables without RLS
 
 Global tables (`users`, `user_sessions`, `auth_tokens`, `plans`,
 `model_prices`, `jobs`, `billing_events`) hold no tenant content or are
 accessed only by code that sets tenant context before touching tenant tables.
-Public widget lookup by public id goes through one `security definer` function,
-`resolve_widget(public_id)`, that returns only `tenant_id` and the public config.
+
+### Backups and RLS
+
+RLS is forced, so even `docent_owner` cannot `pg_dump` tenant tables. Backups
+run as a role with `BYPASSRLS`: the Neon project owner (a member of
+`neon_superuser`) in hosted environments, the `postgres` superuser locally.
 
 ### Tests (required, CI-blocking)
 
@@ -964,3 +982,28 @@ customer's real data arrives**.
     chunk. Chosen once, tested in Phase 2, then frozen.
 11. **Live chat expectations.** Some buyers will expect a human to take over in
     the widget. v1 answers by email. Say so plainly on the landing page.
+
+---
+
+## Change log
+
+### 2026-10-14, Phase 1 build
+
+- Database access uses asyncpg with plain SQL. Alembic runs on psycopg because
+  migrations send many statements per call, which asyncpg's prepared statements
+  reject. SQLAlchemy is only Alembic's dependency.
+- Cross-tenant lookups use capability settings (`app.user_id`,
+  `app.invite_token`) and select-only policies instead of `security definer`
+  functions. Section 3 updated.
+- Backups must run as a role with `BYPASSRLS`. Section 3 and `.env.example`.
+- RLS context helpers treat an empty setting as null. After a transaction ends,
+  a custom setting reads as an empty string, not null, so this keeps policies
+  failing closed.
+- Toolchain: Python 3.14 (built-in UUIDv7), pnpm 12 through corepack 0.36+,
+  TypeScript 5.9 (TypeScript 7 is not yet supported by the generators and lint
+  tooling).
+- The admin app reaches the API through a Next.js rewrite of `/api/*`, so the
+  session cookie is first-party and no CORS is needed. The API also checks the
+  `Origin` header on every write.
+- `/healthz` never sends a Redis command; it reports the circuit state only.
+  A health probe every 10 seconds would otherwise use about 260K commands a month.

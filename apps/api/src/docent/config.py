@@ -7,14 +7,20 @@ from typing import Literal
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+def _repo_env_file() -> Path | None:
+    """The monorepo's root .env, if running from a checkout. Containers use real env vars."""
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "pnpm-workspace.yaml").is_file():
+            return parent / ".env"
+    return None
+
 
 Environment = Literal["local", "test", "staging", "production"]
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=REPO_ROOT / ".env",
+        env_file=_repo_env_file(),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,

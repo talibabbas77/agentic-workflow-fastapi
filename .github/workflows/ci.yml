@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rules:
+    name: Copy and UI rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: node scripts/check-rules.mjs
+
+  api:
+    name: API (lint, types, tests)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s
+          --health-retries 30
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      TEST_PG_SUPERUSER: postgres:postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - name: Bootstrap database roles
+        run: |
+          psql -d postgres -v ON_ERROR_STOP=1 -v owner_password=docent_owner \
+            -v app_password=docent_app -v worker_password=docent_worker -f infra/db/sql/roles.sql
+          psql -d postgres -c "create database docent_test owner docent_owner"
+          psql -d docent_test -v ON_ERROR_STOP=1 -f infra/db/sql/database.sql
+      - name: Install
+        working-directory: apps/api
+        run: uv sync --locked
+      - name: Lint
+        working-directory: apps/api
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Type check
+        working-directory: apps/api
+        run: uv run mypy
+      - name: Tests
+        working-directory: apps/api
+        run: uv run pytest
+      - name: OpenAPI schema is committed and current
+        run: |
+          uv run --directory apps/api docent openapi > /tmp/openapi.json
+          diff -u packages/api-client/openapi.json /tmp/openapi.json
+
+  web:
+    name: Web (lint, types, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generated API types are current
+        run: |
+          pnpm --filter @docent/api-client generate
+          git diff --exit-code packages/api-client/src/schema.d.ts
+      - run: pnpm -r typecheck
+      - run: pnpm --filter @docent/web lint
+      - run: pnpm --filter @docent/web build
+
+  images:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: API image
+        run: docker build -f infra/docker/api.Dockerfile -t docent-api:ci .
+      - name: Web image
+        run: docker build -f infra/docker/web.Dockerfile -t docent-web:ci .
+      - name: Backup image
+        run: docker build -f infra/docker/backup.Dockerfile -t docent-backup:ci .
