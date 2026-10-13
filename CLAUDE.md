@@ -58,7 +58,9 @@ and predictable usage pricing with hard caps. Change this line if the wedge chan
 - No shadows, no gradients. Flat surfaces, 1px borders.
 - No blue, green, or purple. Palette: warm paper background, near-black ink,
   one rust or vermilion accent.
-- Serif headlines, plain grotesque body. Consistent spacing and type scale.
+- Type: Geist for headings and body (chosen 2026-10-14), Geist Mono for code.
+  Headings semibold with tight tracking. Consistent spacing and type scale.
+- Every clickable element shows a pointer cursor; disabled ones show not-allowed.
 - Plain, direct tone. Describe the problem, not the pitch. No invented logos,
   testimonials, or user counts. Say "teach the agent", not "train an LLM".
 

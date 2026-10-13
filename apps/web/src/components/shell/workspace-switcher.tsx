@@ -17,7 +17,7 @@ function WorkspaceTile({ name, className }: { name: string; className?: string }
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-line bg-surface-2 font-serif text-sm font-semibold text-ink",
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-line bg-surface-2 font-display text-sm font-semibold text-ink",
         className,
       )}
     >

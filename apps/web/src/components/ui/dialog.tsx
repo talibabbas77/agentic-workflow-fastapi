@@ -50,7 +50,7 @@ export function Dialog({ open, onClose, title, description, children, className 
     >
       <div className="flex items-start justify-between gap-4 px-6 pt-5">
         <div className="flex flex-col gap-1">
-          <h2 id={titleId} className="font-serif text-xl text-ink">
+          <h2 id={titleId} className="font-display text-xl text-ink">
             {title}
           </h2>
           {description ? (

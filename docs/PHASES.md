@@ -374,8 +374,8 @@ what it costs.
 - Pages: home, how it works (widget and identity), pricing (reads the same plan
   config as billing), security, install docs with signing snippets, privacy,
   terms, contact.
-- Brand applied per `brand/README.md`: Newsreader headlines, plain grotesque
-  body, paper, ink, and rust only.
+- Brand applied per `brand/README.md`: Geist for headings and body, and
+  paper, ink, and rust only.
 - Open Graph images from the brand files, sitemap, robots.
 
 **Acceptance checks**

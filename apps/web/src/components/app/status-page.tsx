@@ -18,8 +18,8 @@ export function StatusPage({
       <Logo className="self-start" />
       <main className="flex flex-1 items-center justify-center py-16">
         <div className="fade-in flex w-full max-w-[440px] flex-col gap-4">
-          {code ? <p className="font-serif text-4xl text-rust tabular">{code}</p> : null}
-          <h1 className="font-serif text-3xl text-ink">{title}</h1>
+          {code ? <p className="font-display text-4xl font-semibold text-rust tabular">{code}</p> : null}
+          <h1 className="font-display text-3xl text-ink">{title}</h1>
           <div className="text-md text-ink-muted">{children}</div>
           <div className="mt-2 flex flex-wrap gap-3">{actions}</div>
         </div>

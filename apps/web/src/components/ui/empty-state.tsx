@@ -22,7 +22,7 @@ export function EmptyState({
       )}
     >
       {illustration ? <div className="mb-6 text-ink">{illustration}</div> : null}
-      <h2 className="font-serif text-xl text-ink">{title}</h2>
+      <h2 className="font-display text-xl text-ink">{title}</h2>
       {children ? (
         <div className="mt-2 flex max-w-md flex-col gap-2 text-base text-ink-muted">{children}</div>
       ) : null}

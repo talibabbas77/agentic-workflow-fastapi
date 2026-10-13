@@ -21,9 +21,9 @@ def _html(heading: str, paragraphs: list[str], action_label: str, action_url: st
 <html><body style="margin:0;padding:32px 16px;background:{PAPER};font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FBF8F2;border:1px solid {LINE}">
-<tr><td style="padding:28px 32px 8px;font-family:Georgia,serif;font-size:22px;color:{INK}">Docent</td></tr>
+<tr><td style="padding:28px 32px 8px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-weight:600;font-size:20px;letter-spacing:-0.02em;color:{INK}">Docent</td></tr>
 <tr><td style="padding:8px 32px 24px">
-<h1 style="margin:0 0 16px;font-family:Georgia,serif;font-weight:600;font-size:24px;line-height:1.3;color:{INK}">{escape(heading)}</h1>
+<h1 style="margin:0 0 16px;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-weight:600;font-size:22px;letter-spacing:-0.01em;line-height:1.3;color:{INK}">{escape(heading)}</h1>
 {body}
 <p style="margin:24px 0"><a href="{url}" style="display:inline-block;background:{RUST};color:{PAPER};text-decoration:none;font-size:15px;padding:12px 20px">{escape(action_label)}</a></p>
 <p style="margin:0;font-size:13px;line-height:1.6;color:{MUTED}">If the button does not work, paste this link into your browser:<br><span style="word-break:break-all">{url}</span></p>

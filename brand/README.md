@@ -32,9 +32,9 @@ the baseline like a descender, so the mark and the word share one line.
 | `docent-favicon.svg` | Browser tab and anything under 32px. Redrawn with a wider ribbon. Follows the OS light or dark setting. |
 | `docent-app-icon.svg` | Square avatar: GitHub, social profiles, app stores. |
 
-All files are flat vector paths. The wordmark is Newsreader SemiBold at the
-72pt optical size, converted to outlines, so no font file is needed to render it.
-Newsreader is by Production Type under the SIL Open Font License 1.1.
+All files are flat vector paths. The wordmark is Geist SemiBold, converted to
+outlines, so no font file is needed to render it. Geist is by Vercel under the
+SIL Open Font License 1.1.
 
 ## Color
 
@@ -68,9 +68,10 @@ There are no other colors. No blue, green, or purple anywhere.
 
 ## Type
 
-- Headlines: Newsreader, the same family as the wordmark.
-- Body and interface: a plain grotesque. Proposal: Inter, for its tabular
-  figures in the admin tables. Final choice happens in Phase 8.
+- Everything: Geist, the same family as the wordmark. Headings semibold (600)
+  with tracking at -0.02em; body regular (400) and medium (500).
+- Code and keys: Geist Mono.
+- Numbers in tables and counters use tabular figures.
 
 ## Rules
 

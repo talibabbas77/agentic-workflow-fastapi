@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         className="hidden border-l border-line bg-surface lg:flex lg:items-center lg:justify-center lg:px-12 xl:px-16"
       >
         <div className="w-full max-w-[520px]">
-          <h2 id="how-docent-answers" className="font-serif text-2xl text-ink">
+          <h2 id="how-docent-answers" className="font-display text-2xl text-ink">
             How Docent answers
           </h2>
           <AnswerFlow className="mt-10 [--wf-max:1.125px]" />

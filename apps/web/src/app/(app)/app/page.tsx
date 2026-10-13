@@ -48,7 +48,7 @@ async function Overview() {
           </div>
           <div className="flex w-full flex-col gap-2 sm:w-48">
             <p className="text-sm text-ink-muted sm:text-right">
-              <span className="font-serif text-lg text-ink tabular">{onboarding.completed}</span> of {total} done
+              <span className="font-display text-lg font-semibold text-ink tabular">{onboarding.completed}</span> of {total} done
             </p>
             <ProgressBar value={onboarding.completed} max={total} label="Setup progress" />
           </div>
@@ -60,7 +60,7 @@ async function Overview() {
 
       <section aria-labelledby="how-heading" className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <h2 id="how-heading" className="font-serif text-xl text-ink">
+          <h2 id="how-heading" className="font-display text-xl text-ink">
             How Docent works
           </h2>
           <p className="text-sm text-ink-muted">

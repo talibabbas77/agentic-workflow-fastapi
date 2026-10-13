@@ -13,7 +13,7 @@ export function NoWorkspace({ me }: { me: Me }) {
       <Logo className="self-start" />
       <main className="flex flex-1 items-center justify-center py-16">
         <div className="fade-in flex w-full max-w-[440px] flex-col gap-4">
-          <h1 className="font-serif text-3xl text-ink">You are not in a workspace</h1>
+          <h1 className="font-display text-3xl text-ink">You are not in a workspace</h1>
           <p className="text-md text-ink-muted">
             You are logged in as <span className="font-medium text-ink">{me.user.email}</span>, but this
             account no longer belongs to a workspace. You may have been removed, or the workspace was
