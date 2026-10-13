@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../components/workflow/workflow.css";
+@import "../components/brand/logo-loader.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

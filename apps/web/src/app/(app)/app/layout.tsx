@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
+import { AppLoader } from "@/components/brand/logo-loader";
 import { AppShell } from "@/components/shell/app-shell";
-import { AppShellSkeleton } from "@/components/shell/app-shell-skeleton";
 import { NoWorkspace } from "@/components/shell/no-workspace";
 import { getMe } from "@/lib/api/server";
 
@@ -10,12 +10,12 @@ export const metadata: Metadata = {
 };
 
 /**
- * The shell renders as soon as the session is known. Everything that depends
- * on the session streams in behind this boundary; the skeleton is the static shell.
+ * The shell renders as soon as the session is known. Until then there is no
+ * layout to sketch, so the branded loader holds the screen.
  */
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (
-    <Suspense fallback={<AppShellSkeleton />}>
+    <Suspense fallback={<AppLoader />}>
       <Session>{children}</Session>
     </Suspense>
   );

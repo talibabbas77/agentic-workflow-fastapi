@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { OnboardingJourney } from "@/components/app/onboarding-journey";
 import { VerifyBanner } from "@/components/app/verify-banner";
-import { PageSkeleton } from "@/components/shell/app-shell-skeleton";
+import { PageSkeleton } from "@/components/shell/page-skeleton";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
