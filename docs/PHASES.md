@@ -242,6 +242,9 @@ because this phase deploys staging on real HTTPS origins.
    key are rejected. **(auto)**
 10. `Docent.reset()` revokes the session on the server. **(auto)**
 11. Staging is live on HTTPS, and the demo host runs on a separate domain.
+12. Staging sits behind an edge proxy that replaces `X-Forwarded-For`. A request
+    from the internet with a forged `X-Forwarded-For` does not change the
+    rate-limit key. **(auto)**
 
 ---
 

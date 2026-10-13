@@ -940,6 +940,12 @@ customer's real data arrives**.
   by origin check plus a custom header on state-changing requests. TOTP later.
 - **Encryption**: TLS everywhere. Provider encryption at rest. Notification
   webhook targets and similar secrets encrypted at the application level.
+- **Client IP**: the API trusts `X-Forwarded-For` only from `FORWARDED_ALLOW_IPS`
+  (the web app). Next.js passes a client-supplied `X-Forwarded-For` through
+  unchanged, so in every deployed environment an edge proxy (Caddy,
+  Cloudflare, Fly) must sit in front of the web app and the API and replace that
+  header with the real client address. Per-IP limits are backed by per-email
+  limits on every auth endpoint, so a spoofed IP alone cannot unlock them.
 - **Logs** never contain message content, tokens, or emails. They carry
   `request_id`, `tenant_id`, `conversation_id`.
 - **Retention**: conversations kept 90 days by default, configurable per plan.
@@ -1005,5 +1011,8 @@ customer's real data arrives**.
 - The admin app reaches the API through a Next.js rewrite of `/api/*`, so the
   session cookie is first-party and no CORS is needed. The API also checks the
   `Origin` header on every write.
+- Found during review: Next.js forwards a client-supplied `X-Forwarded-For`,
+  so per-IP limits are spoofable without an edge proxy. Added per-email signup
+  limits and the edge requirement (section 12, Phase 4 check).
 - `/healthz` never sends a Redis command; it reports the circuit state only.
   A health probe every 10 seconds would otherwise use about 260K commands a month.

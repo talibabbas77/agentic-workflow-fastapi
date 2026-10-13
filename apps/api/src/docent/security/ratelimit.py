@@ -101,6 +101,7 @@ def _result(count: int, limit: Limit, retry_after: int) -> RateResult:
 LOGIN_PER_IP = Limit("login-ip", 30, 60)
 LOGIN_PER_EMAIL = Limit("login-email", 10, 60)
 SIGNUP_PER_IP = Limit("signup-ip", 10, 3600)
+SIGNUP_PER_EMAIL = Limit("signup-email", 5, 3600)
 RESET_PER_IP = Limit("reset-ip", 10, 3600)
 RESET_PER_EMAIL = Limit("reset-email", 3, 3600)
 VERIFY_RESEND_PER_USER = Limit("verify-resend", 5, 3600)
