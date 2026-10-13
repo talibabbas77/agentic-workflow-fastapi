@@ -11,6 +11,14 @@ from docent.db.pool import Connection
 
 BACKOFF_SECONDS = (30, 120, 600, 3600)
 
+# Lower runs first. Anything a person is waiting on outranks bulk indexing.
+DEFAULT_PRIORITY = 100
+PRIORITY_BY_KIND = {
+    "delete_source": 10,
+    "send_email": 20,
+    "summarize_escalation": 30,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Job:
@@ -29,7 +37,7 @@ async def enqueue(
     *,
     tenant_id: uuid.UUID | None = None,
     run_at: datetime | None = None,
-    priority: int = 100,
+    priority: int | None = None,
     max_attempts: int = 5,
     dedupe_key: str | None = None,
 ) -> int | None:
@@ -47,7 +55,7 @@ async def enqueue(
         kind,
         payload,
         run_at,
-        priority,
+        priority if priority is not None else PRIORITY_BY_KIND.get(kind, DEFAULT_PRIORITY),
         max_attempts,
         dedupe_key,
     )

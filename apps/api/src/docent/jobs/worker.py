@@ -1,8 +1,10 @@
-"""Job worker loop.
+"""Job worker.
 
-The worker drains the queue, then sleeps until the API wakes it over HTTP or
-the idle poll interval passes. It never polls in a tight loop, so a scale-to-zero
-database can suspend while nothing is happening.
+Jobs run in lanes. Each lane owns some job kinds and a number of slots, so
+quick work (emails, summaries) never waits behind heavy work (crawling,
+embedding). Every slot drains its lane, then sleeps until the API wakes the
+worker over HTTP or the idle poll interval passes. Nothing polls in a tight
+loop, so a scale-to-zero database can suspend while the queue is empty.
 """
 
 import asyncio
@@ -34,6 +36,13 @@ class PermanentJobError(Exception):
     """Retrying will not help. The job goes straight to dead."""
 
 
+@dataclass(frozen=True, slots=True)
+class Lane:
+    name: str
+    kinds: tuple[str, ...]
+    slots: int = 1
+
+
 class Worker:
     REAP_INTERVAL_SECONDS = 120.0
     PURGE_INTERVAL_SECONDS = 6 * 3600.0
@@ -45,38 +54,55 @@ class Worker:
         *,
         idle_poll_seconds: float,
         lease_seconds: int,
+        lanes: list[Lane] | None = None,
         worker_id: str | None = None,
     ) -> None:
         self.pool = pool
         self.handlers = handlers
+        self.lanes = lanes or [Lane("default", tuple(handlers))]
+        lane_kinds = [kind for lane in self.lanes for kind in lane.kinds]
+        if sorted(lane_kinds) != sorted(handlers):
+            raise ValueError("every job kind must belong to exactly one lane")
         self.idle_poll_seconds = idle_poll_seconds
         self.lease_seconds = lease_seconds
         self.worker_id = worker_id or f"{socket.gethostname()}:{os.getpid()}"
-        self._wake = asyncio.Event()
+        self._signals: list[asyncio.Event] = []
         self._stopping = asyncio.Event()
         self._last_reap = 0.0
         self._last_purge = 0.0
         self.processed = 0
 
     def wake(self) -> None:
-        self._wake.set()
+        for signal in self._signals:
+            signal.set()
 
     def stop(self) -> None:
         self._stopping.set()
-        self._wake.set()
+        self.wake()
 
     async def run_forever(self) -> None:
-        log.info("worker started", extra={"worker_id": self.worker_id})
+        log.info(
+            "worker started",
+            extra={
+                "worker_id": self.worker_id,
+                "lanes": {lane.name: lane.slots for lane in self.lanes},
+            },
+        )
+        slots = [(lane, asyncio.Event()) for lane in self.lanes for _ in range(lane.slots)]
+        self._signals = [signal for _, signal in slots]
+        await asyncio.gather(*(self._slot(lane, signal) for lane, signal in slots))
+        log.info("worker stopped")
+
+    async def _slot(self, lane: Lane, signal: asyncio.Event) -> None:
         while not self._stopping.is_set():
-            self._wake.clear()
+            signal.clear()  # a wake that arrives while draining is kept for the next loop
             try:
                 await self.maintenance()
-                await self.drain()
+                await self.drain(kinds=lane.kinds)
             except Exception:
-                log.exception("worker cycle failed")
+                log.exception("worker cycle failed", extra={"lane": lane.name})
             with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(self._wake.wait(), timeout=self.idle_poll_seconds)
-        log.info("worker stopped")
+                await asyncio.wait_for(signal.wait(), timeout=self.idle_poll_seconds)
 
     async def maintenance(self, force: bool = False) -> None:
         now = time.monotonic()
@@ -91,13 +117,13 @@ class Worker:
                 await queue.purge_finished(conn)
             self._last_purge = now
 
-    async def drain(self, limit: int | None = None) -> int:
-        """Run jobs until none are ready. Returns how many ran."""
+    async def drain(self, limit: int | None = None, kinds: tuple[str, ...] | None = None) -> int:
+        """Run ready jobs of the given kinds (default all) until none are left."""
         ran = 0
-        kinds = list(self.handlers)
+        wanted = list(kinds or self.handlers)
         while not self._stopping.is_set() and (limit is None or ran < limit):
             async with transaction(self.pool) as conn:
-                job = await queue.claim(conn, self.worker_id, kinds, self.lease_seconds)
+                job = await queue.claim(conn, self.worker_id, wanted, self.lease_seconds)
             if job is None:
                 break
             await self._run(job)

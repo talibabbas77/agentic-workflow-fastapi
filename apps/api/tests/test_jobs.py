@@ -8,7 +8,7 @@ from docent.db.pool import Pool, transaction
 from docent.email.sender import MemoryEmailSender
 from docent.jobs import queue
 from docent.jobs.handlers import SEND_EMAIL, make_handlers
-from docent.jobs.worker import JobContext, Worker
+from docent.jobs.worker import JobContext, Lane, Worker
 
 EMAIL_PAYLOAD = {
     "template": "verify_email",
@@ -182,3 +182,64 @@ async def test_tenant_job_payload_roundtrip(app_pool: Pool, worker_pool: Pool) -
         job = await queue.claim(conn, "w", ["k"], 30)
     assert job is not None
     assert job.payload == {"nested": {"a": [1, 2]}, "s": "x"}
+
+
+async def test_quick_lane_is_not_blocked_by_heavy_lane(app_pool: Pool, worker_pool: Pool) -> None:
+    release = asyncio.Event()
+    started = asyncio.Event()
+    sent: list[int] = []
+
+    async def heavy(ctx: JobContext) -> None:
+        started.set()
+        await release.wait()
+
+    async def quick(ctx: JobContext) -> None:
+        sent.append(ctx.job.id)
+
+    w = Worker(
+        worker_pool,
+        {"heavy": heavy, "quick": quick},
+        lanes=[Lane("ingest", ("heavy",), 1), Lane("io", ("quick",), 1)],
+        idle_poll_seconds=30,
+        lease_seconds=30,
+    )
+    task = asyncio.create_task(w.run_forever())
+    async with transaction(app_pool) as conn:
+        await queue.enqueue(conn, "heavy", {})
+    w.wake()
+    await asyncio.wait_for(started.wait(), timeout=5)
+    async with transaction(app_pool) as conn:
+        quick_id = await queue.enqueue(conn, "quick", {})
+    w.wake()
+    for _ in range(100):
+        if sent:
+            break
+        await asyncio.sleep(0.02)
+    assert sent == [quick_id]  # ran while the heavy job still holds its slot
+    release.set()
+    w.stop()
+    await asyncio.wait_for(task, timeout=5)
+
+
+def test_lanes_must_cover_every_kind(worker_pool: Pool) -> None:
+    async def noop(ctx: JobContext) -> None:
+        return None
+
+    with pytest.raises(ValueError, match="exactly one lane"):
+        Worker(
+            worker_pool,
+            {"a": noop, "b": noop},
+            lanes=[Lane("x", ("a",))],
+            idle_poll_seconds=1,
+            lease_seconds=1,
+        )
+
+
+async def test_priorities_put_people_first(app_pool: Pool, owner_pool: Pool) -> None:
+    async with transaction(app_pool) as conn:
+        await queue.enqueue(conn, "embed_document", {})
+        await queue.enqueue(conn, "send_email", {})
+        await queue.enqueue(conn, "delete_source", {})
+    async with owner_pool.acquire() as conn:
+        order = await conn.fetch("select kind from jobs order by priority, run_at")
+    assert [r["kind"] for r in order] == ["delete_source", "send_email", "embed_document"]

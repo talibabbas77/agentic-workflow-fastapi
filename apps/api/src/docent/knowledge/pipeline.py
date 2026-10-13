@@ -142,6 +142,9 @@ def make_knowledge_handlers(deps: KnowledgeDeps) -> dict[str, Handler]:
         async with _document_failures(ctx, document_id):
             while True:
                 async with transaction(ctx.pool, tenant_id=ctx.job.tenant_id) as conn:
+                    document = await repo.get_document(conn, document_id)
+                    if document is None or document["source_status"] == "deleting":
+                        return  # deleted mid-way: stop instead of embedding for nothing
                     rows = await repo.chunks_to_embed(conn, document_id, s.embedding_batch_size)
                 if not rows:
                     break

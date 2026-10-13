@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     worker_url: str | None = "http://127.0.0.1:8001"
     job_idle_poll_seconds: float = 60.0
     job_lease_seconds: int = 300
+    job_io_slots: int = 4  # emails and summaries
+    job_ingest_slots: int = 2  # crawling, parsing, embedding
 
     # Auth policy
     password_min_length: int = 10
@@ -100,6 +102,22 @@ class Settings(BaseSettings):
     search_rate_per_minute: int = 60
     # Calibrated on the golden corpus (docs/ARCHITECTURE.md change log, 2026-10-14).
     retrieval_min_similarity: float = 0.45
+
+    # Language model: any OpenAI-compatible endpoint. Local Ollama by default;
+    # gemma4:cloud through the same local server after `ollama signin`.
+    llm_base_url: str = "http://127.0.0.1:11434/v1"
+    llm_api_key: SecretStr | None = None
+    llm_model: str = "qwen3:1.7b"
+    llm_summary_model: str | None = None  # defaults to llm_model
+    llm_structured_output: Literal["auto", "json_schema", "tool", "prompt"] = "auto"
+    llm_reasoning_effort: str | None = "none"  # sent to models that think by default
+    llm_timeout_seconds: float = 120.0
+    llm_max_concurrency: int = 2
+    agent_max_answer_tokens: int = 500
+    agent_history_turns: int = 6
+    agent_sources: int = 6
+    agent_turns_per_minute: int = 20
+    default_replies_cap: int = 1000  # until plans exist (Phase 7)
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> Settings:

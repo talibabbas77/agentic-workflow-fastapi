@@ -14,7 +14,7 @@ from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
 from docent.email.sender import SmtpEmailSender
 from docent.jobs.handlers import make_handlers
-from docent.jobs.worker import Worker
+from docent.jobs.worker import Lane, Worker
 from docent.knowledge.embeddings import OllamaEmbedder
 from docent.knowledge.fetch import guarded_client
 from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
@@ -48,9 +48,15 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             ),
             http=crawler,
         )
+        io = make_handlers(SmtpEmailSender(settings))
+        ingest = make_knowledge_handlers(knowledge)
         worker = Worker(
             pool,
-            make_handlers(SmtpEmailSender(settings)) | make_knowledge_handlers(knowledge),
+            io | ingest,
+            lanes=[
+                Lane("io", tuple(io), settings.job_io_slots),
+                Lane("ingest", tuple(ingest), settings.job_ingest_slots),
+            ],
             idle_poll_seconds=settings.job_idle_poll_seconds,
             lease_seconds=settings.job_lease_seconds,
         )
