@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 3 * * *" # nightly retrieval quality check
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -115,3 +118,49 @@ jobs:
       - name: Service logs
         if: failure()
         run: docker compose --profile app logs --no-color --tail 200
+
+  retrieval:
+    name: Retrieval quality (real embedding model)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s
+          --health-retries 30
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://docent_app:docent_app@127.0.0.1:5432/docent
+      WORKER_DATABASE_URL: postgresql://docent_worker:docent_worker@127.0.0.1:5432/docent
+      MIGRATION_DATABASE_URL: postgresql://docent_owner:docent_owner@127.0.0.1:5432/docent
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - name: Bootstrap database
+        run: |
+          psql -d postgres -v ON_ERROR_STOP=1 -v owner_password=docent_owner \
+            -v app_password=docent_app -v worker_password=docent_worker -f infra/db/sql/roles.sql
+          psql -d postgres -c "create database docent owner docent_owner"
+          psql -d docent -v ON_ERROR_STOP=1 -f infra/db/sql/database.sql
+          uv run --directory apps/api docent db migrate
+      - name: Install Ollama and the embedding model
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama pull embeddinggemma
+      - name: Recall at 8 must stay at or above 0.85
+        run: uv run --directory apps/api docent eval retrieval --out "$RUNNER_TEMP/retrieval.json"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: retrieval-report
+          path: ${{ runner.temp }}/retrieval.json
