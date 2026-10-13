@@ -28,7 +28,8 @@
     "backup:restore-drill": "bash infra/backup/restore-drill.sh",
     "backup:keygen": "bash infra/backup/keygen.sh",
     "seed": "uv run --directory apps/api docent seed",
-    "eval:retrieval": "uv run --directory apps/api docent eval retrieval"
+    "eval:retrieval": "uv run --directory apps/api docent eval retrieval",
+    "eval:agent": "uv run --directory apps/api docent eval agent"
   },
   "engines": {
     "node": ">=24"

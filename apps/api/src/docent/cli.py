@@ -11,6 +11,7 @@ from docent.config import get_settings, repo_root
 
 API_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = (repo_root() or API_ROOT) / "fixtures" / "golden"
+SAFETY = (repo_root() or API_ROOT) / "fixtures" / "agent"
 
 
 def _alembic_config() -> object:
@@ -67,6 +68,13 @@ def main(argv: list[str] | None = None) -> None:
     retrieval.add_argument("--fixtures", type=Path, default=FIXTURES)
     retrieval.add_argument("--out", type=Path, help="Write the full JSON report here")
     retrieval.add_argument("--min-recall", type=float, default=0.85)
+    agent_eval = eval_sub.add_parser(
+        "agent", help="Answers, handoffs, and safety with the real model"
+    )
+    agent_eval.add_argument("--fixtures", type=Path, default=FIXTURES)
+    agent_eval.add_argument("--safety", type=Path, default=SAFETY)
+    agent_eval.add_argument("--sample", type=int, help="Questions per company (default all)")
+    agent_eval.add_argument("--out", type=Path, help="Write the full JSON report here")
 
     args = parser.parse_args(argv)
 
@@ -103,20 +111,30 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "eval":
         import asyncio
 
-        from docent.knowledge.evaluate import load_corpus
-        from docent.knowledge.evaluate import run as run_eval
+        from docent.evals.corpus import load_corpus
 
-        report = asyncio.run(run_eval(get_settings(), load_corpus(args.fixtures)))
+        corpus = load_corpus(args.fixtures)
+        if args.eval_command == "retrieval":
+            from docent.evals.retrieval import run as run_retrieval
+
+            report = asyncio.run(run_retrieval(get_settings(), corpus))
+        else:
+            from docent.evals.agent import load_safety
+            from docent.evals.agent import run as run_agent
+
+            report = asyncio.run(
+                run_agent(get_settings(), corpus, load_safety(args.safety), args.sample)
+            )
         if args.out:
             args.out.write_text(json.dumps(report, indent=2) + "\n")
-        summary = {k: v for k, v in report.items() if k != "companies"}
-        print(json.dumps(summary, indent=2))
-        for company in report["companies"]:
-            print(f"{company['name']}: recall@8 {company['section_recall_at_8']}")
-            for miss in company["misses"]:
-                print(f"  miss: {miss['q']!r} expected {miss['expected']}")
-        if report["section_recall_at_8"] < args.min_recall:
-            raise SystemExit(f"section recall {report['section_recall_at_8']} < {args.min_recall}")
+        print(json.dumps({k: v for k, v in report.items() if not isinstance(v, list)}, indent=2))
+        if args.eval_command == "retrieval":
+            for company in report["companies"]:
+                print(f"{company['name']}: recall@8 {company['section_recall_at_8']}")
+            if report["section_recall_at_8"] < args.min_recall:
+                raise SystemExit(
+                    f"section recall {report['section_recall_at_8']} < {args.min_recall}"
+                )
     elif args.command == "openapi":
         from docent.api.app import create_app
 
