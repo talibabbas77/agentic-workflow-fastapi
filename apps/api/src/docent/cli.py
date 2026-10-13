@@ -7,10 +7,10 @@ from pathlib import Path
 
 import uvicorn
 
-from docent.config import get_settings
+from docent.config import get_settings, repo_root
 
 API_ROOT = Path(__file__).resolve().parents[2]
-REPO_ROOT = API_ROOT.parents[1]
+FIXTURES = (repo_root() or API_ROOT) / "fixtures" / "golden"
 
 
 def _alembic_config() -> object:
@@ -59,12 +59,12 @@ def main(argv: list[str] | None = None) -> None:
     seed.add_argument("--owner-name", default="Talib Abbas")
     seed.add_argument("--reset", action="store_true", help="Rebuild the demo data from scratch")
     seed.add_argument("--api-url", default="http://127.0.0.1:8000", help="Used to upload docs")
-    seed.add_argument("--fixtures", type=Path, default=REPO_ROOT / "fixtures" / "golden")
+    seed.add_argument("--fixtures", type=Path, default=FIXTURES)
 
     evaluate = sub.add_parser("eval", help="Quality checks")
     eval_sub = evaluate.add_subparsers(dest="eval_command", required=True)
     retrieval = eval_sub.add_parser("retrieval", help="Recall and threshold on fixtures/golden")
-    retrieval.add_argument("--fixtures", type=Path, default=REPO_ROOT / "fixtures" / "golden")
+    retrieval.add_argument("--fixtures", type=Path, default=FIXTURES)
     retrieval.add_argument("--out", type=Path, help="Write the full JSON report here")
     retrieval.add_argument("--min-recall", type=float, default=0.85)
 

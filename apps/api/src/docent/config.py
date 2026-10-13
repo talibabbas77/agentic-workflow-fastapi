@@ -8,12 +8,17 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-def _repo_env_file() -> Path | None:
-    """The monorepo's root .env, if running from a checkout. Containers use real env vars."""
+def repo_root() -> Path | None:
+    """The monorepo root when running from a checkout; None inside a container image."""
     for parent in Path(__file__).resolve().parents:
         if (parent / "pnpm-workspace.yaml").is_file():
-            return parent / ".env"
+            return parent
     return None
+
+
+def _repo_env_file() -> Path | None:
+    root = repo_root()
+    return root / ".env" if root else None
 
 
 Environment = Literal["local", "test", "staging", "production"]
@@ -114,9 +119,7 @@ class Settings(BaseSettings):
     def object_store(self) -> str:
         if self.object_store_url:
             return self.object_store_url
-        env_file = _repo_env_file()
-        root = env_file.parent if env_file else Path.cwd()
-        return (root / ".data" / "objects").as_uri()
+        return ((repo_root() or Path.cwd()) / ".data" / "objects").as_uri()
 
     @property
     def allowed_origins(self) -> set[str]:
