@@ -624,7 +624,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Open Conversation */
+        /**
+         * Open Conversation
+         * @description Resume this visitor's conversation, or start one. Opening the panel passes
+         *     create=false, so a visitor who never writes leaves no empty conversation behind.
+         */
         post: operations["open_conversation"];
         delete?: never;
         options?: never;
@@ -1495,6 +1499,12 @@ export interface components {
         WidgetConversationIn: {
             /** Resume Id */
             resume_id?: string | null;
+            /**
+             * Create
+             * @description False only looks up history: 404 no_conversation when there is none
+             * @default true
+             */
+            create: boolean;
         };
         /** WidgetConversationOut */
         WidgetConversationOut: {
@@ -3854,6 +3864,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -399,6 +399,9 @@ async def test_anonymous_rate_limit_contact_and_revocation(
         return handoff
 
     assert conversation["handoff"] is None
+    lookup = await frame.post("/v1/widget/conversations", json={"create": False}, headers=headers)
+    assert lookup.status_code == 404  # no resume id: nothing to look up, nothing created
+    assert lookup.json()["error"]["code"] == "no_conversation"
     assert await resumed_handoff() == {"status": "open", "contact_given": False}
     assert (
         await frame.post(f"{url}/contact", json={"email": "visitor@example.com"}, headers=headers)

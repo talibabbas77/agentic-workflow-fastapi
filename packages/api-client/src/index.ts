@@ -29,6 +29,20 @@ export type SearchHit = Schemas["SearchHitOut"];
 export type SearchResult = Schemas["SearchOut"];
 export type Audience = Schemas["SourceOut"]["audience"];
 export type Plan = Schemas["Plan"];
+export type AgentSettings = Schemas["AgentSettingsOut"];
+export type Tone = Schemas["AgentSettingsOut"]["tone"];
+export type Conversation = Schemas["ConversationOut"];
+export type ConversationMode = Schemas["ConversationOut"]["mode"];
+export type ChatMessage = Schemas["MessageOut"];
+export type Citation = Schemas["CitationOut"];
+export type Escalation = Schemas["EscalationOut"];
+export type EscalationSummary = Schemas["EscalationSummaryOut"];
+export type TicketType = Schemas["TicketTypeOut"];
+export type TicketTypeInput = Schemas["TicketTypeIn"];
+export type TicketField = Schemas["TicketField"];
+export type Widget = Schemas["WidgetOut"];
+export type WidgetInput = Schemas["WidgetIn"];
+export type SigningKey = Schemas["SigningKeyOut"];
 
 export interface ApiClientOptions {
   baseUrl: string;

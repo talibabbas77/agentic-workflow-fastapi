@@ -483,6 +483,10 @@ class WidgetSessionOut(BaseModel):
 
 class WidgetConversationIn(Model):
     resume_id: uuid.UUID | None = None
+    create: bool = Field(
+        default=True,
+        description="False only looks up history: 404 no_conversation when there is none",
+    )
 
 
 class WidgetHandoff(BaseModel):

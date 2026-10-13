@@ -159,12 +159,18 @@ async def end_session(session: Session, state: State) -> None:
         )
 
 
-@router.post("/conversations", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/conversations", status_code=status.HTTP_201_CREATED, responses={404: {"model": ErrorOut}}
+)
 async def open_conversation(
     body: WidgetConversationIn, session: Session, state: State
 ) -> WidgetConversationOut:
+    """Resume this visitor's conversation, or start one. Opening the panel passes
+    create=false, so a visitor who never writes leaves no empty conversation behind."""
     async with transaction(state.pool, tenant_id=session.tenant_id) as conn:
         conversation_id = await _resumable(conn, session, body.resume_id)
+        if conversation_id is None and not body.create:
+            raise AppError(404, "no_conversation", "There is no conversation to resume.")
         if conversation_id is None:
             claims = await _claims(conn, session)
             conversation_id = await agent_repo.create_conversation(

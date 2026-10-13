@@ -2628,6 +2628,7 @@
           "widget"
         ],
         "summary": "Open Conversation",
+        "description": "Resume this visitor's conversation, or start one. Opening the panel passes\ncreate=false, so a visitor who never writes leaves no empty conversation behind.",
         "operationId": "open_conversation",
         "parameters": [
           {
@@ -2691,6 +2692,16 @@
               }
             },
             "description": "Too Many Requests"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -4971,6 +4982,12 @@
               }
             ],
             "title": "Resume Id"
+          },
+          "create": {
+            "type": "boolean",
+            "title": "Create",
+            "description": "False only looks up history: 404 no_conversation when there is none",
+            "default": true
           }
         },
         "additionalProperties": false,
