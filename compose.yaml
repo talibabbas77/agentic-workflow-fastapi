@@ -17,6 +17,7 @@ x-api-env: &api-env
   INTERNAL_TOKEN: local-internal-token-change-me
   WEB_ORIGIN: http://localhost:3000
   OLLAMA_BASE_URL: http://host.docker.internal:11434
+  OBJECT_STORE_URL: file:///data/objects
 
 services:
   postgres:
@@ -86,6 +87,8 @@ services:
       FORWARDED_ALLOW_IPS: "*"
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - objects:/data/objects
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -105,6 +108,8 @@ services:
     environment:
       <<: *api-env
       HEALTH_PORT: "8001"
+    volumes:
+      - objects:/data/objects
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -127,3 +132,4 @@ services:
 
 volumes:
   postgres-data:
+  objects:

@@ -6,6 +6,7 @@ import hmac
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Header
 from fastapi.responses import JSONResponse
 
@@ -14,7 +15,11 @@ from docent.db.pool import create_pool
 from docent.email.sender import SmtpEmailSender
 from docent.jobs.handlers import make_handlers
 from docent.jobs.worker import Worker
+from docent.knowledge.embeddings import OllamaEmbedder
+from docent.knowledge.fetch import guarded_client
+from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
 from docent.log import configure_logging
+from docent.storage import ObjectStore
 
 
 def create_worker_app(settings: Settings | None = None) -> FastAPI:
@@ -25,9 +30,27 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         pool = await create_pool(settings.worker_database_url, min_size=1, max_size=4)
+        ollama = httpx.AsyncClient()
+        crawler = guarded_client(
+            user_agent=settings.crawl_user_agent,
+            timeout=settings.crawl_timeout_seconds,
+            allow_private=settings.crawl_allow_private,
+        )
+        knowledge = KnowledgeDeps(
+            settings=settings,
+            store=ObjectStore.from_url(settings.object_store),
+            embedder=OllamaEmbedder(
+                ollama,
+                settings.ollama_base_url,
+                settings.embedding_model,
+                settings.embedding_dims,
+                timeout=settings.embedding_timeout_seconds,
+            ),
+            http=crawler,
+        )
         worker = Worker(
             pool,
-            make_handlers(SmtpEmailSender(settings)),
+            make_handlers(SmtpEmailSender(settings)) | make_knowledge_handlers(knowledge),
             idle_poll_seconds=settings.job_idle_poll_seconds,
             lease_seconds=settings.job_lease_seconds,
         )
@@ -39,6 +62,8 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             worker.stop()
             with contextlib.suppress(asyncio.CancelledError):
                 await asyncio.wait_for(task, timeout=30)
+            await crawler.aclose()
+            await ollama.aclose()
             await pool.close()
 
     app = FastAPI(title="Docent worker", lifespan=lifespan, docs_url=None, openapi_url=None)

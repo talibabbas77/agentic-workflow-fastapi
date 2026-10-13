@@ -12,7 +12,7 @@ import os
 import socket
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from docent.db.pool import Pool, transaction
 from docent.jobs import queue
@@ -28,6 +28,10 @@ class JobContext:
 
 
 Handler = Callable[[JobContext], Awaitable[None]]
+
+
+class PermanentJobError(Exception):
+    """Retrying will not help. The job goes straight to dead."""
 
 
 class Worker:
@@ -107,10 +111,15 @@ class Worker:
         try:
             await handler(JobContext(job=job, pool=self.pool))
         except Exception as exc:
-            outcome = "error"
+            # A permanent error skips the remaining retries.
+            final = (
+                replace(job, attempts=job.max_attempts)
+                if isinstance(exc, PermanentJobError)
+                else job
+            )
             async with transaction(self.pool) as conn:
                 outcome = await queue.fail(
-                    conn, job, self.worker_id, f"{type(exc).__name__}: {exc}"
+                    conn, final, self.worker_id, f"{type(exc).__name__}: {exc}"
                 )
             log.warning(
                 "job failed",

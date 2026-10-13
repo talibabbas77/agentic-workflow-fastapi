@@ -21,15 +21,28 @@ from docent.db.pool import Pool, create_pool
 from docent.email.sender import MemoryEmailSender, OutgoingEmail
 from docent.jobs.handlers import make_handlers
 from docent.jobs.worker import Worker
+from docent.knowledge.fetch import guarded_client
+from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
 from docent.security.ratelimit import RateLimiter
+from tests.fakes import FakeEmbedder
 
 PG_HOST = os.environ.get("TEST_PG_HOST", "127.0.0.1")
 PG_PORT = os.environ.get("TEST_PG_PORT", "5432")
 PG_DB = os.environ.get("TEST_PG_DB", "docent_test")
 PG_SUPERUSER = os.environ.get("TEST_PG_SUPERUSER", "postgres:postgres")
 
-TENANT_TABLES = ["memberships", "invitations", "audit_log"]
+TENANT_TABLES = [
+    "memberships",
+    "invitations",
+    "audit_log",
+    "knowledge_sources",
+    "documents",
+    "chunks",
+]
 ALL_TABLES = [
+    "chunks",
+    "documents",
+    "knowledge_sources",
     "jobs",
     "audit_log",
     "invitations",
@@ -55,6 +68,9 @@ def make_settings(**overrides: Any) -> Settings:
         "worker_url": None,
         "web_origin": "http://localhost:3000",
         "log_level": "WARNING",
+        "object_store_url": "memory://",
+        "crawl_allow_private": True,
+        "crawl_delay_seconds": 0.0,
     }
     values.update(overrides)
     return Settings(**values)
@@ -88,10 +104,18 @@ async def admin_pool(owner_pool: Pool) -> AsyncIterator[Pool]:
     await pool.close()
 
 
+@pytest.fixture(scope="session")
+def embedder() -> FakeEmbedder:
+    return FakeEmbedder()
+
+
 @pytest_asyncio.fixture(scope="session")
-async def app(settings: Settings, owner_pool: Pool) -> AsyncIterator[FastAPI]:
+async def app(
+    settings: Settings, owner_pool: Pool, embedder: FakeEmbedder
+) -> AsyncIterator[FastAPI]:
     application = create_app(settings)
     async with application.router.lifespan_context(application):
+        application.state.docent.embedder = embedder
         yield application
 
 
@@ -122,11 +146,20 @@ def mailbox() -> MemoryEmailSender:
     return MemoryEmailSender()
 
 
-@pytest.fixture
-def worker(worker_pool: Pool, mailbox: MemoryEmailSender) -> Worker:
-    return Worker(
-        worker_pool, make_handlers(mailbox), idle_poll_seconds=60, lease_seconds=30, worker_id="t1"
-    )
+@pytest_asyncio.fixture
+async def worker(
+    worker_pool: Pool,
+    mailbox: MemoryEmailSender,
+    app: FastAPI,
+    settings: Settings,
+    embedder: FakeEmbedder,
+) -> AsyncIterator[Worker]:
+    async with guarded_client(user_agent="DocentTest", timeout=5, allow_private=True) as http:
+        knowledge = KnowledgeDeps(
+            settings=settings, store=app.state.docent.store, embedder=embedder, http=http
+        )
+        handlers = make_handlers(mailbox) | make_knowledge_handlers(knowledge)
+        yield Worker(worker_pool, handlers, idle_poll_seconds=60, lease_seconds=30, worker_id="t1")
 
 
 ClientFactory = Callable[..., httpx.AsyncClient]

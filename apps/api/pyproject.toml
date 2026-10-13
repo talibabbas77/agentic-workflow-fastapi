@@ -40,6 +40,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.17.0",
+    "types-defusedxml>=0.7.0.20260504",
 ]
 
 [tool.ruff]
@@ -55,6 +56,8 @@ ignore = ["S101"]
 "tests/**" = ["S105", "S106", "S311"]
 "alembic/**" = ["E501"]
 "src/docent/email/templates.py" = ["E501"]
+# httpcore defines the network backend signature, including its timeout parameter.
+"src/docent/knowledge/fetch.py" = ["ASYNC109"]
 
 [tool.mypy]
 python_version = "3.14"

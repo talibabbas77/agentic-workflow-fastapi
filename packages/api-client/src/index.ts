@@ -21,6 +21,13 @@ export type Onboarding = Schemas["OnboardingOut"];
 export type OnboardingStep = Schemas["OnboardingStep"];
 export type Role = Schemas["MemberOut"]["role"];
 export type ApiError = Schemas["ErrorDetail"];
+export type Source = Schemas["SourceOut"];
+export type Sources = Schemas["SourcesOut"];
+export type SourceDetail = Schemas["SourceDetailOut"];
+export type KnowledgeDocument = Schemas["DocumentOut"];
+export type SearchHit = Schemas["SearchHitOut"];
+export type SearchResult = Schemas["SearchOut"];
+export type Audience = Schemas["SourceOut"]["audience"];
 
 export interface ApiClientOptions {
   baseUrl: string;

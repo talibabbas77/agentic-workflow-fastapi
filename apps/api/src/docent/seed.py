@@ -10,10 +10,14 @@ SEED_OWNER_PASSWORD, demo teammates share SEED_DEMO_PASSWORD.
 """
 
 import asyncio
+import json
 import os
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
+
+import httpx
 
 from docent.config import Settings
 from docent.db.pool import Connection, Pool, create_pool, set_context, transaction
@@ -180,8 +184,56 @@ async def _reset(pool: Pool, owner_email: str) -> None:
                 await conn.execute("delete from users where id = $1", row["id"])
 
 
+async def _seed_knowledge(
+    settings: Settings, api_url: str, owner_email: str, owner_password: str, fixtures: Path
+) -> list[str]:
+    """Upload each demo company's help center through the API, as a customer would."""
+    lines: list[str] = []
+    async with httpx.AsyncClient(
+        base_url=api_url, headers={"origin": settings.web_origin}, timeout=30
+    ) as api:
+        try:
+            login = await api.post(
+                "/v1/auth/login", json={"email": owner_email, "password": owner_password}
+            )
+        except httpx.ConnectError:
+            return [f"Knowledge: skipped, no API at {api_url}. Start it and run the seed again."]
+        login.raise_for_status()
+        workspaces = {t["name"]: t["id"] for t in login.json()["tenants"]}
+        for ws in WORKSPACES:
+            folder = fixtures / ws.slug
+            if ws.name not in workspaces or not folder.is_dir():
+                continue
+            switch = await api.post(
+                "/v1/auth/switch-tenant", json={"tenant_id": workspaces[ws.name]}
+            )
+            switch.raise_for_status()
+            if (await api.get("/v1/knowledge/sources")).json()["sources"]:
+                lines.append(f"{ws.name}: knowledge already uploaded")
+                continue
+            identified = set(json.loads((folder / "questions.json").read_text())["identified_only"])
+            files = sorted(folder.glob("*.md"))
+            for path in files:
+                upload = await api.post(
+                    "/v1/knowledge/uploads",
+                    files={"file": (path.name, path.read_bytes(), "text/markdown")},
+                    data={"audience": "identified" if path.name in identified else "public"},
+                )
+                upload.raise_for_status()
+            lines.append(
+                f"{ws.name}: uploaded {len(files)} help articles, the worker is indexing them"
+            )
+    return lines
+
+
 async def seed(
-    settings: Settings, owner_email: str, owner_name: str, *, reset: bool = False
+    settings: Settings,
+    owner_email: str,
+    owner_name: str,
+    *,
+    reset: bool = False,
+    api_url: str | None = None,
+    fixtures: Path | None = None,
 ) -> list[str]:
     if settings.env not in ("local", "test"):
         raise SystemExit("Refusing to seed demo data outside local and test environments.")
@@ -207,6 +259,8 @@ async def seed(
         lines = [await _seed_workspace(pool, ws, people, settings) for ws in WORKSPACES]
     finally:
         await pool.close()
+    if api_url and fixtures:
+        lines += await _seed_knowledge(settings, api_url, owner_email, owner_password, fixtures)
 
     lines += [
         "",

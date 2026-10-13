@@ -6,6 +6,7 @@ from docent.api.deps import AdminMember, CurrentMember, State
 from docent.api.errors import not_found
 from docent.api.schemas import ErrorOut, OnboardingOut, OnboardingStep, TenantOut, TenantUpdateIn
 from docent.db.pool import transaction
+from docent.knowledge import repo as knowledge
 from docent.services import audit, tenants
 
 router = APIRouter(prefix="/v1", tags=["workspace"], responses={403: {"model": ErrorOut}})
@@ -60,11 +61,12 @@ async def onboarding(member: CurrentMember, state: State) -> OnboardingOut:
             """,
             member.tenant_id,
         )
+        taught = await knowledge.ready_source_exists(conn)
     steps = [
         OnboardingStep(key="create_workspace", status="done"),
         OnboardingStep(key="verify_email", status="done" if member.user.email_verified else "todo"),
         OnboardingStep(key="invite_team", status="done" if team > 1 else "todo"),
-        OnboardingStep(key="teach_agent", status="locked"),
+        OnboardingStep(key="teach_agent", status="done" if taught else "todo"),
         OnboardingStep(key="install_widget", status="locked"),
         OnboardingStep(key="first_answer", status="locked"),
     ]

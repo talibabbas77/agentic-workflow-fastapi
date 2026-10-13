@@ -7,8 +7,10 @@ import httpx
 from docent.config import Settings
 from docent.db.pool import Pool
 from docent.jobs.wake import WorkerWaker
+from docent.knowledge.embeddings import Embedder
 from docent.redis_hub import RedisHub
 from docent.security.ratelimit import RateLimiter
+from docent.storage import ObjectStore
 
 
 @dataclass(slots=True)
@@ -19,3 +21,5 @@ class AppState:
     limiter: RateLimiter
     http: httpx.AsyncClient
     waker: WorkerWaker
+    store: ObjectStore
+    embedder: Embedder

@@ -68,10 +68,16 @@ async def two_tenants(
     b_client = client_factory()
     a = await verified_owner(a_client, drain, "Tenant A")
     b = await verified_owner(b_client, drain, "Tenant B")
-    # Give each tenant an invitation and audit rows too.
+    # Give each tenant rows in every tenant table: invitations, audit, and knowledge.
     for c in (a_client, b_client):
         r = await c.post("/v1/invitations", json={"email": "x@example.com", "role": "agent"})
         assert r.status_code == 201
+        upload = await c.post(
+            "/v1/knowledge/uploads",
+            files={"file": ("guide.md", b"# Guide\n\nShared text in both tenants.")},
+        )
+        assert upload.status_code == 201, upload.text
+    await drain()
     return a, b
 
 

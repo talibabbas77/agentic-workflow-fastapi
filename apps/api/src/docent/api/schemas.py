@@ -189,3 +189,94 @@ class ErrorDetail(BaseModel):
 
 class ErrorOut(BaseModel):
     error: ErrorDetail
+
+
+# Knowledge
+
+Audience = Literal["public", "identified"]
+SourceKind = Literal["upload", "url", "sitemap"]
+SourceStatus = Literal["queued", "syncing", "ready", "failed", "deleting"]
+DocumentStatus = Literal["queued", "parsing", "embedding", "ready", "failed"]
+
+
+class SourceCreateIn(Model):
+    kind: Literal["url", "sitemap"]
+    url: Annotated[str, StringConstraints(strip_whitespace=True, min_length=4, max_length=2048)]
+    audience: Audience = "public"
+    title: Name | None = None
+    page_limit: int = Field(default=50, ge=1, le=1000)
+
+
+class SourceUpdateIn(Model):
+    title: Name | None = None
+    audience: Audience | None = None
+
+
+class SearchIn(Model):
+    query: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+    audience: Audience = "public"
+    limit: int = Field(default=8, ge=1, le=20)
+
+
+class SourceOut(BaseModel):
+    id: uuid.UUID
+    kind: SourceKind
+    title: str
+    uri: str | None
+    audience: Audience
+    status: SourceStatus
+    last_error: str | None
+    page_limit: int
+    document_count: int
+    chunk_count: int
+    created_at: datetime
+    updated_at: datetime
+    last_synced_at: datetime | None
+
+
+class SourcesOut(BaseModel):
+    sources: list[SourceOut]
+    document_total: int
+    chunk_total: int
+    document_limit: int
+
+
+class DocumentOut(BaseModel):
+    id: uuid.UUID
+    locator: str
+    title: str
+    url: str | None
+    mime: str
+    byte_size: int | None
+    status: DocumentStatus
+    last_error: str | None
+    page_count: int | None
+    chunk_count: int
+    updated_at: datetime
+
+
+class SourceDetailOut(BaseModel):
+    source: SourceOut
+    documents: list[DocumentOut]
+
+
+class SearchHitOut(BaseModel):
+    chunk_id: uuid.UUID
+    document_id: uuid.UUID
+    source_id: uuid.UUID
+    document_title: str
+    url: str | None
+    heading_path: str
+    content: str
+    page: int | None
+    score: float
+    similarity: float | None
+    keyword_rank: float | None
+
+
+class SearchOut(BaseModel):
+    hits: list[SearchHitOut]
+    took_ms: int
+    mode: Literal["hybrid", "keyword"] = Field(
+        description="keyword when the embedding service is unavailable"
+    )

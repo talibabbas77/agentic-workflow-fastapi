@@ -231,7 +231,7 @@ async def test_onboarding_progress(
         "create_workspace": "done",
         "verify_email": "todo",
         "invite_team": "todo",
-        "teach_agent": "locked",
+        "teach_agent": "todo",
         "install_widget": "locked",
         "first_answer": "locked",
     }

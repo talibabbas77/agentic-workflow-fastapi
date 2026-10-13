@@ -13,14 +13,16 @@ from docent.api.middleware import (
     OriginCheckMiddleware,
     RequestContextMiddleware,
 )
-from docent.api.routes import auth, health, members, workspace
+from docent.api.routes import auth, health, knowledge, members, workspace
 from docent.api.state import AppState
 from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
 from docent.jobs.wake import WorkerWaker
+from docent.knowledge.embeddings import OllamaEmbedder
 from docent.log import configure_logging
 from docent.redis_hub import RedisHub
 from docent.security.ratelimit import RateLimiter
+from docent.storage import ObjectStore
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -47,6 +49,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             waker=WorkerWaker(
                 http, settings.worker_url, settings.internal_token.get_secret_value()
             ),
+            store=ObjectStore.from_url(settings.object_store),
+            embedder=OllamaEmbedder(
+                http,
+                settings.ollama_base_url,
+                settings.embedding_model,
+                settings.embedding_dims,
+                timeout=15.0,  # a search query must not hang the request
+            ),
         )
         try:
             yield
@@ -66,8 +76,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     install_error_handlers(app)
     app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.allowed_origins)
-    app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.max_body_bytes)
+    app.add_middleware(
+        BodySizeLimitMiddleware,
+        max_bytes=settings.max_body_bytes,
+        overrides={"/v1/knowledge/uploads": settings.max_upload_bytes + 100_000},
+    )
     app.add_middleware(RequestContextMiddleware)
-    for router in (health.router, auth.router, workspace.router, members.router):
+    for router in (health.router, auth.router, workspace.router, members.router, knowledge.router):
         app.include_router(router)
     return app

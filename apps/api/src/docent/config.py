@@ -77,8 +77,22 @@ class Settings(BaseSettings):
     reset_token_ttl_minutes: int = 60
     invite_ttl_days: int = 7
 
-    # Ollama (used from Phase 2)
+    # Knowledge: storage, crawling, embeddings
+    object_store_url: str | None = None  # file:///path or memory://; default .data/objects
+    max_upload_bytes: int = 20_000_000
+    tenant_max_documents: int = 500
+    crawl_max_pages: int = 200
+    crawl_max_page_bytes: int = 5_000_000
+    crawl_delay_seconds: float = 0.5
+    crawl_timeout_seconds: float = 20.0
+    crawl_user_agent: str = "DocentBot/0.1 (+https://docent.example/bot)"
+    crawl_allow_private: bool = False  # tests only: allow fetching loopback addresses
     ollama_base_url: str = "http://127.0.0.1:11434"
+    embedding_model: str = "embeddinggemma"
+    embedding_dims: int = 768
+    embedding_batch_size: int = 16
+    embedding_timeout_seconds: float = 300.0
+    search_rate_per_minute: int = 60
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> Settings:
@@ -95,6 +109,14 @@ class Settings(BaseSettings):
         if self.cookie_secure is not None:
             return self.cookie_secure
         return self.env in ("staging", "production")
+
+    @property
+    def object_store(self) -> str:
+        if self.object_store_url:
+            return self.object_store_url
+        env_file = _repo_env_file()
+        root = env_file.parent if env_file else Path.cwd()
+        return (root / ".data" / "objects").as_uri()
 
     @property
     def allowed_origins(self) -> set[str]:

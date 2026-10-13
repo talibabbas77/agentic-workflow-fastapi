@@ -19,7 +19,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
 FROM python:3.14-slim-bookworm AS runtime
-RUN useradd --create-home --uid 10001 docent
+RUN useradd --create-home --uid 10001 docent \
+ && mkdir -p /data/objects && chown docent:docent /data/objects
 WORKDIR /app
 COPY --from=build --chown=docent:docent /app /app
 ENV PATH="/app/.venv/bin:${PATH}" \
