@@ -100,6 +100,7 @@ async def test_no_supporting_source_hands_off_without_calling_the_model(
         "confidence": None,
         "reason": "no_source",
         "citations": [],
+        "account_facts": [],
     }
     assert chat.calls == []
     await drain()  # the summary job runs in the worker
@@ -180,6 +181,7 @@ async def test_invalid_citations_fail_toward_a_person(
             "type": "answer",
             "answer": "Refunds take 90 days [9].",
             "citations": [9],
+            "account_facts": [],
             "confidence": "high",
             "escalation_reason": None,
         }
@@ -198,6 +200,7 @@ async def test_links_outside_cited_sources_are_removed(
             "answer": "Use https://help.lumen-notes.example/refunds or https://evil.example/steal "
             "![x](https://evil.example/pixel.png) [1].",
             "citations": [1],
+            "account_facts": [],
             "confidence": "high",
             "escalation_reason": None,
         }
@@ -215,6 +218,7 @@ async def test_second_low_confidence_answer_escalates(
         "type": "answer",
         "answer": "Possibly within 30 days [1].",
         "citations": [1],
+        "account_facts": [],
         "confidence": "low",
         "escalation_reason": None,
     }
@@ -261,6 +265,58 @@ async def test_verified_claims_reach_the_model_and_chat_claims_do_not(
     assert detail["claims"] == {"name": "Sam", "plan": "pro"}
     anonymous = await conversation(owner, claims={"plan": "pro"})
     assert (await owner.get(f"/v1/agent/conversations/{anonymous}")).json()["claims"] == {}
+
+
+def account_reply(answer: str, facts: list[str]) -> dict[str, Any]:
+    return {
+        "type": "answer",
+        "answer": answer,
+        "citations": [],
+        "account_facts": facts,
+        "confidence": "high",
+        "escalation_reason": None,
+    }
+
+
+async def test_verified_visitor_gets_account_answers_without_a_source(
+    owner: httpx.AsyncClient, chat: FakeChat
+) -> None:
+    """Nothing in the help center says which plan this visitor is on; the signed claims do."""
+    chat.replies.append(account_reply("You are on the Pro plan.", ["Plan: pro", "name"]))
+    cid = await conversation(owner, mode="identified", claims={"name": "Sam", "plan": "pro"})
+    message = await say(owner, cid, "what plan am I on")
+    assert message["decision"]["type"] == "answer"
+    assert message["decision"]["account_facts"] == ["plan"]  # "name" is not in the answer
+    assert message["citations"] == []
+    prompt = chat.calls[-1][-1]["content"]
+    assert "<sources>\n\n</sources>" in prompt  # weak passages never reach the model
+
+
+@pytest.mark.parametrize(
+    ("answer", "facts"),
+    [
+        ("You are on the Enterprise plan.", ["plan"]),  # not the verified value
+        ("You are on the Pro plan.", ["tier"]),  # not a verified key
+        ("You are on the Pro plan.", []),  # no source and no account fact
+        ("Your plan is professional.", ["plan"]),  # the value only inside another word
+    ],
+)
+async def test_account_answers_must_repeat_a_verified_value(
+    owner: httpx.AsyncClient, chat: FakeChat, answer: str, facts: list[str]
+) -> None:
+    chat.replies.append(account_reply(answer, facts))
+    cid = await conversation(owner, mode="identified", claims={"plan": "pro"})
+    message = await say(owner, cid, "what plan am I on")
+    assert message["decision"]["reason"] == "no_source"
+
+
+async def test_identified_without_claims_still_skips_the_model(
+    owner: httpx.AsyncClient, chat: FakeChat
+) -> None:
+    cid = await conversation(owner, mode="identified", claims={})
+    message = await say(owner, cid, "zebra migration patterns in kenya")
+    assert message["decision"]["reason"] == "no_source"
+    assert chat.calls == []
 
 
 async def test_untrusted_text_cannot_break_out_of_its_block(

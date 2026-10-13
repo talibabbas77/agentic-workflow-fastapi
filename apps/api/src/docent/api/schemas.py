@@ -325,6 +325,9 @@ class DecisionOut(BaseModel):
     confidence: Literal["high", "medium", "low"] | None
     reason: str | None
     citations: list[int]
+    account_facts: list[str] = Field(
+        default_factory=list, description="Verified account details the answer relies on"
+    )
 
 
 class MessageOut(BaseModel):
@@ -471,6 +474,7 @@ class WidgetUser(BaseModel):
 class WidgetSessionOut(BaseModel):
     session_token: str
     expires_at: datetime
+    expires_in: int = Field(description="Seconds until expiry, free of client clock skew")
     mode: Literal["anonymous", "identified"]
     visitor_id: str | None
     user: WidgetUser
@@ -481,10 +485,16 @@ class WidgetConversationIn(Model):
     resume_id: uuid.UUID | None = None
 
 
+class WidgetHandoff(BaseModel):
+    status: Literal["open", "assigned", "waiting", "resolved"]
+    contact_given: bool = Field(description="The team already has an email to reply to")
+
+
 class WidgetConversationOut(BaseModel):
     id: uuid.UUID
     status: Literal["open", "escalated", "closed"]
     messages: list[MessageOut]
+    handoff: WidgetHandoff | None = Field(description="The latest handoff, if any")
 
 
 class ContactIn(Model):

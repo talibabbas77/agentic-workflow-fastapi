@@ -27,6 +27,7 @@ from docent.api.schemas import (
     MessageOut,
     WidgetConversationIn,
     WidgetConversationOut,
+    WidgetHandoff,
     WidgetInfo,
     WidgetSessionIn,
     WidgetSessionOut,
@@ -141,6 +142,7 @@ async def create_session(
     return WidgetSessionOut(
         session_token=token,
         expires_at=expires_at,
+        expires_in=int(ttl.total_seconds()),
         mode="identified" if identity else "anonymous",
         visitor_id=visitor_id,
         user=WidgetUser(name=identity.name if identity else None),
@@ -284,9 +286,21 @@ async def _conversation_out(conn: Connection, conversation_id: uuid.UUID) -> Wid
     row = await agent_repo.get_conversation(conn, conversation_id)
     assert row is not None
     messages = await agent_repo.conversation_messages(conn, conversation_id)
+    handoff = await conn.fetchrow(
+        """
+        select e.status, (e.contact_email is not null or u.email is not null) as contact_given
+        from escalations e
+        join conversations c on c.id = e.conversation_id
+        left join end_users u on u.id = c.end_user_id
+        where e.conversation_id = $1
+        order by e.created_at desc limit 1
+        """,
+        conversation_id,
+    )
     return WidgetConversationOut(
         id=row["id"],
         status=row["status"],
+        handoff=WidgetHandoff(**dict(handoff)) if handoff else None,
         messages=[
             MessageOut(
                 id=m["id"],

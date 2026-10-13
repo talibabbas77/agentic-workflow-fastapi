@@ -68,6 +68,7 @@ def _default(messages: list[dict[str, str]], name: str) -> dict[str, object]:
             "type": "answer",
             "answer": "Here is what our help center says [1].",
             "citations": [1],
+            "account_facts": [],
             "confidence": "high",
             "escalation_reason": None,
         }

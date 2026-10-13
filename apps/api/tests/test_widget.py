@@ -389,9 +389,21 @@ async def test_anonymous_rate_limit_contact_and_revocation(
         f"{url}/messages", json={"content": "talk to a human"}, headers=headers
     )
     assert '"reason": "user_requested"' in handoff.text
+    assert created["expires_in"] == 30 * 60
+
+    async def resumed_handoff() -> dict[str, Any]:
+        body = {"resume_id": conversation["id"]}
+        resumed = await frame.post("/v1/widget/conversations", json=body, headers=headers)
+        assert resumed.json()["id"] == conversation["id"]
+        handoff: dict[str, Any] = resumed.json()["handoff"]
+        return handoff
+
+    assert conversation["handoff"] is None
+    assert await resumed_handoff() == {"status": "open", "contact_given": False}
     assert (
         await frame.post(f"{url}/contact", json={"email": "visitor@example.com"}, headers=headers)
     ).status_code == 204
+    assert (await resumed_handoff())["contact_given"] is True
     async with admin_pool.acquire() as conn:
         assert await conn.fetchval("select contact_email from escalations") == "visitor@example.com"
     codes = []

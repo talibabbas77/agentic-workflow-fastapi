@@ -805,6 +805,11 @@ export interface components {
             reason: string | null;
             /** Citations */
             citations: number[];
+            /**
+             * Account Facts
+             * @description Verified account details the answer relies on
+             */
+            account_facts?: string[];
         };
         /** DocumentOut */
         DocumentOut: {
@@ -1505,6 +1510,21 @@ export interface components {
             status: "open" | "escalated" | "closed";
             /** Messages */
             messages: components["schemas"]["MessageOut"][];
+            /** @description The latest handoff, if any */
+            handoff: components["schemas"]["WidgetHandoff"] | null;
+        };
+        /** WidgetHandoff */
+        WidgetHandoff: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "assigned" | "waiting" | "resolved";
+            /**
+             * Contact Given
+             * @description The team already has an email to reply to
+             */
+            contact_given: boolean;
         };
         /** WidgetIn */
         WidgetIn: {
@@ -1596,6 +1616,11 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+            /**
+             * Expires In
+             * @description Seconds until expiry, free of client clock skew
+             */
+            expires_in: number;
             /**
              * Mode
              * @enum {string}

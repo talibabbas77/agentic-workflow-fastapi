@@ -3,16 +3,20 @@
   1. record    store the visitor message, reserve one reply from the monthly cap
   2. guard     rules catch requests for a person and restricted topics (no model call)
   3. retrieve  hybrid search over the tenant's knowledge, filtered by audience
-  4. gate      no source above the evidence threshold means a handoff (no model call)
+  4. gate      no source above the evidence threshold means a handoff (no model call),
+               unless the visitor is verified: then the model sees only their
+               account details, so "what plan am I on" can still be answered
   5. generate  the model returns a structured decision with cited source numbers
-  6. validate  citations must point at retrieved sources, links must be the sources'
-               own, a second low-confidence turn becomes a handoff
+  6. validate  citations must point at retrieved sources, account answers must
+               repeat a verified value, links must be the sources' own, and a
+               second low-confidence turn becomes a handoff
   7. persist   reply, citations, usage and cost, escalation and its summary job
 
 The generator yields progress events while it works and the final reply last,
 so a client can show what is happening without ever seeing an unchecked answer.
 """
 
+import re
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -76,6 +80,7 @@ class _Outcome:
     reason: EscalationReason | None = None
     confidence: str | None = None
     cited: list[tuple[int, Hit]] = field(default_factory=list)
+    account_facts: list[str] = field(default_factory=list)
     generation: Structured[AgentDecision] | None = None
     low_confidence_turns: int = 0
 
@@ -108,6 +113,8 @@ async def run_turn(
             yield Progress("searching")
             hits = await _retrieve(deps, tenant_id, conversation["mode"], text, history)
             if not _supported(hits, s.retrieval_min_similarity):
+                hits = []
+            if not hits and not claims:
                 outcome = _escalate("no_source", low_turns)
             else:
                 yield Progress("writing")
@@ -196,12 +203,14 @@ async def _generate(
         )
     except LLMError:
         return _escalate("low_confidence", low_turns)
-    outcome = validate(generation.value, hits, low_turns)
+    outcome = validate(generation.value, hits, claims, low_turns)
     outcome.generation = generation
     return outcome
 
 
-def validate(decision: AgentDecision, hits: list[Hit], low_turns: int) -> _Outcome:
+def validate(
+    decision: AgentDecision, hits: list[Hit], claims: dict[str, str], low_turns: int
+) -> _Outcome:
     """Turn the model's decision into what the visitor sees, failing toward a person."""
     if decision.type == "escalate":
         return _escalate(decision.escalation_reason or "no_source", low_turns)
@@ -218,7 +227,8 @@ def validate(decision: AgentDecision, hits: list[Hit], low_turns: int) -> _Outco
 
     valid = set(range(1, len(hits) + 1))
     cited = sorted((set(decision.citations) | guards.markers(answer)) & valid)
-    if not cited:
+    facts = _account_facts(decision.account_facts, claims, answer)
+    if not cited and not facts:
         return _escalate("no_source", low_turns)
     for marker in guards.markers(answer) - valid:
         answer = answer.replace(f"[{marker}]", "")
@@ -233,8 +243,24 @@ def validate(decision: AgentDecision, hits: list[Hit], low_turns: int) -> _Outco
         answer,
         confidence=decision.confidence,
         cited=[(n, hits[n - 1]) for n in cited],
+        account_facts=facts,
         low_confidence_turns=low_turns,
     )
+
+
+def _account_facts(named: list[str], claims: dict[str, str], answer: str) -> list[str]:
+    """Verified details the answer really uses: a known key whose value the answer repeats.
+
+    Small models write "Plan: Free" where the schema asks for "plan", so the key is
+    read from the text before any colon.
+    """
+    by_key = {k.casefold(): k for k in claims}
+    keys = [by_key.get(n.split(":", 1)[0].strip().casefold()) for n in named]
+
+    def repeated(value: str) -> bool:
+        return re.search(rf"(?<!\w){re.escape(value)}(?!\w)", answer, re.IGNORECASE) is not None
+
+    return [k for k in dict.fromkeys(keys) if k and claims[k] and repeated(claims[k])]
 
 
 def _escalate(reason: EscalationReason, low_turns: int) -> _Outcome:
@@ -257,6 +283,7 @@ async def _persist(
         "confidence": outcome.confidence,
         "reason": outcome.reason,
         "citations": [n for n, _ in outcome.cited],
+        "account_facts": outcome.account_facts,
     }
     message_id = await repo.add_message(
         conn,

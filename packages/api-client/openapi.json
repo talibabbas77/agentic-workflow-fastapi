@@ -3250,6 +3250,14 @@
             },
             "type": "array",
             "title": "Citations"
+          },
+          "account_facts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Account Facts",
+            "description": "Verified account details the answer relies on"
           }
         },
         "type": "object",
@@ -4991,15 +4999,52 @@
             },
             "type": "array",
             "title": "Messages"
+          },
+          "handoff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WidgetHandoff"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The latest handoff, if any"
           }
         },
         "type": "object",
         "required": [
           "id",
           "status",
-          "messages"
+          "messages",
+          "handoff"
         ],
         "title": "WidgetConversationOut"
+      },
+      "WidgetHandoff": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "assigned",
+              "waiting",
+              "resolved"
+            ],
+            "title": "Status"
+          },
+          "contact_given": {
+            "type": "boolean",
+            "title": "Contact Given",
+            "description": "The team already has an email to reply to"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "contact_given"
+        ],
+        "title": "WidgetHandoff"
       },
       "WidgetIn": {
         "properties": {
@@ -5168,7 +5213,8 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 8192
+                "maxLength": 8192,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -5208,6 +5254,11 @@
             "format": "date-time",
             "title": "Expires At"
           },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Seconds until expiry, free of client clock skew"
+          },
           "mode": {
             "type": "string",
             "enum": [
@@ -5238,6 +5289,7 @@
         "required": [
           "session_token",
           "expires_at",
+          "expires_in",
           "mode",
           "visitor_id",
           "user",

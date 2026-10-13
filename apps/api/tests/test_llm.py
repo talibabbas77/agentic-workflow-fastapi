@@ -14,6 +14,7 @@ VALID = {
     "type": "answer",
     "answer": "Yes [1].",
     "citations": [1],
+    "account_facts": [],
     "confidence": "high",
     "escalation_reason": None,
 }
