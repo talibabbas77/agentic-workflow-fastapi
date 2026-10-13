@@ -34,6 +34,12 @@ A phase is done when all of these hold:
 
 ## Phase 1. Project skeleton, auth, tenants, admin shell
 
+**Status: built 2026-10-14, waiting for review.** All 13 checks pass locally.
+Checks 3 to 7, 9 and 10 run in the API test suite (53 tests); 1, 2 and 8 run in
+the Playwright suite against the Docker stack; 11 is covered by
+`test_idle_worker_does_not_poll`; 12 passed with a real dump and restore drill.
+Check 13 runs when the repo is pushed to GitHub.
+
 **Goal:** a running monorepo where a person can sign up, create a tenant,
 invite a teammate, and see an empty admin app, with tenant isolation enforced
 by the database from the first table.
