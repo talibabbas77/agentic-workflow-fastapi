@@ -26,7 +26,8 @@
     "check:rules": "node scripts/check-rules.mjs",
     "backup": "bash infra/backup/backup.sh",
     "backup:restore-drill": "bash infra/backup/restore-drill.sh",
-    "backup:keygen": "bash infra/backup/keygen.sh"
+    "backup:keygen": "bash infra/backup/keygen.sh",
+    "seed": "uv run --directory apps/api docent seed"
   },
   "engines": {
     "node": ">=24"

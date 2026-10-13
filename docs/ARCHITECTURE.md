@@ -36,7 +36,7 @@ against. Project rules in [CLAUDE.md](../CLAUDE.md) win if the two disagree.
 | D4 | Shared schema, `tenant_id` on every tenant table, Postgres RLS with `FORCE ROW LEVEL SECURITY`, tenant set per transaction with `set_config('app.tenant_id', ..., true)`. | Works through PgBouncer transaction pooling on Neon. Session-level `SET` does not. |
 | D5 | Staff auth is built into the FastAPI backend: email and password (argon2id), email verification, opaque session tokens hashed in Postgres. | One source of truth for sessions. No auth vendor lock-in. |
 | D6 | LLM access goes through a thin internal client over the OpenAI-compatible Chat Completions API. No LiteLLM. | Works with Ollama local, Ollama Cloud, and most paid providers. Fewer dependencies. |
-| D7 | Embeddings: `qwen3-embedding:0.6b` through Ollama, truncated to 768 dims, stored as `halfvec(768)`. Same model in dev, staging and prod. | Multilingual, 32K context, permissive license, 639 MB. Half-precision vectors halve storage on a 1 GB free database. |
+| D7 | Embeddings: `embeddinggemma` through Ollama, 768 dims, stored as `halfvec(768)`. Same model in dev, staging and prod. | Multilingual, 622 MB, 2.3 passages per second on a CPU-only laptop (six times faster than `qwen3-embedding:0.6b`, measured). Half-precision vectors halve storage on a 1 GB free database. Gemma terms of use allow commercial use. |
 | D8 | Answers are **validated before they are shown**. No token streaming in v1. The widget shows progress states instead. | Citations must be checked against retrieved sources before a visitor sees anything. |
 | D9 | Human replies to escalations go out **by email** in v1. No live takeover inside the widget. | Live takeover needs presence, routing, and websockets. Email covers the core need. |
 | D10 | Hitting a usage cap switches the widget to **escalate-only mode** (contact form to a human). It never goes dark. | A hard cap that silences a customer's support is worse than no cap. |
@@ -44,8 +44,10 @@ against. Project rules in [CLAUDE.md](../CLAUDE.md) win if the two disagree.
 | D12 | Redis is optional. Every Redis use has an in-process or Postgres fallback. | Free tier is 500K commands per month and rejects requests past it. |
 | D13 | Job worker wakes on an internal HTTP signal from the API, with a slow safety poll. No tight polling loop. | Neon Free gives 100 CU-hours a month and suspends after 5 idle minutes. A 1-second poll keeps compute awake all month. |
 | D14 | Local dev: Docker Compose runs Postgres 17 with pgvector, Redis, and Mailpit. Ollama runs natively. | Matches Neon's Postgres 17 with pgvector 0.8. Docker on macOS has no GPU. |
-| D15 | Original uploaded files go to S3-compatible object storage (local filesystem adapter in dev). Postgres holds chunks and metadata only. | Keeps the database small. |
+| D15 | Original uploaded files go to object storage behind one interface: a Docker volume now, Cloudinary (raw files) later. Postgres holds chunks and metadata only. | Keeps the database small. |
 | D16 | Next.js runs as a standalone Docker image next to the API. Not on Vercel Hobby. | Vercel Hobby forbids commercial use. |
+| D17 | Escalations get a kanban board (Open, Assigned, Waiting, Resolved) as a second view of the inbox in Phase 5. | Escalations move through statuses; a board is the natural way to work them. |
+| D18 | No visual workflow builder. Automation is "When ... Then ..." routing rules for escalations plus outgoing webhooks. | A node editor needs an execution engine, versioning, retries, secrets, and outbound requests (an SSRF surface). Routing rules cover support needs; webhooks let teams connect their own n8n, Zapier, or Make. |
 
 ### Open (yours to decide, with the latest moment it blocks work)
 
@@ -587,7 +589,7 @@ suggested_next_step`) for the inbox.
 | Answer and decision | `gemma4:cloud` (free plan, synthetic data only) | Paid provider (O2) |
 | Query rewrite, summaries | Same model | Cheaper model from the same provider |
 | Eval judge | Same model, temperature 0 | Separate model from the answer model |
-| Embeddings | `qwen3-embedding:0.6b` at 768 dims | Same, self-hosted |
+| Embeddings | `embeddinggemma` at 768 dims | Same, self-hosted |
 
 Every call records `model`, `prompt_version`, tokens, latency, and cost.
 
@@ -1016,3 +1018,14 @@ customer's real data arrives**.
   limits and the edge requirement (section 12, Phase 4 check).
 - `/healthz` never sends a Redis command; it reports the circuit state only.
   A health probe every 10 seconds would otherwise use about 260K commands a month.
+
+### 2026-10-14, product and tooling decisions
+
+- Embedding model switched to `embeddinggemma` after measuring CPU throughput
+  on the dev machine: 2.29 passages per second against 0.37 for
+  `qwen3-embedding:0.6b`. Phase 2 retrieval checks confirm quality.
+- D17 and D18 added: kanban view for escalations, routing rules and webhooks
+  instead of a visual workflow builder.
+- Object storage: Docker volume now, Cloudinary later, behind one interface.
+- Demo data seeds use public Mailinator inboxes for teammates.
+- Interface type is Geist; the root size is fluid with the screen width.

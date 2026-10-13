@@ -110,16 +110,15 @@ see exactly which passages a question would retrieve.
 
 **Scope**
 
-- Object storage interface: local filesystem in dev, S3-compatible in staging
-  and prod.
+- Object storage interface: a Docker volume now, Cloudinary later.
 - Sources: file upload (PDF, DOCX, Markdown, text, HTML), single URL, sitemap.
   Crawling stays on the same domain, respects `robots.txt`, caps pages, and
   rate-limits itself.
 - Jobs: `ingest_source`, `crawl_url`, `parse_document`, `embed_document`,
   `delete_source`.
 - Chunking by heading, then size (section 6 of ARCHITECTURE.md).
-- Embedding client for Ollama (`qwen3-embedding:0.6b`, 768 dims) behind an
-  interface. Pull the model: `ollama pull qwen3-embedding:0.6b`.
+- Embedding client for Ollama (`embeddinggemma`, 768 dims) behind an
+  interface. Pull the model: `ollama pull embeddinggemma`.
 - `knowledge_sources`, `documents`, `chunks` with HNSW and GIN indexes.
 - Hybrid search service: vector plus keyword, reciprocal rank fusion, audience
   filter, iterative index scans.
@@ -263,6 +262,10 @@ reply without asking the customer to repeat themselves.
 
 - Inbox list with filters (status, ticket type, reason, assignee) and unread
   counts.
+- Kanban board view of escalations (Open, Assigned, Waiting, Resolved) with
+  drag and drop and a keyboard alternative.
+- Routing rules: "When ticket type is X and ... then assign, notify, set
+  priority". Outgoing webhooks for n8n, Zapier, or Make.
 - Escalation detail: transcript with citations, verified user claims, AI
   summary, ticket fields, internal notes, assign, change status.
 - Reply by email from the inbox (Resend in staging, Mailpit locally). Reply-To

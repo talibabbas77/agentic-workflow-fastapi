@@ -53,6 +53,11 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("openapi")
 
+    seed = sub.add_parser("seed", help="Load demo data (local and test only)")
+    seed.add_argument("--owner-email", required=True)
+    seed.add_argument("--owner-name", default="Talib Abbas")
+    seed.add_argument("--reset", action="store_true", help="Rebuild the demo data from scratch")
+
     args = parser.parse_args(argv)
 
     if args.command == "api":
@@ -69,6 +74,15 @@ def main(argv: list[str] | None = None) -> None:
             command.current(cfg)  # type: ignore[arg-type]
         else:
             command.downgrade(cfg, args.revision)  # type: ignore[arg-type]
+    elif args.command == "seed":
+        import asyncio
+
+        from docent.seed import seed as run_seed
+
+        for line in asyncio.run(
+            run_seed(get_settings(), args.owner_email, args.owner_name, reset=args.reset)
+        ):
+            print(line)
     elif args.command == "openapi":
         from docent.api.app import create_app
 

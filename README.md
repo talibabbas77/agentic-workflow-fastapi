@@ -46,6 +46,18 @@ pnpm dev               # API :8000, worker :8001, web :3000
 
 Run everything in containers instead: `pnpm stack:up` (and `pnpm stack:down`).
 
+### Demo data
+
+```bash
+SEED_OWNER_PASSWORD='your password' pnpm seed --owner-email you@example.com
+```
+
+Creates two fictional companies (Lumen Notes and Parcelwise) with teammates,
+roles, and pending invitations, and makes you owner of one and admin of the
+other. Teammates use public `@mailinator.com` inboxes and the password
+`docent-demo-password`. Add `--reset` to rebuild from scratch. Local and test
+environments only.
+
 No `.env` file is needed locally. Copy `.env.example` to `.env` to change
 anything; every variable is documented there.
 

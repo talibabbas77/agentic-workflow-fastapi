@@ -17,9 +17,9 @@ and predictable usage pricing with hard caps. Change this line if the wedge chan
   Local dev with Ollama. Never send real customer data through free API tiers.
   Dev chat model: gemma4:cloud (Ollama free plan, synthetic data only). This dev
   machine is an Intel Mac, so local chat models run on CPU and are too slow.
-- Embeddings: qwen3-embedding:0.6b via Ollama, truncated to 768 dimensions,
-  stored as halfvec(768). Same model in every environment. Changing it means a
-  full re-embed.
+- Embeddings: embeddinggemma via Ollama, 768 dimensions, stored as
+  halfvec(768). Same model in every environment. Changing it means a full
+  re-embed.
 
 ## Tooling
 - Monorepo. JS and TS packages use pnpm workspaces. Python backend uses uv.
@@ -29,7 +29,9 @@ and predictable usage pricing with hard caps. Change this line if the wedge chan
   and `uv add <pkg>` or `uv add --dev <pkg>`. Never hand-write a dependency or
   version into package.json or pyproject.toml and then install.
 - Commit lockfiles (pnpm-lock.yaml, uv.lock).
-- Local dev uses Docker Compose for Postgres with pgvector and Redis.
+- Local dev uses Docker Compose for Postgres with pgvector and Redis. Uploaded
+  files live on a Docker volume behind an object storage interface (Cloudinary
+  adapter later).
   Ollama runs natively on the host (Docker on macOS has no GPU access).
 - Secrets live in untracked .env files. Commit only .env.example.
 
