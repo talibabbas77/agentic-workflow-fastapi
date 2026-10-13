@@ -5,7 +5,7 @@ import {
   RowsIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { route, WorkflowDiagram, type WorkflowLayout } from "@/components/workflow/workflow-diagram";
+import { route, WorkflowDiagram, type WorkflowLayout } from "./workflow-diagram";
 
 /* "How teaching works": what happens to a source from upload to answers. */
 

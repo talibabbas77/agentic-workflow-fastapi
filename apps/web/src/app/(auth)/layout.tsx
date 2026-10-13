@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
           <h2 id="how-docent-answers" className="text-2xl text-ink">
             How Docent answers
           </h2>
-          <AnswerFlow className="mt-10 [--wf-max:0.0703rem]" />
+          <AnswerFlow className="mt-10 [--wf-max:0.0703rem] [&_.wf-stage]:ml-0" />
           <p className="mt-10 text-md text-ink-muted">
             Docent answers from the documents you teach it, cites the page behind every answer, and hands
             the conversation to your team when no source supports one.

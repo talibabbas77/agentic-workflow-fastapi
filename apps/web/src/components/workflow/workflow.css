@@ -249,14 +249,15 @@
   }
 
   /*
-   * Off screen: stop spending CPU on motion nobody can see. Only the looping
-   * motion is paused. Entrance fades always finish, so a diagram that loads
-   * below the fold is never stuck invisible.
+   * Looping motion runs only while the diagram is on screen, which the observer
+   * reports with data-playing. Until the page's script runs it stays still, so
+   * loading is never slowed by animations nobody can see. Entrance fades always
+   * finish, so a diagram is never stuck invisible.
    */
-  .wf[data-paused] .wf-tile,
-  .wf[data-paused] .wf-tile::after,
-  .wf[data-paused] .wf-edge-flow,
-  .wf[data-paused] .wf-edge-dot {
+  .wf:not([data-playing]) .wf-tile,
+  .wf:not([data-playing]) .wf-tile::after,
+  .wf:not([data-playing]) .wf-edge-flow,
+  .wf:not([data-playing]) .wf-edge-dot {
     animation-play-state: paused !important;
   }
 

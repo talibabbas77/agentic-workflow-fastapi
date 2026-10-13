@@ -12,35 +12,37 @@ import { route, WorkflowDiagram, type WorkflowLayout } from "./workflow-diagram"
  * then either answers with sources or hands the conversation to a person.
  */
 
+// One column, so labels stay full size on a phone. The branch to "No supporting
+// source" brackets down the left side, past the answer it replaces.
 const narrow: WorkflowLayout = {
-  width: 480,
-  height: 296,
-  labelWidth: 196,
+  width: 320,
+  height: 376,
+  labelWidth: 240,
   nodes: {
-    ask: { x: 20, y: 20 },
-    search: { x: 20, y: 104 },
-    answer: { x: 20, y: 188 },
-    nosource: { x: 268, y: 188 },
-    handoff: { x: 268, y: 272 },
+    ask: { x: 40, y: 20 },
+    search: { x: 40, y: 100 },
+    answer: { x: 40, y: 180 },
+    nosource: { x: 40, y: 276 },
+    handoff: { x: 40, y: 356 },
   },
   edges: {
     "ask-search": route([
-      { x: 20, y: 20 },
-      { x: 20, y: 104 },
+      { x: 40, y: 20 },
+      { x: 40, y: 100 },
     ]),
     "search-answer": route([
-      { x: 20, y: 104 },
-      { x: 20, y: 188 },
+      { x: 40, y: 100 },
+      { x: 40, y: 180 },
     ]),
     "search-nosource": route([
-      { x: 20, y: 104 },
-      { x: 20, y: 146 },
-      { x: 268, y: 146 },
-      { x: 268, y: 188 },
+      { x: 40, y: 100 },
+      { x: 6, y: 100 },
+      { x: 6, y: 276 },
+      { x: 40, y: 276 },
     ]),
     "nosource-handoff": route([
-      { x: 268, y: 188 },
-      { x: 268, y: 272 },
+      { x: 40, y: 276 },
+      { x: 40, y: 356 },
     ]),
   },
 };

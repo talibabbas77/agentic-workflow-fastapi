@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { KnowledgeManager } from "@/components/knowledge/knowledge-manager";
 import { KnowledgeSkeleton } from "@/components/knowledge/knowledge-skeleton";
-import { TeachingFlow } from "@/components/knowledge/teaching-flow";
+import { TeachingFlow } from "@/components/workflow/teaching-flow";
 import { getMe, getSources } from "@/lib/api/server";
 
 export const metadata: Metadata = { title: "Knowledge" };

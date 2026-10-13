@@ -62,7 +62,9 @@ const CORNER_RADIUS = 12;
  * Smooth orthogonal path through a list of points, with rounded corners.
  * Every edge in a diagram is built from this or a straight line.
  */
-export function route(points: Point[]): string {
+export function route(input: Point[]): string {
+  // Repeated points would make a zero-length segment with no direction.
+  const points = input.filter((p, i) => i === 0 || p.x !== input[i - 1]!.x || p.y !== input[i - 1]!.y);
   if (points.length === 0) return "";
   const [first, ...rest] = points;
   let d = `M${first!.x} ${first!.y}`;

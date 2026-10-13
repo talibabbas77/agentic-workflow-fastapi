@@ -40,10 +40,6 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  // The marketing landing page comes later; until then the root opens the app.
-  async redirects() {
-    return [{ source: "/", destination: "/app", permanent: false }];
-  },
   // The browser only talks to /api on this origin, so the session cookie stays first-party.
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiUrl}/:path*` }];

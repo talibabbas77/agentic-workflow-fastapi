@@ -3,8 +3,8 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 /**
- * The only client code in the workflow diagram: pauses its CSS animations while
- * it is off screen. Everything inside is server-rendered.
+ * The only client code in the workflow diagram: lets its CSS animations run only
+ * while it is on screen. Everything inside is server-rendered.
  */
 export function WorkflowRoot({
   label,
@@ -23,7 +23,7 @@ export function WorkflowRoot({
     const el = ref.current;
     if (!el || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
-      ([entry]) => el.toggleAttribute("data-paused", !entry?.isIntersecting),
+      ([entry]) => el.toggleAttribute("data-playing", Boolean(entry?.isIntersecting)),
       { rootMargin: "64px" },
     );
     observer.observe(el);
