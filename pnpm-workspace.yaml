@@ -3,3 +3,9 @@ packages:
   - apps/widget
   - apps/demo-host
   - packages/*
+
+# Dependency install scripts are denied unless listed here. These two ship
+# prebuilt binaries and do not need their scripts.
+allowBuilds:
+  sharp: false
+  unrs-resolver: false

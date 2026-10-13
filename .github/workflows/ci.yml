@@ -94,15 +94,24 @@ jobs:
       - run: pnpm --filter @docent/web lint
       - run: pnpm --filter @docent/web build
 
-  images:
-    name: Docker images build
+  e2e:
+    name: End to end on the Docker stack
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
-      - name: API image
-        run: docker build -f infra/docker/api.Dockerfile -t docent-api:ci .
-      - name: Web image
-        run: docker build -f infra/docker/web.Dockerfile -t docent-web:ci .
-      - name: Backup image
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build and start every service from the production images
+        run: docker compose --profile app up -d --build --wait
+      - name: Backup image builds
         run: docker build -f infra/docker/backup.Dockerfile -t docent-backup:ci .
+      - run: pnpm --filter @docent/web exec playwright install --with-deps chromium
+      - run: pnpm e2e
+      - name: Service logs
+        if: failure()
+        run: docker compose --profile app logs --no-color --tail 200

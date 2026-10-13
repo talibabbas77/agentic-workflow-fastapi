@@ -1,0 +1,323 @@
+@import "tailwindcss";
+@import "../components/workflow/workflow.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Brand tokens. Light values on :root, dark values on .dark (set by next-themes).
+ * These are the only colors in the product. See brand/README.md.
+ */
+:root {
+  --paper: #f5f0e6;
+  --surface: #fbf8f2;
+  --surface-2: #efe8dc;
+  --ink: #1b1916;
+  --ink-muted: #5e574f;
+  --ink-subtle: #8a8178;
+  --line: #ddd5c8;
+  --line-strong: #c9bfaf;
+  --rust: #b5431f;
+  --rust-hover: #9a3818;
+  --rust-soft: #f2e1d8;
+  --on-rust: #fbf8f2;
+  /* The ribbon in the logo is always the brand rust, in both themes. */
+  --ribbon: #b5431f;
+  /* Backdrop behind dialogs: a dimmed ink, darker in dark mode. */
+  --scrim: color-mix(in srgb, #1b1916 32%, transparent);
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #161412;
+  --surface: #1e1b18;
+  --surface-2: #26221e;
+  --ink: #f1ebe0;
+  --ink-muted: #b3aa9e;
+  --ink-subtle: #857c71;
+  --line: #2e2a26;
+  --line-strong: #3d3833;
+  --rust: #e0673f;
+  --rust-hover: #ea7c57;
+  --rust-soft: #3a2219;
+  --on-rust: #161412;
+  --scrim: color-mix(in srgb, #161412 72%, transparent);
+  color-scheme: dark;
+}
+
+@theme {
+  /* Only brand colors exist. Tailwind's default palette is removed on purpose. */
+  --color-*: initial;
+  --radius-*: initial;
+  --text-*: initial;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
+
+  /* Type scale: 12 13 14 16 18 22 28 36 48 */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.125rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-md: 1rem;
+  --text-md--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 2.625rem;
+  --text-4xl: 3rem;
+  --text-4xl--line-height: 3.25rem;
+
+  /* Radius: small and consistent */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-full: 9999px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-rust: var(--rust);
+  --color-rust-hover: var(--rust-hover);
+  --color-rust-soft: var(--rust-soft);
+  --color-on-rust: var(--on-rust);
+  --color-ribbon: var(--ribbon);
+}
+
+@layer base {
+  html {
+    background: var(--paper);
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: var(--rust-soft);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--rust);
+    outline-offset: 2px;
+  }
+
+  /* Tables use tabular figures so numbers line up. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  dialog {
+    color: inherit;
+  }
+
+  [popover] {
+    color: inherit;
+  }
+}
+
+@layer components {
+  /* Flat skeleton block. */
+  .skeleton {
+    background: var(--surface-2);
+    border-radius: var(--radius-sm);
+    animation: skeleton-breathe 1.6s ease-in-out infinite;
+  }
+
+  /* Native dialog: fade and scale in. */
+  .dialog {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 160ms var(--ease-out),
+      transform 160ms var(--ease-out),
+      overlay 160ms allow-discrete,
+      display 160ms allow-discrete;
+  }
+  .dialog:not([open]) {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  @starting-style {
+    .dialog[open] {
+      opacity: 0;
+      transform: translateY(4px) scale(0.98);
+    }
+  }
+  .dialog::backdrop {
+    background: var(--scrim);
+    opacity: 1;
+    transition:
+      opacity 160ms var(--ease-out),
+      overlay 160ms allow-discrete,
+      display 160ms allow-discrete;
+  }
+  .dialog:not([open])::backdrop {
+    opacity: 0;
+  }
+  @starting-style {
+    .dialog[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
+  /* Drawer variant slides in from the left. */
+  .drawer {
+    transition:
+      transform 200ms var(--ease-out),
+      overlay 200ms allow-discrete,
+      display 200ms allow-discrete;
+    transform: none;
+  }
+  .drawer:not([open]) {
+    transform: translateX(-100%);
+  }
+  @starting-style {
+    .drawer[open] {
+      transform: translateX(-100%);
+    }
+  }
+  .drawer::backdrop {
+    background: var(--scrim);
+  }
+
+  /* Popover menus: fade in below their trigger. */
+  .menu {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 120ms var(--ease-out),
+      transform 120ms var(--ease-out),
+      overlay 120ms allow-discrete,
+      display 120ms allow-discrete;
+  }
+  .menu:not(:popover-open) {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  @starting-style {
+    .menu:popover-open {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+  }
+
+  .toast {
+    animation: toast-in 200ms var(--ease-out) both;
+  }
+
+  .spinner {
+    width: 1em;
+    height: 1em;
+    border-radius: var(--radius-full);
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    animation: spin 700ms linear infinite;
+  }
+
+  .fade-in {
+    animation: fade-in 240ms var(--ease-out) both;
+  }
+}
+
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton {
+    animation: none;
+  }
+  .spinner {
+    animation: spin 1.4s linear infinite !important;
+  }
+}

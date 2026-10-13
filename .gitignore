@@ -12,6 +12,9 @@ node_modules/
 npm-debug.log*
 
 # Next.js and frontend builds
+playwright-report/
+test-results/
+blob-report/
 .next/
 out/
 dist/
