@@ -22,7 +22,8 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 
 /**
  * Menu built on the native popover attribute: light dismiss, Escape to close,
- * and top-layer stacking without a library. Positioned under its trigger.
+ * and top-layer stacking without a library. Positioned under its trigger, or
+ * above it when there is no room below.
  */
 export function PopoverMenu({ trigger, children, align = "start", label, className }: PopoverMenuProps) {
   const id = useId();
@@ -46,6 +47,18 @@ export function PopoverMenu({ trigger, children, align = "start", label, classNa
       menu.style.left = `${Math.round(rect.left)}px`;
     }
     menu.style.minWidth = `${Math.round(rect.width)}px`;
+  };
+
+  // Once open, the menu has a size: flip it above the trigger if it would run off the bottom.
+  const fit = () => {
+    const button = triggerRef.current;
+    const menu = menuRef.current;
+    if (!button || !menu) return;
+    const rect = button.getBoundingClientRect();
+    const height = menu.offsetHeight;
+    if (rect.bottom + 6 + height > window.innerHeight && rect.top - 6 - height >= 0) {
+      menu.style.top = `${Math.round(rect.top - 6 - height)}px`;
+    }
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -72,7 +85,10 @@ export function PopoverMenu({ trigger, children, align = "start", label, classNa
         onBeforeToggle={(event) => {
           if (event.newState === "open") place();
         }}
-        onToggle={(event) => setOpen(event.newState === "open")}
+        onToggle={(event) => {
+          setOpen(event.newState === "open");
+          if (event.newState === "open") fit();
+        }}
         onKeyDown={onKeyDown}
         className={cn(
           "menu fixed m-0 max-w-[calc(100vw-1rem)] rounded-md border border-line bg-surface p-1 text-ink",

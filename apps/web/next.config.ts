@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@docent/api-client"],
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react"],
+    // Next buffers request bodies on the /api rewrite and cuts them off at 10 MB by
+    // default, which breaks knowledge uploads. The API allows 20 MB files; the extra
+    // room covers multipart overhead, and the API still rejects anything larger.
+    proxyClientMaxBodySize: "21mb",
   },
   turbopack: {
     root: repoRoot,

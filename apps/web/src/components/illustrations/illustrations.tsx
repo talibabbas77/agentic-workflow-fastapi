@@ -43,17 +43,6 @@ export function InboxIllustration() {
   );
 }
 
-export function KnowledgeIllustration() {
-  return (
-    <Frame label="A stack of documents with a bookmark">
-      <rect x="40" y="28" width="56" height="72" rx="4" />
-      <rect x="58" y="18" width="58" height="74" rx="4" style={card} />
-      <path d="M68 40h30M68 48h38M68 56h26M68 68h38M68 76h20" />
-      <path d="M100 18h9v20l-4.5-4.5L100 38Z" style={rust} />
-    </Frame>
-  );
-}
-
 export function WidgetIllustration() {
   return (
     <Frame label="A website with a chat widget in the corner">

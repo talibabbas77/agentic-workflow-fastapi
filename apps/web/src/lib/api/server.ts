@@ -1,14 +1,14 @@
-import { createApiClient, type paths } from "@docent/api-client";
+import { createApiClient, type ApiClient, type paths } from "@docent/api-client";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { cache } from "react";
 import { PATH_HEADER, SESSION_COOKIE } from "../session";
-import { settle, type Result } from "./result";
+import { settle, type FetchOutcome, type Result } from "./result";
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
-type GetPath = "/v1/auth/me" | "/v1/onboarding" | "/v1/tenant" | "/v1/members";
+type GetPath = "/v1/auth/me" | "/v1/onboarding" | "/v1/tenant" | "/v1/members" | "/v1/knowledge/sources";
 type GetData<P extends GetPath> = paths[P]["get"]["responses"][200]["content"]["application/json"];
 
 /**
@@ -26,16 +26,19 @@ async function serverApi() {
   });
 }
 
-/** GET a path. A 401 redirects to log in and back to the current page. */
-async function get<P extends GetPath>(path: P): Promise<Result<GetData<P>>> {
-  const client = await serverApi();
-  // None of these paths take parameters; widening to the union lets openapi-fetch type the call.
-  const result = (await settle(client.GET(path as GetPath))) as Result<GetData<P>>;
+/** Make a call. A 401 redirects to log in and back to the current page. */
+async function call<T>(send: (client: ApiClient) => Promise<FetchOutcome<T>>): Promise<Result<T>> {
+  const result = await settle(send(await serverApi()));
   if (result.status === 401) {
     const here = (await headers()).get(PATH_HEADER);
     redirect(here ? `/login?next=${encodeURIComponent(here)}` : "/login");
   }
   return result;
+}
+
+async function get<P extends GetPath>(path: P): Promise<Result<GetData<P>>> {
+  // None of these paths take parameters; widening to the union lets openapi-fetch type the call.
+  return (await call((client) => client.GET(path as GetPath))) as Result<GetData<P>>;
 }
 
 /** GET a path that should always succeed; any other failure goes to the error boundary. */
@@ -54,3 +57,15 @@ export const getTenant = () => getOrThrow("/v1/tenant");
 
 /** Members and invitations, or a 403 result for agents. */
 export const getMembers = () => get("/v1/members");
+
+export const getSources = () => getOrThrow("/v1/knowledge/sources");
+
+/** One source and its documents. A missing source, or an id that is not one, shows the 404 page. */
+export async function getSource(sourceId: string) {
+  const result = await call((client) =>
+    client.GET("/v1/knowledge/sources/{source_id}", { params: { path: { source_id: sourceId } } }),
+  );
+  if (result.status === 404 || result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}

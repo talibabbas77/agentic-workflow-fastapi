@@ -1,21 +1,28 @@
 import type { Metadata } from "next";
-import { NotYet } from "@/components/app/not-yet";
-import { KnowledgeIllustration } from "@/components/illustrations/illustrations";
+import { Suspense } from "react";
+import { KnowledgeManager } from "@/components/knowledge/knowledge-manager";
+import { KnowledgeSkeleton } from "@/components/knowledge/knowledge-skeleton";
+import { TeachingFlow } from "@/components/knowledge/teaching-flow";
+import { getMe, getSources } from "@/lib/api/server";
 
 export const metadata: Metadata = { title: "Knowledge" };
 
 export default function KnowledgePage() {
   return (
-    <NotYet
-      title="Knowledge"
-      description="The documents the agent answers from."
-      illustration={<KnowledgeIllustration />}
-      emptyTitle="Nothing to answer from yet"
-    >
-      <p>
-        Teach the agent by adding help articles, PDFs, and pages from your site. It answers only from what you add
-        here, and every answer cites the page it came from.
-      </p>
-    </NotYet>
+    <Suspense fallback={<KnowledgeSkeleton />}>
+      <Knowledge />
+    </Suspense>
+  );
+}
+
+async function Knowledge() {
+  const [me, sources] = await Promise.all([getMe(), getSources()]);
+  const role = me.active_tenant?.role;
+  return (
+    <KnowledgeManager
+      initial={sources}
+      canManage={role === "owner" || role === "admin"}
+      teachingFlow={<TeachingFlow />}
+    />
   );
 }

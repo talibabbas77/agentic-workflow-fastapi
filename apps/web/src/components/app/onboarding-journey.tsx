@@ -97,6 +97,12 @@ export function OnboardingJourney({ onboarding, role }: { onboarding: Onboarding
         node.render = (content, className) => (
           <ResendVerificationNode className={className}>{content}</ResendVerificationNode>
         );
+      } else if (step.key === "teach_agent") {
+        node.render = (content, className) => (
+          <Link href="/app/knowledge" className={className}>
+            {content}
+          </Link>
+        );
       } else if (step.key === "invite_team") {
         if (canInvite) {
           node.render = (content, className) => (

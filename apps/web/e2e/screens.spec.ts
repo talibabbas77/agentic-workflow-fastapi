@@ -118,7 +118,7 @@ test("members", async ({ browser }) => {
 });
 
 test("empty-state", async ({ browser }) => {
-  await shoot(browser, "/app/knowledge", "knowledge", fresh);
+  await shoot(browser, "/app/inbox", "inbox", fresh);
 });
 
 test("invite-dialog", async ({ browser }) => {
