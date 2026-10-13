@@ -11,18 +11,17 @@ import {
 const MIN = 60_000;
 const T0 = Date.parse("2026-10-14T10:00:00Z");
 
-function created(token: string, lifetimeMs = 30 * MIN, serverNow: number | null = null): CreatedSession {
-  const base = serverNow ?? Date.now();
+function created(token: string, lifetimeMs = 30 * MIN, expiresAt?: number): CreatedSession {
   return {
     session: {
       session_token: token,
-      expires_at: new Date(base + lifetimeMs).toISOString(),
+      expires_at: new Date(expiresAt ?? Date.now() + lifetimeMs).toISOString(),
+      expires_in: Math.round(lifetimeMs / 1000),
       mode: "identified",
       visitor_id: null,
       user: { name: "Sam" },
       widget: { name: "Lumen Notes", greeting: "Hi" },
     },
-    serverNow,
   };
 }
 
@@ -97,10 +96,9 @@ describe("SessionManager", () => {
     expect(createSession).toHaveBeenCalledTimes(3);
   });
 
-  it("uses the server clock from the Date header to survive client clock skew", async () => {
-    // Client clock is 2 hours fast: by local time the session is already expired.
-    const serverNow = T0 - 120 * MIN;
-    const createSession = vi.fn(async () => created("s", 30 * MIN, serverNow));
+  it("uses expires_in, so a wrong client clock cannot cause a refresh loop", async () => {
+    // Client clock is 2 hours fast: by local time expires_at is already in the past.
+    const createSession = vi.fn(async () => created("s", 30 * MIN, T0 - 90 * MIN));
     const m = new SessionManager({ createSession, requestToken: async () => null }, "anonymous");
     m.keepAlive();
     const s = await m.ensure();
@@ -109,6 +107,17 @@ describe("SessionManager", () => {
     expect(createSession).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1 * MIN + 1);
     expect(createSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to expires_at when expires_in is missing", async () => {
+    const createSession = vi.fn(async () => {
+      const c = created("s", 10 * MIN);
+      c.session.expires_in = null;
+      return c;
+    });
+    const m = new SessionManager({ createSession, requestToken: async () => null }, "anonymous");
+    const s = await m.ensure();
+    expect(s.expiresAt).toBe(T0 + 10 * MIN);
   });
 
   it("ensure() replaces a session that is about to expire before use", async () => {

@@ -169,9 +169,14 @@ export class SessionManager {
   }
 
   private async open(identityToken: string | undefined): Promise<ActiveSession> {
-    const { session, serverNow } = await this.deps.createSession(identityToken);
+    const { session } = await this.deps.createSession(identityToken);
     const now = this.now();
-    const remaining = Date.parse(session.expires_at) - (serverNow ?? now);
+    // expires_in is measured on the server, so a wrong client clock cannot cause
+    // a refresh loop. expires_at is only a fallback for an older API.
+    const remaining =
+      session.expires_in !== null && session.expires_in > 0
+        ? session.expires_in * 1000
+        : Date.parse(session.expires_at) - now;
     return {
       token: session.session_token,
       info: session,

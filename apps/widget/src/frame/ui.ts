@@ -265,6 +265,10 @@ export function createUi(root: HTMLElement, doc: Document, handlers: UiHandlers)
     else bubble.appendChild(renderContent(m.content, m.citations, doc));
     li.appendChild(bubble);
     if (m.role !== "visitor" && m.citations.length > 0) li.appendChild(sources(m.citations));
+    // Answered from the visitor's verified account details rather than a help article.
+    if (m.role === "agent" && m.citations.length === 0 && (m.decision?.account_facts.length ?? 0) > 0) {
+      li.appendChild(h("p", { class: "from-account" }, "From your account"));
+    }
     if (m.decision?.type === "escalate") li.appendChild(escalation(contactFor !== null && contactFor === m.id));
     return li;
   };

@@ -12,9 +12,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "size": "node scripts/size.mjs",
-    "dev": "node dev/mock-server.mjs"
+    "dev": "node dev/mock-server.mjs",
+    "e2e": "pnpm build && playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@types/node": "^24.19.2",
     "happy-dom": "^21.0.1",
     "typescript": "^5.9.3",

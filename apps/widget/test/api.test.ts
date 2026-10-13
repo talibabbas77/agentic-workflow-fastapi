@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { ApiError, createApi } from "../src/frame/api";
+import { ApiError, createApi, isNoConversation } from "../src/frame/api";
 import type { Stage } from "../src/frame/types";
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
@@ -24,7 +24,7 @@ const MESSAGE = {
   id: "7b0c7a3e-1111-4222-8333-944455556666",
   role: "agent",
   content: "Refunds take 5 days [1].",
-  decision: { type: "answer", confidence: "high", reason: null, citations: [1] },
+  decision: { type: "answer", confidence: "high", reason: null, citations: [1], account_facts: ["plan", 7] },
   citations: [
     { marker: 1, document_title: "Billing", heading_path: "Refunds", url: "https://help.example.com/r", excerpt: "x" },
   ],
@@ -43,13 +43,14 @@ function setup(responses: Response[]) {
 const headersOf = (init?: RequestInit) => init?.headers as Record<string, string>;
 
 describe("api client", () => {
-  it("creates a session without auth, with no cookies, and reads the Date header", async () => {
+  it("creates a session without auth, with no cookies, and reads expires_in", async () => {
     const { api, fetch } = setup([
       json(
         201,
         {
           session_token: "st_1",
           expires_at: "2026-10-14T10:30:00Z",
+          expires_in: 1800,
           mode: "anonymous",
           visitor_id: "v_abcdefghijklmnopqrstu",
           user: { name: null },
@@ -67,7 +68,7 @@ describe("api client", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ widget: "wid_abcdefghijklmnop", parent_origin: "http://localhost:5173" });
     expect(out.session.session_token).toBe("st_1");
     expect(out.session.visitor_id).toBe("v_abcdefghijklmnopqrstu");
-    expect(out.serverNow).toBe(Date.parse("2026-10-14T10:00:00Z"));
+    expect(out.session.expires_in).toBe(1800);
   });
 
   it("reads error codes from the API error shape, with Retry-After", async () => {
@@ -94,7 +95,16 @@ describe("api client", () => {
   });
 
   it("sends the bearer token and resume_id to conversations", async () => {
-    const { api, fetch } = setup([json(201, { id: "c1", status: "open", messages: [MESSAGE, { junk: true }] })]);
+    const { api, fetch } = setup([
+      json(201, {
+        id: "c1",
+        status: "escalated",
+        messages: [MESSAGE, { junk: true }],
+        handoff: { status: "open", contact_given: true },
+      }),
+      json(201, { id: "c2", status: "open", messages: [], handoff: null }),
+      json(404, { error: { code: "no_conversation", message: "There is no conversation to resume." } }),
+    ]);
     const conv = await api.createConversation("st_1", "c0");
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("/v1/widget/conversations");
@@ -102,6 +112,14 @@ describe("api client", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ resume_id: "c0" });
     expect(conv.messages).toHaveLength(1);
     expect(conv.messages[0].citations[0].marker).toBe(1);
+    expect(conv.handoff).toEqual({ status: "open", contact_given: true });
+    expect((await api.createConversation("st_1")).handoff).toBeNull();
+    expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toEqual({});
+    // A history lookup sends create=false and gets a typed 404 when there is none.
+    const err = await api.createConversation("st_1", "c9", false).catch((e: unknown) => e);
+    expect(JSON.parse(String(fetch.mock.calls[2][1]?.body))).toEqual({ resume_id: "c9", create: false });
+    expect(isNoConversation(err)).toBe(true);
+    expect(isNoConversation(new ApiError(404, "not_found", "x"))).toBe(false);
   });
 
   it("streams a message: status events, then the reply, across split chunks", async () => {
@@ -117,6 +135,7 @@ describe("api client", () => {
     const reply = await api.sendMessage("st_1", "c 1", "How do refunds work?", (s) => stages.push(s));
     expect(stages).toEqual(["searching", "writing", "checking"]);
     expect(reply.content).toBe(MESSAGE.content);
+    expect(reply.decision?.account_facts).toEqual(["plan"]);
     const [url, init] = fetch.mock.calls[0];
     expect(url).toBe("/v1/widget/conversations/c%201/messages");
     expect(headersOf(init).Accept).toBe("text/event-stream");

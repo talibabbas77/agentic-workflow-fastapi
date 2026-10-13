@@ -301,10 +301,16 @@ sequenceDiagram
 ### Anonymous sessions
 
 - Allowed only if the widget has anonymous mode on.
-- Session gets a random visitor id. Conversation id may live in the iframe's
-  own `sessionStorage` so a page navigation keeps the thread. That storage
-  belongs to the widget origin and is partitioned by the browser; it is never
-  the host's storage.
+- Session gets a random visitor id. The visitor id and conversation id live in
+  the iframe's own `sessionStorage` so a page navigation keeps the thread. That
+  storage belongs to the widget origin and is partitioned by the browser; it is
+  never the host's storage.
+- Known limit: when Chromium blocks third-party cookies (the default in
+  Incognito), it also blocks that frame storage. Chat and handoffs still work,
+  but each page load starts a new anonymous thread. WebKit keeps partitioned
+  storage, so resume works there. A partitioned (CHIPS) cookie would fix it but
+  breaks the no-cookies rule, so we accept the limit. Identified visitors are
+  unaffected: the server resumes their latest conversation.
 - Limits: per IP-hash per hour, per widget per day, tighter than identified.
 - Optional bot check (Cloudflare Turnstile) per widget, off by default.
 - Retrieval only sees sources with `audience = 'public'`.
@@ -321,17 +327,19 @@ sequenceDiagram
 - **No host storage**: no cookies, no reading host cookies or `localStorage`.
   The identity token and session token live in memory only.
 - **Loader** inserts one iframe and one launcher button in a closed Shadow DOM.
-  No `eval`, no dynamic script loading. Versioned immutable URLs
-  (`/v1.4.2/loader.js`) support Subresource Integrity; `/v1/loader.js` tracks
-  the latest patch.
+  No `eval`, no dynamic script loading. `/widget/v1/loader.js` is cached for
+  five minutes. Before launch, add versioned immutable URLs
+  (`/widget/v1.4.2/loader.js`) so customers can pin a release with
+  Subresource Integrity.
 - **Iframe CSP**: `script-src 'self'`, no inline scripts, `connect-src` the
   API origin only, `img-src 'self' data:`.
 - **Rendering**: agent output is a small Markdown subset rendered without raw
-  HTML. Links are allowed only to `https` URLs that belong to the tenant's
-  knowledge sources or allowed origins. No remote images. This blocks
-  exfiltration through crafted links or image URLs.
-- **Logout**: `Docent.reset()` drops the in-memory session and revokes it on
-  the server.
+  HTML. Links are allowed only to the URLs of the sources the answer cites
+  (`https`, or `http` in local development). No remote images. The API also
+  strips any link that is not a cited source's own before it stores the reply.
+  This blocks exfiltration through crafted links or image URLs.
+- **Logout**: `await Docent.reset()` resolves after the session is revoked on
+  the server (or after 3 seconds), so the host can navigate safely afterwards.
 
 ### What the domain allowlist does not do
 

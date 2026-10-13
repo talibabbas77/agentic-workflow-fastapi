@@ -2,7 +2,7 @@
 // "Authorization: Bearer <session_token>". No cookies are sent or needed.
 import { isRecord } from "../shared/protocol";
 import { readSse } from "./sse";
-import type { Citation, ConversationOut, Decision, Message, Role, SessionOut, Stage } from "./types";
+import type { Citation, ConversationOut, Decision, Handoff, Message, Role, SessionOut, Stage } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -21,8 +21,6 @@ export class ApiError extends Error {
 
 export interface CreatedSession {
   session: SessionOut;
-  /** Server clock from the Date header, used to correct for client clock skew. */
-  serverNow: number | null;
 }
 
 export interface SessionRequest {
@@ -39,7 +37,11 @@ export const CONVERSATION_ID = /^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-
 
 export interface Api {
   createSession(body: SessionRequest): Promise<CreatedSession>;
-  createConversation(sessionToken: string, resumeId?: string | null): Promise<ConversationOut>;
+  /**
+   * Resume this visitor's conversation, or start one. With create=false it only
+   * looks up history and throws ApiError 404 "no_conversation" when there is none.
+   */
+  createConversation(sessionToken: string, resumeId?: string | null, create?: boolean): Promise<ConversationOut>;
   sendMessage(
     sessionToken: string,
     conversationId: string,
@@ -52,10 +54,15 @@ export interface Api {
 }
 
 const ROLES: readonly Role[] = ["visitor", "agent", "human", "system"];
+const HANDOFF: readonly Handoff["status"][] = ["open", "assigned", "waiting", "resolved"];
 const STAGES: readonly Stage[] = ["searching", "writing", "checking"];
 const DECISIONS: readonly Decision["type"][] = ["answer", "clarify", "escalate"];
 
 export const isStage = (v: unknown): v is Stage => STAGES.includes(v as Stage);
+
+/** The visitor has no conversation to resume (create=false lookups only). */
+export const isNoConversation = (e: unknown): boolean =>
+  e instanceof ApiError && e.status === 404 && e.code === "no_conversation";
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 
@@ -81,6 +88,9 @@ export function asMessage(v: unknown): Message | null {
           confidence: typeof d.confidence === "string" ? d.confidence : null,
           reason: typeof d.reason === "string" ? d.reason : null,
           citations: Array.isArray(d.citations) ? d.citations.filter((n): n is number => typeof n === "number") : [],
+          account_facts: Array.isArray(d.account_facts)
+            ? d.account_facts.filter((k): k is string => typeof k === "string")
+            : [],
         }
       : null;
   return {
@@ -171,11 +181,12 @@ export function createApi(base: string, fetchImpl: typeof fetch): Api {
       if (!isRecord(data) || typeof data.session_token !== "string" || !data.session_token) {
         throw new ApiError(res.status, "bad_response", "The session reply was missing a token.");
       }
-      const date = Date.parse(res.headers.get("date") ?? "");
       return {
         session: {
           session_token: data.session_token,
           expires_at: str(data.expires_at),
+          expires_in:
+            typeof data.expires_in === "number" && Number.isFinite(data.expires_in) ? data.expires_in : null,
           mode: data.mode === "identified" ? "identified" : "anonymous",
           visitor_id: typeof data.visitor_id === "string" && VISITOR_ID.test(data.visitor_id) ? data.visitor_id : null,
           user: isRecord(data.user) ? { name: typeof data.user.name === "string" ? data.user.name : null } : null,
@@ -183,26 +194,30 @@ export function createApi(base: string, fetchImpl: typeof fetch): Api {
             ? { name: str(data.widget.name), greeting: str(data.widget.greeting) }
             : null,
         },
-        serverNow: Number.isFinite(date) ? date : null,
       };
     },
 
-    async createConversation(token, resumeId) {
+    async createConversation(token, resumeId, create = true) {
       const res = await call("/conversations", {
         method: "POST",
         token,
-        body: resumeId ? { resume_id: resumeId } : {},
+        body: { ...(resumeId ? { resume_id: resumeId } : {}), ...(create ? {} : { create: false }) },
       });
       const data = await json(res);
       if (!isRecord(data) || data.id === undefined || data.id === null) {
         throw new ApiError(res.status, "bad_response", "The conversation reply was missing an id.");
       }
+      const h = data.handoff;
       return {
         id: String(data.id),
         status: str(data.status),
         messages: Array.isArray(data.messages)
           ? data.messages.map(asMessage).filter((m): m is Message => m !== null)
           : [],
+        handoff:
+          isRecord(h) && HANDOFF.includes(h.status as Handoff["status"])
+            ? { status: h.status as Handoff["status"], contact_given: h.contact_given === true }
+            : null,
       };
     },
 

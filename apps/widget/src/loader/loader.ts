@@ -81,6 +81,20 @@ export function createLoader(env: LoaderEnv): Loader {
     label();
   };
 
+  // Focus the panel, then tell the frame it is open, on the next frame:
+  // WebKit cannot focus an iframe in the same tick it stops being
+  // display:none, and a cross-site frame can only move focus to its input
+  // once it has focus itself.
+  const focusAndOpen = (): void => {
+    const go = (): void => {
+      if (!frame || !isOpen) return;
+      frame.focus();
+      send({ type: "open" });
+    };
+    if (win.requestAnimationFrame && !doc.hidden) win.requestAnimationFrame(go);
+    else go();
+  };
+
   const send = (msg: LoaderToFrame, p: MessagePort | undefined = port): void => {
     if (p) p.postMessage(msg);
   };
@@ -117,10 +131,7 @@ export function createLoader(env: LoaderEnv): Loader {
     const msg: InitMessage = { source: SOURCE, type: "init", mode };
     if (mode === "identified" && t) msg.token = t;
     f.contentWindow.postMessage(msg, origin, [channel.port2]);
-    if (isOpen) {
-      send({ type: "open" });
-      f.focus();
-    }
+    if (isOpen) focusAndOpen();
   };
 
   const onWindowMessage = (e: MessageEvent): void => {
@@ -208,8 +219,7 @@ export function createLoader(env: LoaderEnv): Loader {
     if (!frame) return;
     frame.hidden = false;
     setUnread(0);
-    frame.focus();
-    send({ type: "open" });
+    focusAndOpen();
   }
 
   function hide(fromFrame?: boolean): void {

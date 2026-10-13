@@ -52,6 +52,7 @@ const session = (token: string, over: Record<string, unknown> = {}) =>
   json(201, {
     session_token: token,
     expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
+    expires_in: 1800,
     mode: "anonymous",
     visitor_id: VISITOR,
     user: { name: null },
@@ -63,7 +64,7 @@ const answer = (over: Record<string, unknown> = {}) => ({
   id: "a1",
   role: "agent",
   content: "Refunds take **5 days** [1].",
-  decision: { type: "answer", confidence: "high", reason: null, citations: [1] },
+  decision: { type: "answer", confidence: "high", reason: null, citations: [1], account_facts: [] },
   citations: [
     {
       marker: 1,
@@ -227,11 +228,30 @@ describe("frame boot", () => {
   });
 });
 
+const conversationRoute =
+  (body: Record<string, unknown> = {}): Route =>
+  (url) =>
+    url === "/v1/widget/conversations"
+      ? json(201, { id: CONV, status: "open", messages: [], handoff: null, ...body })
+      : undefined;
+
+const escalation = (over: Record<string, unknown> = {}) =>
+  answer({
+    id: "esc1",
+    content: "I will pass this to the team.",
+    citations: [],
+    decision: { type: "escalate", confidence: null, reason: "user_requested", citations: [], account_facts: [] },
+    ...over,
+  });
+
+const revokeRoute: Route = (url, req) =>
+  url === "/v1/widget/sessions/current" && req.method === "DELETE" ? new Response(null, { status: 204 }) : undefined;
+
 describe("frame app, anonymous", () => {
-  it("warms a session, loads the conversation on open, streams a reply, and resets", async () => {
+  it("opening shows the greeting and creates nothing; the first message creates the session and conversation", async () => {
     const h = start([
       sessionRoute(() => session("st_1")),
-      (url) => (url === "/v1/widget/conversations" ? json(201, { id: CONV, status: "open", messages: [] }) : undefined),
+      conversationRoute(),
       (url) =>
         url === `/v1/widget/conversations/${CONV}/messages`
           ? sse([
@@ -240,58 +260,64 @@ describe("frame app, anonymous", () => {
               ["message", answer()],
             ])
           : undefined,
-      (url, req) => (url === "/v1/widget/sessions/current" && req.method === "DELETE" ? new Response(null, { status: 204 }) : undefined),
+      revokeRoute,
     ]);
 
-    // Warm session on init, no visitor id yet; the returned one is kept in the frame's storage.
-    await vi.waitFor(() => expect(h.calls).toHaveLength(1));
-    expect(h.calls[0].body).toEqual({ widget: WID, parent_origin: HOST });
-    await vi.waitFor(() => expect(h.storage.get(`docent:visitor:${WID}`)).toBe(VISITOR));
+    h.send({ type: "open" });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(h.calls).toHaveLength(0);
     expect($(".name")?.textContent).toBe("Lumen Notes");
     expect(texts(".greeting")).toEqual(["Hi, ask me anything about Lumen Notes."]);
 
-    h.send({ type: "open" });
-    await vi.waitFor(() => expect(h.calls.map((c) => c.url)).toContain("/v1/widget/conversations"));
-    const conv = h.calls.find((c) => c.url === "/v1/widget/conversations");
-    expect(conv?.auth).toBe("Bearer st_1");
-    expect(conv?.body).toEqual({});
-    await vi.waitFor(() => expect(h.storage.get(`docent:conversation:${WID}`)).toBe(CONV));
-
     type("How long do refunds take?");
     await vi.waitFor(() => expect($(".msg.agent:not(.greeting)")).not.toBeNull());
+    expect(h.calls.map((c) => `${c.method} ${c.url}`)).toEqual([
+      "POST /v1/widget/sessions",
+      "POST /v1/widget/conversations",
+      `POST /v1/widget/conversations/${CONV}/messages`,
+    ]);
+    // No visitor id yet; the returned one is kept in the frame's own storage.
+    expect(h.calls[0].body).toEqual({ widget: WID, parent_origin: HOST });
+    expect(h.calls[1]).toMatchObject({ auth: "Bearer st_1", body: {} });
+    expect(h.storage.get(`docent:visitor:${WID}`)).toBe(VISITOR);
+    expect(h.storage.get(`docent:conversation:${WID}`)).toBe(CONV);
+
     expect(texts(".msg.visitor .plain")).toEqual(["How long do refunds take?"]);
     const reply = $(".msg.agent:not(.greeting)");
     expect(reply?.querySelector("strong")?.textContent).toBe("5 days");
     expect(reply?.querySelector("button.ref")?.textContent).toBe("1");
+    expect(reply?.querySelector(".from-account")).toBeNull();
     const chip = reply?.querySelector<HTMLButtonElement>(".chip");
     expect(chip?.textContent).toContain("Billing and refunds > Refunds");
     chip?.click();
     expect(chip?.getAttribute("aria-expanded")).toBe("true");
     expect(reply?.querySelector(".detail a")?.getAttribute("href")).toBe("https://help.example.com/refunds");
-    // Status line is cleared and the composer is usable again.
     await vi.waitFor(() => expect($(".status")?.textContent).toBe(""));
     expect($<HTMLTextAreaElement>("textarea")?.value).toBe("");
 
     // Reset: revoke on the server, clear storage, then tell the loader.
     h.send({ type: "reset", mode: "anonymous" });
     await vi.waitFor(() => expect(h.fromFrame).toContainEqual({ type: "reset_done" }));
-    const revoke = h.calls.find((c) => c.method === "DELETE");
-    expect(revoke).toMatchObject({ url: "/v1/widget/sessions/current", auth: "Bearer st_1" });
+    expect(h.calls.find((c) => c.method === "DELETE")).toMatchObject({
+      url: "/v1/widget/sessions/current",
+      auth: "Bearer st_1",
+    });
     expect(h.storage.get(`docent:visitor:${WID}`)).toBeNull();
     expect(h.storage.get(`docent:conversation:${WID}`)).toBeNull();
     expect($(".msg.agent:not(.greeting)")).toBeNull();
   });
 
-  it("sends the stored visitor id and resume id so a reload keeps the thread", async () => {
+  it("reset with no session answers reset_done at once", async () => {
+    const h = start([]);
+    h.send({ type: "reset", mode: "anonymous" });
+    await vi.waitFor(() => expect(h.fromFrame).toContainEqual({ type: "reset_done" }));
+    expect(h.calls).toHaveLength(0);
+  });
+
+  it("resumes on open: sends the stored visitor id and resume id", async () => {
     // A previous page in this tab left these in the frame's sessionStorage.
     const h = start(
-      [
-        sessionRoute(() => session("st_2")),
-        (url) =>
-          url === "/v1/widget/conversations"
-            ? json(201, { id: CONV, status: "open", messages: [{ ...answer(), id: "old" }] })
-            : undefined,
-      ],
+      [sessionRoute(() => session("st_2")), conversationRoute({ messages: [{ ...answer(), id: "old" }] })],
       { mode: "anonymous" },
       config(),
       { [`docent:visitor:${WID}`]: VISITOR, [`docent:conversation:${WID}`]: CONV },
@@ -301,22 +327,18 @@ describe("frame app, anonymous", () => {
     const sessions = h.calls.filter((c) => c.url === "/v1/widget/sessions");
     expect(sessions).toHaveLength(1);
     expect(sessions[0].body).toEqual({ widget: WID, parent_origin: HOST, visitor_id: VISITOR });
-    expect(h.calls.find((c) => c.url === "/v1/widget/conversations")?.body).toEqual({ resume_id: CONV });
+    expect(h.calls.find((c) => c.url === "/v1/widget/conversations")?.body).toEqual({ resume_id: CONV, create: false });
   });
 
   it("escalation: asks for an email and posts it to contact", async () => {
     const h = start([
       sessionRoute(() => session("st_3")),
-      (url) => (url === "/v1/widget/conversations" ? json(201, { id: CONV, status: "open", messages: [] }) : undefined),
-      (url) =>
-        url.endsWith("/messages")
-          ? sse([["message", answer({ content: "I will pass this to the team.", citations: [], decision: { type: "escalate", confidence: null, reason: "asked for human", citations: [] } })]])
-          : undefined,
+      conversationRoute(),
+      (url) => (url.endsWith("/messages") ? sse([["message", escalation()]]) : undefined),
       (url) => (url.endsWith("/contact") ? new Response(null, { status: 204 }) : undefined),
     ]);
     h.send({ type: "open" });
-    await vi.waitFor(() => expect(h.app().conversationId()).toBe(CONV));
-    type("I want a person");
+    type("I want to talk to a human");
     await vi.waitFor(() => expect($("form.contact")).not.toBeNull());
     expect($(".note")?.textContent).toContain("Where should the team reply?");
 
@@ -333,16 +355,65 @@ describe("frame app, anonymous", () => {
     expect(contact).toMatchObject({ url: `/v1/widget/conversations/${CONV}/contact`, body: { email: "sam@example.com" } });
   });
 
+  it("resume: no contact form when the handoff already has an email", async () => {
+    const h = start(
+      [
+        sessionRoute(() => session("st_6")),
+        conversationRoute({ status: "escalated", messages: [escalation()], handoff: { status: "open", contact_given: true } }),
+      ],
+      { mode: "anonymous" },
+      config(),
+      { [`docent:conversation:${WID}`]: CONV },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect($(".note")).not.toBeNull());
+    expect($("form.contact")).toBeNull();
+  });
+
+  it("resume: shows the contact form under an open handoff without an email", async () => {
+    const h = start(
+      [
+        sessionRoute(() => session("st_7")),
+        conversationRoute({
+          status: "escalated",
+          messages: [escalation({ id: "e-old" }), answer({ id: "a-mid" }), escalation({ id: "e-new" })],
+          handoff: { status: "waiting", contact_given: false },
+        }),
+      ],
+      { mode: "anonymous" },
+      config(),
+      { [`docent:conversation:${WID}`]: CONV },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect($("form.contact")).not.toBeNull());
+    expect(document.querySelectorAll("form.contact")).toHaveLength(1);
+    expect($('li[data-id="e-new"] form.contact')).not.toBeNull();
+  });
+
+  it("resume: a resolved handoff asks for nothing", async () => {
+    const h = start(
+      [
+        sessionRoute(() => session("st_8")),
+        conversationRoute({ messages: [escalation()], handoff: { status: "resolved", contact_given: false } }),
+      ],
+      { mode: "anonymous" },
+      config(),
+      { [`docent:conversation:${WID}`]: CONV },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect($(".note")).not.toBeNull());
+    expect($("form.contact")).toBeNull();
+  });
+
   it("counts unread replies while closed", async () => {
     let release: () => void = () => undefined;
     const gate = new Promise<void>((r) => (release = r));
     const h = start([
       sessionRoute(() => session("st_4")),
-      (url) => (url === "/v1/widget/conversations" ? json(201, { id: CONV, status: "open", messages: [] }) : undefined),
+      conversationRoute(),
       async (url) => (url.endsWith("/messages") ? (await gate, sse([["message", answer()]])) : undefined),
     ]);
     h.send({ type: "open" });
-    await vi.waitFor(() => expect(h.app().conversationId()).toBe(CONV));
     // Send, then close the panel while the agent is still working.
     type("Question");
     h.send({ type: "close" });
@@ -356,14 +427,13 @@ describe("frame app, anonymous", () => {
   it("rate limited: shows a calm notice and puts the text back", async () => {
     const h = start([
       sessionRoute(() => session("st_5")),
-      (url) => (url === "/v1/widget/conversations" ? json(201, { id: CONV, status: "open", messages: [] }) : undefined),
+      conversationRoute(),
       (url) =>
         url.endsWith("/messages")
           ? json(429, { error: { code: "rate_limited", message: "Too many" } }, { "retry-after": "600" })
           : undefined,
     ]);
     h.send({ type: "open" });
-    await vi.waitFor(() => expect(h.app().conversationId()).toBe(CONV));
     type("One more question");
     await vi.waitFor(() => expect($(".notice")?.textContent).toContain("Try again in 10 minutes."));
     expect($<HTMLTextAreaElement>("textarea")?.value).toBe("One more question");
@@ -372,24 +442,65 @@ describe("frame app, anonymous", () => {
 
   it("session_expired: creates a new session and retries the call once", async () => {
     let conversations = 0;
-    const h = start([
-      sessionRoute(
-        () => session("st_old"),
-        () => session("st_new"),
-      ),
-      (url, req) => {
-        if (url !== "/v1/widget/conversations") return undefined;
-        conversations++;
-        const auth = (req.headers as Record<string, string>).Authorization;
-        return auth === "Bearer st_old"
-          ? json(401, { error: { code: "session_expired", message: "Start again." } })
-          : json(201, { id: CONV, status: "open", messages: [] });
-      },
-    ]);
+    const h = start(
+      [
+        sessionRoute(
+          () => session("st_old"),
+          () => session("st_new"),
+        ),
+        (url, req) => {
+          if (url !== "/v1/widget/conversations") return undefined;
+          conversations++;
+          const auth = (req.headers as Record<string, string>).Authorization;
+          return auth === "Bearer st_old"
+            ? json(401, { error: { code: "session_expired", message: "Start again." } })
+            : json(201, { id: CONV, status: "open", messages: [], handoff: null });
+        },
+      ],
+      { mode: "anonymous" },
+      config(),
+      { [`docent:conversation:${WID}`]: CONV },
+    );
     h.send({ type: "open" });
     await vi.waitFor(() => expect(h.app().conversationId()).toBe(CONV));
     expect(conversations).toBe(2);
     expect(h.calls.filter((c) => c.url === "/v1/widget/sessions")).toHaveLength(2);
+  });
+
+  it("open with a stale stored id: 404 no_conversation means no history; the first message creates one", async () => {
+    const h = start(
+      [
+        sessionRoute(() => session("st_9")),
+        (url, req) => {
+          if (url !== "/v1/widget/conversations") return undefined;
+          const body = JSON.parse(String(req.body));
+          return body.create === false
+            ? json(404, { error: { code: "no_conversation", message: "There is no conversation to resume." } })
+            : json(201, { id: CONV, status: "open", messages: [], handoff: null });
+        },
+        (url) => (url.endsWith("/messages") ? sse([["message", answer()]]) : undefined),
+      ],
+      { mode: "anonymous" },
+      config(),
+      { [`docent:conversation:${WID}`]: "11111111-2222-4333-8444-555555555555" },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect(h.storage.get(`docent:conversation:${WID}`)).toBeNull());
+    expect(h.calls.map((c) => c.body)).toContainEqual({ resume_id: "11111111-2222-4333-8444-555555555555", create: false });
+    // No error state, no status line: just the greeting and a usable composer.
+    expect($(".state-title")).toBeNull();
+    expect($(".status")?.textContent).toBe("");
+    expect($<HTMLFormElement>("form.composer")?.hidden).toBe(false);
+
+    type("Hello");
+    await vi.waitFor(() => expect($(".msg.agent:not(.greeting)")).not.toBeNull());
+    const conversations = h.calls.filter((c) => c.url === "/v1/widget/conversations");
+    expect(conversations.map((c) => c.body)).toEqual([
+      { resume_id: "11111111-2222-4333-8444-555555555555", create: false },
+      {},
+    ]);
+    expect(h.storage.get(`docent:conversation:${WID}`)).toBe(CONV);
+    expect(texts(".msg.visitor .plain")).toEqual(["Hello"]);
   });
 
   it("anonymous disabled: shows the sign in message without calling the API on open", async () => {
@@ -435,5 +546,102 @@ describe("frame app, identified", () => {
     await vi.waitFor(() => expect(h.fromFrame.filter((m) => (m as { type: string }).type === "token").length).toBe(2));
     h.send({ type: "token", token: null });
     await vi.waitFor(() => expect($(".state-title")?.textContent).toBe("Sign in again"));
+  });
+
+  it("open with no history: create=false gets 404, then the first message creates the conversation", async () => {
+    const created: unknown[] = [];
+    const h = start(
+      [
+        sessionRoute(() => session("st_id2", { mode: "identified", visitor_id: null, user: { name: "Ben Carter" } })),
+        (url, req) => {
+          if (url !== "/v1/widget/conversations") return undefined;
+          const body = JSON.parse(String(req.body));
+          created.push(body);
+          return body.create === false
+            ? json(404, { error: { code: "no_conversation", message: "There is no conversation to resume." } })
+            : json(201, { id: CONV, status: "open", messages: [], handoff: null });
+        },
+        (url) => (url.endsWith("/messages") ? sse([["message", answer()]]) : undefined),
+      ],
+      { mode: "identified", token: "jwt-1" },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect(created).toEqual([{ create: false }]));
+    await vi.waitFor(() => expect($(".status")?.textContent).toBe(""));
+    expect($(".state-title")).toBeNull();
+    expect(h.app().conversationId()).toBeNull();
+
+    type("How do refunds work?");
+    await vi.waitFor(() => expect($(".msg.agent:not(.greeting)")).not.toBeNull());
+    expect(created).toEqual([{ create: false }, {}]);
+    expect(h.app().conversationId()).toBe(CONV);
+  });
+
+  it("a message sent while the history lookup is still running waits for it, then creates", async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((r) => (release = r));
+    const created: unknown[] = [];
+    const h = start(
+      [
+        sessionRoute(() => session("st_id3", { mode: "identified", visitor_id: null, user: { name: "Ben Carter" } })),
+        async (url, req) => {
+          if (url !== "/v1/widget/conversations") return undefined;
+          const body = JSON.parse(String(req.body));
+          created.push(body);
+          if (body.create === false) {
+            await gate;
+            return json(404, { error: { code: "no_conversation", message: "None." } });
+          }
+          return json(201, { id: CONV, status: "open", messages: [], handoff: null });
+        },
+        (url) => (url.endsWith("/messages") ? sse([["message", answer()]]) : undefined),
+      ],
+      { mode: "identified", token: "jwt-1" },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect(created).toEqual([{ create: false }]));
+    type("Quick question");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(created).toEqual([{ create: false }]);
+    release();
+    await vi.waitFor(() => expect($(".msg.agent:not(.greeting)")).not.toBeNull());
+    expect(created).toEqual([{ create: false }, {}]);
+    expect(texts(".msg.visitor .plain")).toEqual(["Quick question"]);
+  });
+
+  it("open loads the visitor's history; account answers are marked; handoffs ask for no email", async () => {
+    const identified = () => session("st_ben", { mode: "identified", visitor_id: null, user: { name: "Ben Carter" } });
+    const plan = answer({
+      id: "a-plan",
+      content: "You are on the Free plan.",
+      citations: [],
+      decision: { type: "answer", confidence: "high", reason: null, citations: [], account_facts: ["plan"] },
+    });
+    const h = start(
+      [
+        sessionRoute(identified),
+        conversationRoute({ messages: [{ ...answer(), id: "a-old" }] }),
+        (url, req) =>
+          url.endsWith("/messages")
+            ? sse([["message", String(req.body).includes("human") ? escalation() : plan]])
+            : undefined,
+      ],
+      { mode: "identified", token: "jwt-1" },
+    );
+    // Warm session at init, before any open.
+    await vi.waitFor(() => expect(h.calls.map((c) => c.url)).toEqual(["/v1/widget/sessions"]));
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect($('li[data-id="a-old"]')).not.toBeNull());
+    expect(h.calls.find((c) => c.url === "/v1/widget/conversations")?.body).toEqual({ create: false });
+
+    type("What plan am I on?");
+    await vi.waitFor(() => expect($('li[data-id="a-plan"] .from-account')?.textContent).toBe("From your account"));
+    // Answers with sources are not marked.
+    expect($('li[data-id="a-old"] .from-account')).toBeNull();
+
+    type("Can I talk to a human?");
+    await vi.waitFor(() => expect($('li[data-id="esc1"] .note')).not.toBeNull());
+    expect($('li[data-id="esc1"] .note')?.textContent).toBe("A person from the team will follow up by email.");
+    expect($("form.contact")).toBeNull();
   });
 });

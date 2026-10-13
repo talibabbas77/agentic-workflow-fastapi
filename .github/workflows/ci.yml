@@ -126,6 +126,10 @@ jobs:
         run: docker build -f infra/docker/backup.Dockerfile -t docent-backup:ci .
       - run: pnpm --filter @docent/web exec playwright install --with-deps chromium
       - run: pnpm e2e
+      - name: Widget end to end on a demo customer site (Chromium and WebKit)
+        run: |
+          pnpm --filter @docent/widget exec playwright install --with-deps chromium webkit
+          pnpm --filter @docent/widget e2e
       - name: Service logs
         if: failure()
         run: docker compose --profile app logs --no-color --tail 200

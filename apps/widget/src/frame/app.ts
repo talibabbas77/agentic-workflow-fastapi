@@ -1,9 +1,9 @@
 // Frame controller: wires the port, the session, the conversation, and the UI.
 import { isMode, isRecord, type FrameToLoader, type Mode } from "../shared/protocol";
-import { ApiError, CONVERSATION_ID, VISITOR_ID, createApi } from "./api";
+import { ApiError, CONVERSATION_ID, VISITOR_ID, createApi, isNoConversation } from "./api";
 import { SessionError, SessionManager, createTokenRequester, isTokenInvalid, type ActiveSession } from "./session";
 import type { KeyValueStore } from "./storage";
-import type { Message, SessionOut, Stage, WidgetConfig } from "./types";
+import type { Handoff, Message, SessionOut, Stage, WidgetConfig } from "./types";
 import { MAX_LENGTH, createUi, type StateView } from "./ui";
 
 export interface AppOptions {
@@ -49,7 +49,6 @@ export function createApp(o: AppOptions): App {
   const tokens = createTokenRequester(post);
   const conversationKey = `docent:conversation:${cfg.publicId}`;
   const visitorKey = `docent:visitor:${cfg.publicId}`;
-  const contactKey = (id: string): string => `docent:contact:${id}`;
 
   const sessions: SessionManager = new SessionManager(
     {
@@ -84,6 +83,23 @@ export function createApp(o: AppOptions): App {
   let conversationId: string | null = null;
   let loading: Promise<void> | null = null;
   let inflight: AbortController | null = null;
+  /** The team already has an email for the current handoff (from the server, or sent here). */
+  let contactGiven = false;
+
+  /** An anonymous conversation this tab already started, if any. */
+  const storedConversation = (): string | null => {
+    if (mode !== "anonymous") return null;
+    const id = storage.get(conversationKey);
+    return id && CONVERSATION_ID.test(id) ? id : null;
+  };
+
+  /**
+   * Whether opening the panel should load a conversation. Identified visitors
+   * may have one on the server; anonymous ones only if this tab started one.
+   * Otherwise the panel shows the greeting and nothing is created until the
+   * first message is sent.
+   */
+  const hasHistory = (): boolean => mode === "identified" || storedConversation() !== null;
 
   const ui = createUi(o.root, o.doc, {
     onSend: (text) => send(text),
@@ -93,7 +109,7 @@ export function createApp(o: AppOptions): App {
     },
     onRetry() {
       ui.showState(null);
-      void load().catch(() => undefined);
+      if (hasHistory()) void load(false).catch(() => undefined);
       ui.focusInput();
     },
     onContact: (email) => contact(email),
@@ -165,39 +181,66 @@ export function createApp(o: AppOptions): App {
     }
   };
 
+  /** Anonymous visitors are asked for an email under the latest handoff, until the team has one. */
   const contactFor = (messages: Message[]): string | null => {
-    if (mode !== "anonymous" || !conversationId || storage.get(contactKey(conversationId))) return null;
+    if (mode !== "anonymous" || !conversationId || contactGiven) return null;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].decision?.type === "escalate") return messages[i].id || null;
     }
     return null;
   };
 
-  /** Session, then the conversation (resumed where possible). Shared by open and send. */
-  const load = (): Promise<void> => {
-    if (loading) return loading;
+  /**
+   * Session, then the conversation. Opening the panel only looks up history
+   * (create=false: nothing is created, a 404 means there is none); the first
+   * sent message creates one. Concurrent calls wait for the one in flight.
+   */
+  const load = (create: boolean): Promise<void> => {
+    if (conversationId) return Promise.resolve();
+    if (loading) return loading.then(() => load(create));
     const gen = generation;
     const run = async (): Promise<void> => {
       if (mode === "anonymous" && !cfg.anonymous) throw new ApiError(403, "anonymous_disabled", "Anonymous chat is off.");
-      ui.setStatus("loading");
+      if (!busy) ui.setStatus("loading");
       const s = await sessions.ensure();
       alive(gen);
       applySession(s.info);
-      const stored = mode === "anonymous" ? conversationId ?? storage.get(conversationKey) : null;
-      const resume = stored && CONVERSATION_ID.test(stored) ? stored : null;
-      const conversation = await withSession((t) => api.createConversation(t, resume));
+      const resume = mode === "anonymous" ? storedConversation() : null;
+      let conversation;
+      try {
+        conversation = await withSession((t) => api.createConversation(t, resume, create));
+      } catch (e) {
+        if (create || !isNoConversation(e)) throw e;
+        // No history: show the greeting; the first message creates the conversation.
+        alive(gen);
+        storage.remove(conversationKey);
+        ui.setStatus(busy ? "searching" : null);
+        return;
+      }
       alive(gen);
       conversationId = conversation.id;
       if (mode === "anonymous") storage.set(conversationKey, conversation.id);
-      ui.setMessages(conversation.messages, contactFor(conversation.messages));
+      // Ask for an email only under an unresolved handoff the team has no email
+      // for. A later handoff in this conversation asks again.
+      const handoff: Handoff | null = conversation.handoff;
+      const pending = handoff !== null && handoff.status !== "resolved";
+      contactGiven = pending && handoff.contact_given;
+      if (conversation.messages.length > 0) {
+        ui.setMessages(conversation.messages, pending ? contactFor(conversation.messages) : null);
+      }
       ui.setStatus(busy ? "searching" : null);
     };
     const p = run();
     loading = p;
-    p.catch((e: unknown) => {
-      if (loading === p) loading = null;
-      if (gen === generation && !(e instanceof Stale)) fail(e);
-    });
+    p.then(
+      () => {
+        if (loading === p) loading = null;
+      },
+      (e: unknown) => {
+        if (loading === p) loading = null;
+        if (gen === generation && !(e instanceof Stale)) fail(e);
+      },
+    );
     return p;
   };
 
@@ -228,7 +271,7 @@ export function createApp(o: AppOptions): App {
 
     const run = async (): Promise<void> => {
       try {
-        await load();
+        await load(true);
       } catch {
         // load() already switched the panel to an error state.
         ui.removeMessage(bubble);
@@ -236,6 +279,8 @@ export function createApp(o: AppOptions): App {
         return;
       }
       alive(gen);
+      // Loading history replaces the list; put this message back after it.
+      if (!bubble.isConnected) bubble = ui.addMessage(local);
       let reply: Message;
       try {
         reply = await sendOnce(content, controller.signal);
@@ -246,9 +291,9 @@ export function createApp(o: AppOptions): App {
         conversationId = null;
         loading = null;
         storage.remove(conversationKey);
-        await load();
+        await load(true);
         alive(gen);
-        bubble = ui.addMessage(local);
+        if (!bubble.isConnected) bubble = ui.addMessage(local);
         ui.setStatus("searching");
         reply = await sendOnce(content, controller.signal);
       }
@@ -299,7 +344,7 @@ export function createApp(o: AppOptions): App {
     if (!id) return "Could not save your email. Try again.";
     try {
       await withSession((t) => api.contact(t, id, email));
-      storage.set(contactKey(id), "1");
+      contactGiven = true;
       return null;
     } catch (e) {
       if (e instanceof ApiError && e.status === 422) return "Check the email address and try again.";
@@ -308,9 +353,13 @@ export function createApp(o: AppOptions): App {
     }
   };
 
-  /** Create the session early so the first open is fast. Errors surface on open. */
+  /**
+   * Identified visitors get a session as soon as the frame starts, so the first
+   * open is fast. Anonymous sessions wait for history to load or a first message.
+   * Errors surface on open.
+   */
   const warm = (): void => {
-    if (mode === "anonymous" && !cfg.anonymous) return;
+    if (mode !== "identified") return;
     sessions
       .ensure()
       .then((s) => applySession(s.info))
@@ -321,7 +370,11 @@ export function createApp(o: AppOptions): App {
     isOpen = true;
     setUnread(0);
     sessions.keepAlive();
-    void load().catch(() => undefined);
+    if (mode === "anonymous" && !cfg.anonymous) {
+      fail(new ApiError(403, "anonymous_disabled", "Anonymous chat is off."));
+    } else if (!conversationId && hasHistory()) {
+      void load(false).catch(() => undefined);
+    }
     ui.focusInput();
   };
 
@@ -336,9 +389,9 @@ export function createApp(o: AppOptions): App {
     if (old.inflight) revokes.push(old.inflight.then((s) => api.revoke(s.token), () => undefined));
     storage.remove(conversationKey);
     storage.remove(visitorKey);
-    if (conversationId) storage.remove(contactKey(conversationId));
     conversationId = null;
     loading = null;
+    contactGiven = false;
     mode = next;
     ui.showState(null);
     ui.setBusy(false);
@@ -350,13 +403,20 @@ export function createApp(o: AppOptions): App {
     // Tell the loader once the server revoke has settled, so the host can
     // `await Docent.reset()` and then navigate away safely.
     void Promise.all(revokes).then(() => post({ type: "reset_done" }));
-    if (isOpen) {
+    if (isOpen && hasHistory()) {
       sessions.keepAlive();
-      void load().catch(() => undefined);
+      void load(false).catch(() => undefined);
     } else if (mode === "identified") {
       warm();
     }
   };
+
+  // When the loader focuses the iframe, put the visitor in the message field.
+  // (A cross-origin frame cannot take focus on its own in every browser.)
+  o.doc.defaultView?.addEventListener("focus", () => {
+    const active = o.doc.activeElement;
+    if (isOpen && (!active || active === o.doc.body)) ui.focusInput();
+  });
 
   o.port.onmessage = (e: MessageEvent) => {
     const d: unknown = e.data;

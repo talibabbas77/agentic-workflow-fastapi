@@ -52,7 +52,7 @@ const frameHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><m
 
 // In-memory state, enough for a demo.
 const sessions = new Map(); // token -> { mode, visitor, user }
-const conversations = new Map(); // id -> { owner, messages }
+const conversations = new Map(); // id -> { owner, messages, handoff }
 let tokenCount = 0;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -93,7 +93,7 @@ function reply(content, conversationId) {
       id,
       role: "agent",
       content: "I am passing this to the team so a person can help.",
-      decision: { type: "escalate", confidence: null, reason: "asked for a human", citations: [] },
+      decision: { type: "escalate", confidence: null, reason: "asked for a human", citations: [], account_facts: [] },
       citations: [],
       created_at,
     };
@@ -103,7 +103,7 @@ function reply(content, conversationId) {
       id,
       role: "agent",
       content: "يمكنك استرداد المبلغ خلال **14 يوما** من الشراء [1].",
-      decision: { type: "answer", confidence: "high", reason: null, citations: [1] },
+      decision: { type: "answer", confidence: "high", reason: null, citations: [1], account_facts: [] },
       citations: [
         { marker: 1, document_title: "الفوترة", heading_path: "الاسترداد", url: "https://help.example.com/ar/refunds", excerpt: "يتم الاسترداد خلال 14 يوما." },
       ],
@@ -116,7 +116,7 @@ function reply(content, conversationId) {
     content:
       `You can get a full refund within **14 days** of purchase [1]. After that, refunds are prorated by the days left in the billing period [2].\n\n` +
       `Start a refund from Settings > Billing, or read https://help.example.com/billing/refunds. <img src=x onerror=alert(1)> stays text. (Conversation ${conversationId.slice(0, 8)}.)`,
-    decision: { type: "answer", confidence: "high", reason: null, citations: [1, 2] },
+    decision: { type: "answer", confidence: "high", reason: null, citations: [1, 2], account_facts: [] },
     citations: [
       {
         marker: 1,
@@ -172,6 +172,7 @@ const widget = createServer(async (req, res) => {
       return send(res, 201, {
         session_token: token,
         expires_at: new Date(Date.now() + minutes * 60_000).toISOString(),
+        expires_in: minutes * 60,
         mode: identified ? "identified" : "anonymous",
         visitor_id: visitor,
         user: { name: identified ? "Sam Ortiz" : null },
@@ -198,9 +199,10 @@ const widget = createServer(async (req, res) => {
       if (s.mode === "anonymous" && body.resume_id && conversations.get(body.resume_id)?.owner === owner) id = body.resume_id;
       if (!id) {
         id = randomUUID();
-        conversations.set(id, { owner, messages: [] });
+        conversations.set(id, { owner, messages: [], handoff: null });
       }
-      return send(res, 201, { id, status: "open", messages: conversations.get(id).messages });
+      const c = conversations.get(id);
+      return send(res, 201, { id, status: c.handoff ? "escalated" : "open", messages: c.messages, handoff: c.handoff });
     }
 
     const msg = /^\/v1\/widget\/conversations\/([^/]+)\/(messages|contact)$/.exec(path);
@@ -210,6 +212,7 @@ const widget = createServer(async (req, res) => {
       const body = await readJson(req);
       if (msg[2] === "contact") {
         if (!body || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email ?? "")) return error(res, 422, "invalid_request", "Some fields need attention.");
+        if (conv.handoff) conv.handoff.contact_given = true;
         res.writeHead(204);
         return res.end();
       }
@@ -229,6 +232,7 @@ const widget = createServer(async (req, res) => {
       }
       const answer = reply(content, msg[1]);
       conv.messages.push(answer);
+      if (answer.decision.type === "escalate") conv.handoff = { status: "open", contact_given: s.mode === "identified" };
       // Split the final event across writes to exercise the client parser.
       const event = `event: message\ndata: ${JSON.stringify(answer)}\n\n`;
       const mid = Math.floor(event.length / 2);
