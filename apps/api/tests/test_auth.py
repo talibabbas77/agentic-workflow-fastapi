@@ -221,3 +221,10 @@ async def test_oversized_body_rejected(client: httpx.AsyncClient) -> None:
     )
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "payload_too_large"
+
+
+async def test_public_plans_are_cacheable(client_factory: ClientFactory) -> None:
+    response = await client_factory(origin=None).get("/v1/public/plans")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "public, max-age=3600"
+    assert [p["id"] for p in response.json()] == ["trial", "starter", "growth", "scale"]

@@ -41,7 +41,7 @@ class RequestContextMiddleware:
                 headers["x-request-id"] = rid
                 for key, value in SECURITY_HEADERS.items():
                     headers.setdefault(key, value)
-                if path.startswith("/v1/"):
+                if path.startswith("/v1/") and not path.startswith("/v1/public/"):
                     headers.setdefault("cache-control", "no-store")
             await send(message)
 

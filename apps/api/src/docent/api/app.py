@@ -13,7 +13,7 @@ from docent.api.middleware import (
     OriginCheckMiddleware,
     RequestContextMiddleware,
 )
-from docent.api.routes import auth, health, knowledge, members, workspace
+from docent.api.routes import auth, health, knowledge, members, public, workspace
 from docent.api.state import AppState
 from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
@@ -82,6 +82,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         overrides={"/v1/knowledge/uploads": settings.max_upload_bytes + 100_000},
     )
     app.add_middleware(RequestContextMiddleware)
-    for router in (health.router, auth.router, workspace.router, members.router, knowledge.router):
+    for router in (
+        health.router,
+        auth.router,
+        workspace.router,
+        members.router,
+        knowledge.router,
+        public.router,
+    ):
         app.include_router(router)
     return app

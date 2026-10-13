@@ -28,6 +28,7 @@ export type KnowledgeDocument = Schemas["DocumentOut"];
 export type SearchHit = Schemas["SearchHitOut"];
 export type SearchResult = Schemas["SearchOut"];
 export type Audience = Schemas["SourceOut"]["audience"];
+export type Plan = Schemas["Plan"];
 
 export interface ApiClientOptions {
   baseUrl: string;

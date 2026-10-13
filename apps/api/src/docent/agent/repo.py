@@ -1,0 +1,216 @@
+"""SQL for conversations, messages, citations, ticket types, and escalations."""
+
+import uuid
+from typing import Any
+
+import asyncpg
+
+from docent.db.pool import Connection
+from docent.ids import new_id
+
+CONVERSATION_COLUMNS = """
+    id, channel, mode, claims, status, low_confidence_turns, started_at, last_message_at
+"""
+
+
+async def create_conversation(
+    conn: Connection,
+    *,
+    tenant_id: uuid.UUID,
+    channel: str,
+    mode: str,
+    claims: dict[str, str],
+    staff_user_id: uuid.UUID | None = None,
+    visitor_id: str | None = None,
+) -> uuid.UUID:
+    conversation_id = new_id()
+    await conn.execute(
+        """
+        insert into conversations (id, tenant_id, channel, mode, claims, staff_user_id, visitor_id)
+        values ($1, $2, $3, $4, $5, $6, $7)
+        """,
+        conversation_id,
+        tenant_id,
+        channel,
+        mode,
+        claims,
+        staff_user_id,
+        visitor_id,
+    )
+    return conversation_id
+
+
+async def lock_conversation(conn: Connection, conversation_id: uuid.UUID) -> asyncpg.Record | None:
+    """Serialize turns in one conversation, so two quick messages do not interleave."""
+    return await conn.fetchrow(
+        f"select {CONVERSATION_COLUMNS} from conversations where id = $1 for update",  # noqa: S608
+        conversation_id,
+    )
+
+
+async def get_conversation(conn: Connection, conversation_id: uuid.UUID) -> asyncpg.Record | None:
+    return await conn.fetchrow(
+        f"select {CONVERSATION_COLUMNS} from conversations where id = $1",  # noqa: S608
+        conversation_id,
+    )
+
+
+async def recent_turns(
+    conn: Connection, conversation_id: uuid.UUID, limit: int
+) -> list[tuple[str, str]]:
+    rows = await conn.fetch(
+        """
+        select role, content from (
+          select role, content, created_at from messages
+          where conversation_id = $1 and role in ('visitor', 'agent', 'human')
+          order by created_at desc limit $2
+        ) recent order by created_at
+        """,
+        conversation_id,
+        limit,
+    )
+    return [(r["role"], r["content"]) for r in rows]
+
+
+async def add_message(
+    conn: Connection,
+    *,
+    tenant_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    role: str,
+    content: str,
+    decision: dict[str, Any] | None = None,
+    model: str | None = None,
+    prompt_version: str | None = None,
+    tokens_in: int | None = None,
+    tokens_out: int | None = None,
+    latency_ms: int | None = None,
+) -> uuid.UUID:
+    message_id = new_id()
+    await conn.execute(
+        """
+        insert into messages (id, tenant_id, conversation_id, role, content, decision, model,
+                              prompt_version, tokens_in, tokens_out, latency_ms)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        """,
+        message_id,
+        tenant_id,
+        conversation_id,
+        role,
+        content,
+        decision,
+        model,
+        prompt_version,
+        tokens_in,
+        tokens_out,
+        latency_ms,
+    )
+    await conn.execute(
+        "update conversations set last_message_at = now() where id = $1", conversation_id
+    )
+    return message_id
+
+
+async def add_citations(
+    conn: Connection, *, tenant_id: uuid.UUID, message_id: uuid.UUID, rows: list[dict[str, Any]]
+) -> None:
+    await conn.executemany(
+        """
+        insert into message_citations (id, tenant_id, message_id, marker, chunk_id,
+                                       document_title, heading_path, url, excerpt, score)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        """,
+        [
+            (
+                new_id(),
+                tenant_id,
+                message_id,
+                r["marker"],
+                r["chunk_id"],
+                r["document_title"],
+                r["heading_path"],
+                r["url"],
+                r["excerpt"],
+                r["score"],
+            )
+            for r in rows
+        ],
+    )
+
+
+async def conversation_messages(
+    conn: Connection, conversation_id: uuid.UUID
+) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        select m.id, m.role, m.content, m.decision, m.created_at, m.latency_ms,
+               coalesce(json_agg(json_build_object(
+                 'marker', c.marker, 'document_title', c.document_title,
+                 'heading_path', c.heading_path, 'url', c.url, 'excerpt', c.excerpt
+               ) order by c.marker) filter (where c.id is not null), '[]') as citations
+        from messages m left join message_citations c on c.message_id = m.id
+        where m.conversation_id = $1
+        group by m.id
+        order by m.created_at
+        """,
+        conversation_id,
+    )
+
+
+async def set_conversation_state(
+    conn: Connection, conversation_id: uuid.UUID, *, status: str, low_confidence_turns: int
+) -> None:
+    await conn.execute(
+        """
+        update conversations set status = $2, low_confidence_turns = $3 where id = $1
+        """,
+        conversation_id,
+        status,
+        low_confidence_turns,
+    )
+
+
+async def create_escalation(
+    conn: Connection,
+    *,
+    tenant_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    reason: str,
+    contact_email: str | None,
+) -> uuid.UUID:
+    """One open escalation per conversation: later turns reuse it."""
+    existing: uuid.UUID | None = await conn.fetchval(
+        "select id from escalations where conversation_id = $1 and status <> 'resolved'",
+        conversation_id,
+    )
+    if existing:
+        return existing
+    escalation_id = new_id()
+    await conn.execute(
+        """
+        insert into escalations (id, tenant_id, conversation_id, reason, contact_email)
+        values ($1, $2, $3, $4, $5)
+        """,
+        escalation_id,
+        tenant_id,
+        conversation_id,
+        reason,
+        contact_email,
+    )
+    return escalation_id
+
+
+async def active_ticket_types(conn: Connection) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        "select id, name, description, fields from ticket_types where active order by name"
+    )
+
+
+async def list_ticket_types(conn: Connection) -> list[asyncpg.Record]:
+    return await conn.fetch(
+        """
+        select id, name, description, fields, notify_emails, priority, active, created_at,
+               updated_at
+        from ticket_types order by name
+        """
+    )

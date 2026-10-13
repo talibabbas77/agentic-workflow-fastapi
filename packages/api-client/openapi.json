@@ -1502,6 +1502,31 @@
           }
         }
       }
+    },
+    "/v1/public/plans": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "List Plans",
+        "operationId": "list_plans",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Plan"
+                  },
+                  "type": "array",
+                  "title": "Response List Plans"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2094,6 +2119,75 @@
           "status"
         ],
         "title": "OnboardingStep"
+      },
+      "Plan": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price_usd_month": {
+            "type": "integer",
+            "title": "Price Usd Month"
+          },
+          "replies_per_month": {
+            "type": "integer",
+            "title": "Replies Per Month"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          },
+          "widgets": {
+            "type": "integer",
+            "title": "Widgets"
+          },
+          "seats": {
+            "type": "integer",
+            "title": "Seats"
+          },
+          "anonymous_mode": {
+            "type": "boolean",
+            "title": "Anonymous Mode"
+          },
+          "identified_mode": {
+            "type": "boolean",
+            "title": "Identified Mode"
+          },
+          "trial_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Days"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "price_usd_month",
+          "replies_per_month",
+          "pages",
+          "widgets",
+          "seats",
+          "anonymous_mode",
+          "identified_mode",
+          "summary"
+        ],
+        "title": "Plan"
       },
       "ResetPasswordIn": {
         "properties": {
