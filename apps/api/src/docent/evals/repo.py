@@ -1,6 +1,7 @@
 """SQL for eval sets, cases, runs, and results. Every query runs in a tenant transaction."""
 
 import uuid
+from dataclasses import dataclass
 from typing import Any
 
 import asyncpg
@@ -211,11 +212,42 @@ async def active_run(conn: Connection) -> uuid.UUID | None:
     return run_id
 
 
-async def runs_today(conn: Connection) -> int:
-    count: int = await conn.fetchval(
-        "select count(*) from eval_runs where created_at > now() - interval '1 day'"
+@dataclass(frozen=True, slots=True)
+class Usage:
+    runs_today: int
+    cases_this_month: int
+    drafts_today: int
+
+
+async def usage(conn: Connection) -> Usage:
+    """What this workspace spent on evals, from the audit log.
+
+    The audit log outlives the sets and runs it describes, so deleting a set and
+    starting over does not reset these counts.
+    """
+    row = await conn.fetchrow(
+        """
+        select
+          count(*) filter (where action = 'eval.run_started'
+                           and created_at > now() - interval '1 day') as runs_today,
+          coalesce(sum((metadata ->> 'cases')::int) filter (
+            where action = 'eval.run_started'
+              and created_at >= date_trunc('month', now())), 0) as cases_this_month,
+          coalesce(sum((metadata ->> 'count')::int) filter (
+            where action = 'eval.drafts_requested'
+              and created_at > now() - interval '1 day'), 0) as drafts_today
+        from audit_log
+        where action in ('eval.run_started', 'eval.drafts_requested')
+          and created_at >= least(date_trunc('month', now()), now() - interval '1 day')
+        """
     )
-    return count
+    assert row is not None
+    return Usage(row["runs_today"], row["cases_this_month"], row["drafts_today"])
+
+
+def monthly_case_budget(replies_per_month: int) -> int:
+    """Eval cases a workspace may run in a month: half its replies, and never under 300."""
+    return max(300, replies_per_month // 2)
 
 
 async def results(conn: Connection, run_id: uuid.UUID) -> list[asyncpg.Record]:

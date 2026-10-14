@@ -542,6 +542,20 @@ async def write_drafts(
         )
         if found is None:
             raise not_found("Eval set")
+        if not (await subscriptions.entitlement(conn, member.tenant_id)).active:
+            raise AppError(
+                409,
+                "plan_inactive",
+                "Drafts need an active plan. Choose one on the Billing page.",
+            )
+        drafted = (await repo.usage(conn)).drafts_today
+        if drafted + count > state.settings.eval_drafts_per_day:
+            raise AppError(
+                409,
+                "too_many_drafts",
+                f"This workspace asked for {drafted:,} drafts in the last day, and the limit is "
+                f"{state.settings.eval_drafts_per_day:,}. Try again later.",
+            )
         if found["draft_status"] == "running":
             raise AppError(409, "drafting", "Drafts for this set are being written already.")
         if not await conn.fetchval("select exists(select 1 from chunks)"):
@@ -569,6 +583,15 @@ async def write_drafts(
             priority=EVAL_JOB_PRIORITY,
             max_attempts=2,
             dedupe_key=f"{DRAFT_EVAL_CASES}:{set_id}",
+        )
+        await audit.record(
+            conn,
+            tenant_id=member.tenant_id,
+            actor_user_id=member.user_id,
+            action="eval.drafts_requested",
+            target_type="eval_set",
+            target_id=set_id,
+            metadata={"count": count},
         )
         detail = await _set_detail(conn, set_id)
     await state.waker.wake()
@@ -635,7 +658,8 @@ async def start_run(set_id: uuid.UUID, member: AdminMember, state: State) -> Eva
         )
         if not cases:
             raise AppError(422, "no_cases", "Add a case, or approve a draft, before running.")
-        if not (await subscriptions.entitlement(conn, member.tenant_id)).active:
+        current = await subscriptions.entitlement(conn, member.tenant_id)
+        if not current.active:
             raise AppError(
                 409,
                 "plan_inactive",
@@ -643,12 +667,22 @@ async def start_run(set_id: uuid.UUID, member: AdminMember, state: State) -> Eva
             )
         if await repo.active_run(conn):
             raise _busy()
-        if await repo.runs_today(conn) >= state.settings.eval_runs_per_day:
+        spent = await repo.usage(conn)
+        if spent.runs_today >= state.settings.eval_runs_per_day:
             raise AppError(
                 409,
                 "too_many_runs",
                 f"This workspace ran {state.settings.eval_runs_per_day} evals in the last day. "
                 "Try again later.",
+            )
+        budget = repo.monthly_case_budget(current.plan.replies_per_month)
+        if spent.cases_this_month + cases > budget:
+            raise AppError(
+                409,
+                "eval_budget_reached",
+                f"This run has {cases:,} cases and {budget - spent.cases_this_month:,} of this "
+                f"month's {budget:,} eval cases are left on the {current.plan.name} plan. Run a "
+                "smaller set, or wait for next month.",
             )
         try:
             await conn.execute(

@@ -1294,3 +1294,65 @@ async def test_a_worse_prompt_fails_the_gate_with_a_readable_report(
     assert f'Unsupported: "{REFUND_QUESTION}"' in text
     assert f'Wrong: "{bulk}"' in text
     assert gate.check(good, good, gate.Limits()).passed
+
+
+async def spend(admin_pool: Pool, tenant_id: uuid.UUID, action: str, **metadata: int) -> None:
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            """
+            insert into audit_log (id, tenant_id, action, target_type, target_id, metadata)
+            values ($1, $2, $3, 'eval_set', 'gone', $4)
+            """,
+            uuid.uuid4(),
+            tenant_id,
+            action,
+            metadata,
+        )
+
+
+async def test_eval_limits_survive_deleting_the_set(
+    owner: httpx.AsyncClient, admin_pool: Pool, settings: Settings
+) -> None:
+    """Deleting a set and making a new one used to reset the daily count (security review)."""
+    tenant_id = await tenant_of(owner)
+    for _ in range(settings.eval_runs_per_day):
+        await spend(admin_pool, tenant_id, "eval.run_started", cases=1)
+    set_id = await new_set(owner)
+    await add_case(owner, set_id, question=REFUND_QUESTION, expected="answer")
+    refused = await owner.post(f"/v1/evals/sets/{set_id}/runs")
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "too_many_runs"
+
+
+async def test_runs_stop_at_the_monthly_case_budget(
+    owner: httpx.AsyncClient, admin_pool: Pool
+) -> None:
+    tenant_id = await tenant_of(owner)
+    await spend(admin_pool, tenant_id, "eval.run_started", cases=300)  # the trial's budget
+    set_id = await new_set(owner)
+    await add_case(owner, set_id, question=REFUND_QUESTION, expected="answer")
+    refused = await owner.post(f"/v1/evals/sets/{set_id}/runs")
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "eval_budget_reached"
+    assert "of this month's 300 eval cases" in refused.json()["error"]["message"]
+
+
+async def test_drafts_need_an_active_plan_and_stop_at_the_daily_limit(
+    owner: httpx.AsyncClient, admin_pool: Pool, settings: Settings
+) -> None:
+    tenant_id = await tenant_of(owner)
+    set_id = await new_set(owner)
+    await spend(admin_pool, tenant_id, "eval.drafts_requested", count=settings.eval_drafts_per_day)
+    refused = await owner.post(f"/v1/evals/sets/{set_id}/drafts", json={"count": 5})
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "too_many_drafts"
+
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            "update subscriptions set trial_ends_at = now() - interval '1 day'"
+            " where tenant_id = $1",
+            tenant_id,
+        )
+    ended = await owner.post(f"/v1/evals/sets/{set_id}/drafts", json={"count": 5})
+    assert ended.status_code == 409
+    assert ended.json()["error"]["code"] == "plan_inactive"

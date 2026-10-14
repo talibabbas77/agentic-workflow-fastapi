@@ -130,6 +130,7 @@ class Settings(BaseSettings):
     # Handoff notification emails one workspace may send in a day; the rest are skipped.
     notification_emails_per_day: int = 300
     eval_drafts_per_request: int = 50
+    eval_drafts_per_day: int = 200  # per workspace, drafts cost a model call each
 
     # Widget. Served from the API origin, never from the admin app's origin.
     widget_origin: str = "http://localhost:8000"
