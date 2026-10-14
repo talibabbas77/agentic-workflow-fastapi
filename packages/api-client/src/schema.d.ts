@@ -924,8 +924,11 @@ export interface components {
         /** BillingOut */
         BillingOut: {
             plan: components["schemas"]["Plan"];
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "trialing" | "active" | "past_due" | "canceled" | "unpaid" | "incomplete" | "incomplete_expired" | "paused";
             /**
              * Active
              * @description False means escalate-only mode
@@ -1186,6 +1189,11 @@ export interface components {
             };
             summary: components["schemas"]["EscalationSummaryOut"] | null;
             /**
+             * Contact Email
+             * @description Where the team replies; None until known
+             */
+            contact_email: string | null;
+            /**
              * Created At
              * Format: date-time
              */
@@ -1413,10 +1421,16 @@ export interface components {
             id: string;
             /** Title */
             title: string;
-            /** Kind */
-            kind: string;
-            /** Status */
-            status: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "upload" | "url" | "sitemap";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "syncing" | "ready" | "failed" | "deleting";
             /** Documents */
             documents: number;
             /** Chunks */
@@ -1784,9 +1798,10 @@ export interface components {
             audience: "public" | "identified";
             /**
              * Status
-             * @description Indexing status of the answer, like a knowledge source
+             * @description Indexing status, like a knowledge source
+             * @enum {string}
              */
-            status: string;
+            status: "queued" | "syncing" | "ready" | "failed" | "deleting";
             /** Citations 30D */
             citations_30d: number;
             /** Created By Name */

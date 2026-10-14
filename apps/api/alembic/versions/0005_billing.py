@@ -43,9 +43,12 @@ def upgrade() -> None:
           updated_at                timestamptz not null default now()
         );
 
-        -- Existing workspaces start their trial from the day they were created.
+        -- Existing workspaces start their trial from the day they were created. tenants
+        -- forces row-level security even for its owner, so lift it for this one read.
+        alter table tenants no force row level security;
         insert into subscriptions (tenant_id, plan_id, status, trial_ends_at)
         select id, 'trial', 'trialing', created_at + interval '14 days' from tenants;
+        alter table tenants force row level security;
 
         alter table tenants drop column plan_id;
 

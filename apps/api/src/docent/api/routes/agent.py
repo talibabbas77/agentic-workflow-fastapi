@@ -144,7 +144,8 @@ async def _conversation(conn: Connection, conversation_id: uuid.UUID) -> Convers
     messages = await repo.conversation_messages(conn, conversation_id)
     escalation = await conn.fetchrow(
         """
-        select e.id, e.reason, e.status, e.fields, e.summary, e.created_at, t.name as ticket_type
+        select e.id, e.reason, e.status, e.fields, e.summary, e.contact_email, e.created_at,
+               t.name as ticket_type
         from escalations e left join ticket_types t on t.id = e.ticket_type_id
         where e.conversation_id = $1 order by e.created_at desc limit 1
         """,

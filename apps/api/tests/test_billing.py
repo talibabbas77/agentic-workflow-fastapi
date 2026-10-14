@@ -330,3 +330,13 @@ async def test_plan_limits_on_widgets_and_seats(owner: httpx.AsyncClient, admin_
     await set_plan(owner, admin_pool, "growth")
     assert (await owner.post("/v1/widgets", json=widget)).status_code == 201
     assert (await owner.post("/v1/invitations", json={"email": unique_email()})).status_code == 201
+
+
+async def test_a_workspace_missing_its_subscription_starts_a_trial_instead_of_failing(
+    owner: httpx.AsyncClient, admin_pool: Pool
+) -> None:
+    async with admin_pool.acquire() as conn:
+        await conn.execute("delete from subscriptions")
+    data = await billing_state(owner)
+    assert (data["plan"]["id"], data["status"], data["active"]) == ("trial", "trialing", True)
+    assert (await ask(owner))["decision"]["type"] == "escalate"  # the agent still replies

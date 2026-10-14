@@ -43,6 +43,18 @@ export type TicketField = Schemas["TicketField"];
 export type Widget = Schemas["WidgetOut"];
 export type WidgetInput = Schemas["WidgetIn"];
 export type SigningKey = Schemas["SigningKeyOut"];
+export type Billing = Schemas["BillingOut"];
+export type UsageMeter = Schemas["UsageMeter"];
+export type PaidPlanId = Schemas["CheckoutIn"]["plan_id"];
+export type MemoryOverview = Schemas["MemoryOverviewOut"];
+export type MemorySource = Schemas["MemorySourceOut"];
+export type CitedSection = Schemas["CitedSectionOut"];
+export type TeamAnswer = Schemas["TeamAnswerOut"];
+export type TeamAnswerInput = Schemas["TeamAnswerIn"];
+export type GapGroup = Schemas["GapGroupOut"];
+export type RememberedCustomer = Schemas["RememberedCustomerOut"];
+export type RememberedCustomerDetail = Schemas["RememberedCustomerDetailOut"];
+export type CustomerFact = Schemas["CustomerFactOut"];
 
 export interface ApiClientOptions {
   baseUrl: string;

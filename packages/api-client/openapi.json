@@ -3936,6 +3936,16 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "trialing",
+              "active",
+              "past_due",
+              "canceled",
+              "unpaid",
+              "incomplete",
+              "incomplete_expired",
+              "paused"
+            ],
             "title": "Status"
           },
           "active": {
@@ -4594,6 +4604,18 @@
               }
             ]
           },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email",
+            "description": "Where the team replies; None until known"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -4608,6 +4630,7 @@
           "ticket_type",
           "fields",
           "summary",
+          "contact_email",
           "created_at"
         ],
         "title": "EscalationOut"
@@ -5107,10 +5130,22 @@
           },
           "kind": {
             "type": "string",
+            "enum": [
+              "upload",
+              "url",
+              "sitemap"
+            ],
             "title": "Kind"
           },
           "status": {
             "type": "string",
+            "enum": [
+              "queued",
+              "syncing",
+              "ready",
+              "failed",
+              "deleting"
+            ],
             "title": "Status"
           },
           "documents": {
@@ -6062,8 +6097,15 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "queued",
+              "syncing",
+              "ready",
+              "failed",
+              "deleting"
+            ],
             "title": "Status",
-            "description": "Indexing status of the answer, like a knowledge source"
+            "description": "Indexing status, like a knowledge source"
           },
           "citations_30d": {
             "type": "integer",

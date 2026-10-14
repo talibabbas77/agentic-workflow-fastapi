@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
 from docent.billing.plans import Plan
+from docent.billing.subscriptions import SubscriptionStatus
 from docent.config import get_settings
 
 Role = Literal["owner", "admin", "agent"]
@@ -357,6 +358,7 @@ class EscalationOut(BaseModel):
     ticket_type: str | None
     fields: dict[str, str]
     summary: EscalationSummaryOut | None
+    contact_email: str | None = Field(description="Where the team replies; None until known")
     created_at: datetime
 
 
@@ -527,7 +529,7 @@ class BillingUsage(BaseModel):
 
 class BillingOut(BaseModel):
     plan: Plan
-    status: str
+    status: SubscriptionStatus
     active: bool = Field(description="False means escalate-only mode")
     provider: Literal["manual", "stripe"]
     trial_ends_at: datetime | None
@@ -564,7 +566,7 @@ class TeamAnswerOut(BaseModel):
     question: str
     answer: str
     audience: Audience
-    status: str = Field(description="Indexing status of the answer, like a knowledge source")
+    status: SourceStatus = Field(description="Indexing status, like a knowledge source")
     citations_30d: int
     created_by_name: str | None
     created_at: datetime
@@ -608,8 +610,8 @@ class RememberedCustomerDetailOut(BaseModel):
 class MemorySourceOut(BaseModel):
     id: uuid.UUID
     title: str
-    kind: str
-    status: str
+    kind: Literal["upload", "url", "sitemap"]
+    status: SourceStatus
     documents: int
     chunks: int
     citations_30d: int

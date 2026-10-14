@@ -12,6 +12,7 @@ Access:
 Off means escalate-only mode: every message becomes a handoff. Data is kept.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -22,15 +23,27 @@ import asyncpg
 from docent.billing.plans import PLAN_BY_ID, TRIAL, Plan
 from docent.db.pool import Connection
 
+log = logging.getLogger(__name__)
+
 GRACE = timedelta(days=7)
 
 type Limit = Literal["widgets", "seats", "documents"]
+SubscriptionStatus = Literal[
+    "trialing",
+    "active",
+    "past_due",
+    "canceled",
+    "unpaid",
+    "incomplete",
+    "incomplete_expired",
+    "paused",
+]
 
 
 @dataclass(frozen=True, slots=True)
 class Entitlement:
     plan: Plan
-    status: str
+    status: SubscriptionStatus
     provider: str
     active: bool
     trial_ends_at: datetime | None
@@ -55,8 +68,24 @@ async def start_trial(conn: Connection, tenant_id: uuid.UUID) -> None:
 
 async def entitlement(conn: Connection, tenant_id: uuid.UUID) -> Entitlement:
     row = await conn.fetchrow("select * from subscriptions where tenant_id = $1", tenant_id)
-    if row is None:  # every tenant gets a row at creation; this is a broken invariant
-        raise RuntimeError(f"tenant {tenant_id} has no subscription")
+    if row is None:
+        # Every tenant gets a row at creation. If one is ever missing, start its trial
+        # instead of failing every reply and billing page for that workspace.
+        log.warning(
+            "tenant had no subscription; starting a trial", extra={"tenant": str(tenant_id)}
+        )
+        await conn.execute(
+            """
+            insert into subscriptions (tenant_id, plan_id, status, trial_ends_at)
+            values ($1, $2, 'trialing', now() + $3::interval)
+            on conflict (tenant_id) do nothing
+            """,
+            tenant_id,
+            TRIAL.id,
+            timedelta(days=TRIAL.trial_days or 14),
+        )
+        row = await conn.fetchrow("select * from subscriptions where tenant_id = $1", tenant_id)
+        assert row is not None
     return _entitlement(row, datetime.now(UTC))
 
 
