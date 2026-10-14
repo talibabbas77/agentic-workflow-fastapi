@@ -285,6 +285,7 @@ async def evaluate(
                 gold=gold,
                 cited=cited,
                 answer=content,
+                verified=case["identity"],
             )
         except LLMError:
             verdict = "error"

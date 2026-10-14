@@ -300,6 +300,7 @@ class CaseOutcome:
     failed_checks: frozenset[str] = frozenset()
     cited: tuple[str, ...] = ()  # "Document > Heading" of each cited source
     judge_notes: str | None = None
+    expected: str | None = None  # what the case expected when it ran
 
 
 Change = Literal["fixed", "broke", "unchanged", "added", "removed"]
@@ -351,6 +352,11 @@ def _reply_words(o: CaseOutcome) -> str:
 def why_changed(a: CaseOutcome, b: CaseOutcome) -> list[str]:
     """Plain sentences on what differs between two results of one case."""
     lines: list[str] = []
+    if a.expected and b.expected and a.expected != b.expected:
+        lines.append(
+            f"The case changed: it expected {OUTCOME_WORDS[a.expected]} before, "
+            f"{OUTCOME_WORDS[b.expected]} now."
+        )
     if a.verdict != b.verdict:
         lines.append(f"Was {VERDICT_WORDS[a.verdict]}, now {VERDICT_WORDS[b.verdict]}.")
     if (a.reply_type, a.reason) != (b.reply_type, b.reason):

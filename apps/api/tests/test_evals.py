@@ -242,13 +242,15 @@ def test_drafts_never_invent_facts() -> None:
             "usable": True,
             "question": "Can I get my money back on a yearly plan?",
             "answer": "Annual plans can be refunded within 30 days of renewal.",
-            "must_include": ["30 days", "full refund"],
         } | over
         return DraftCase.model_validate(body)
 
     kept = check_draft(draft(), passage, taken=set())
     assert kept is not None
-    assert kept.must_include == ["30 days"]  # "full refund" is not in the passage
+    assert (kept.question, kept.answer) == (
+        "Can I get my money back on a yearly plan?",
+        "Annual plans can be refunded within 30 days of renewal.",
+    )
     assert check_draft(draft(usable=False), passage, set()) is None
     assert check_draft(draft(answer="Refunds take 90 days."), passage, set()) is None
     assert check_draft(draft(question="What does the passage say?"), passage, set()) is None
@@ -298,7 +300,7 @@ async def test_drafts_come_from_real_chunks_and_wait_for_approval(
         chunk = chunks[chunk_id]  # tied to a real passage of this workspace
         assert row["gold_document_ids"] == [chunk["document_id"]]
         assert grounded(row["reference_answer"], chunk["content"])
-        assert all(scoring.contains(chunk["content"], p) for p in row["must_include"])
+        assert row["must_include"] == []  # people add required phrases while reviewing
     assert any(m[0]["content"].startswith("You write test questions") for m in chat.calls)
 
     # Runs skip drafts until they are approved.
@@ -445,6 +447,13 @@ async def test_a_run_checks_every_case_and_leaves_nothing_behind(
     follow_up = results["and invoices?"]
     assert follow_up["output"]["type"] == "answer"
     assert follow_up["case"]["identity"] == {"plan": "Pro"}
+    # The judge sees the verified details an answer may state without a passage.
+    judged = [
+        m[1]["content"] for m in chat.calls if m[0]["content"].startswith("You grade answers")
+    ]
+    assert len(judged) == 2
+    assert any("<verified>\nplan: Pro\n</verified>" in text for text in judged)
+    assert any("<verified>none</verified>" in text for text in judged)
     # A short follow-up borrows the previous question: the invoices passage is found.
     assert follow_up["retrieved"][0]["heading_path"] == "Billing guide > Invoices"
 
@@ -564,6 +573,12 @@ def test_comparison_math() -> None:
     assert changes["2"].why == ["Was wrong, now correct.", "Now passes: required phrases."]
     assert changes["3"].why == []
     assert [c.change for c in scoring.compare(a, b)][:2] == ["broke", "fixed"]
+    # A case edited between runs says so first.
+    edited = scoring.compare(
+        [outcome("6", "wrong", expected="escalate")],
+        [outcome("6", "correct", expected="answer")],
+    )
+    assert edited[0].why[0] == ("The case changed: it expected a handoff before, an answer now.")
 
     deltas = {
         d.key: d

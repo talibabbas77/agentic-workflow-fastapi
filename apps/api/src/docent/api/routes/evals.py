@@ -754,11 +754,12 @@ def _outcome(row: asyncpg.Record) -> scoring.CaseOutcome:
         reply_type=output.get("type"),
         reason=output.get("reason") if output.get("type") == "escalate" else None,
         failed_checks=frozenset(c["name"] for c in row["checks"] or [] if not c["passed"]),
+        # The heading path starts with the document's title already.
         cited=tuple(
-            " > ".join(p for p in (c["document_title"], c["heading_path"]) if p)
-            for c in output.get("citations") or []
+            c["heading_path"] or c["document_title"] for c in output.get("citations") or []
         ),
         judge_notes=row["judge_notes"],
+        expected=row["expected"],
     )
 
 

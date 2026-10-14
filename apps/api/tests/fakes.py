@@ -84,7 +84,6 @@ def _draft(messages: list[dict[str, str]]) -> dict[str, object]:
         "usable": bool(words),
         "question": f"What should I know about {topic}?",
         "answer": " ".join(words[:20]),
-        "must_include": [" ".join(words[:2])] if len(words) >= 2 else [],
     }
 
 
