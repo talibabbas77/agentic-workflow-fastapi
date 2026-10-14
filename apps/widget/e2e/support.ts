@@ -7,6 +7,8 @@ export const API = process.env.E2E_API_URL ?? "http://localhost:8000";
 /** Origin the staff API accepts cookie-authenticated writes from (CSRF check). */
 export const WEB_ORIGIN = process.env.E2E_WEB_ORIGIN ?? "http://localhost:3000";
 export const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8025";
+/** Where "Powered by Docent" links: the API's SITE_URL, which defaults to its web origin. */
+export const SITE_URL = (process.env.E2E_SITE_URL ?? WEB_ORIGIN).replace(/\/+$/, "");
 
 export interface E2EState {
   widgetOrigin: string;
@@ -43,17 +45,28 @@ export function fakeClientIp(): string {
   return `10.${byte()}.${byte()}.${byte()}`;
 }
 
+/** The demo host's signed-in site (Parcelwise). */
+export const APP = "/parcelwise";
+
+/** Signs in on the demo host through its own form, as Diego (Starter plan). */
+export async function signInAsDiego(page: Page): Promise<void> {
+  const { host } = hosts();
+  await page.goto(`${host}${APP}`);
+  await page.getByRole("button", { name: /Sign in as Diego Ramos/ }).click();
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+}
+
 /** The host page's window.Docent, as these tests use it. */
-type HostWindow = { Docent?: { v?: string; open(): void; close(): void } };
+type HostWindow = { Docent?: { v?: string; open(options?: { prefill?: string }): void; close(): void } };
 
 /** Waits for loader.js to install the real Docent API on the host page. */
 export async function waitForLoader(page: Page): Promise<void> {
   await page.waitForFunction(() => Boolean((window as unknown as HostWindow).Docent?.v));
 }
 
-export async function openWidget(page: Page): Promise<void> {
+export async function openWidget(page: Page, prefill?: string): Promise<void> {
   await waitForLoader(page);
-  await page.evaluate(() => (window as unknown as HostWindow).Docent?.open());
+  await page.evaluate((text) => (window as unknown as HostWindow).Docent?.open(text === undefined ? undefined : { prefill: text }), prefill);
 }
 
 export async function closeWidget(page: Page): Promise<void> {

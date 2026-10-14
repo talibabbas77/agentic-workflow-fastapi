@@ -39,7 +39,7 @@ export interface SessionOut {
   /** Anonymous sessions only: send it back on the next session create to stay the same visitor. */
   visitor_id: string | null;
   user: { name: string | null } | null;
-  widget: { name: string; greeting: string } | null;
+  widget: { name: string; greeting: string; suggestions: string[] } | null;
 }
 
 export interface Handoff {
@@ -48,12 +48,24 @@ export interface Handoff {
   contact_given: boolean;
 }
 
+export type ConversationStatus = "open" | "escalated" | "closed";
+
 export interface ConversationOut {
   id: string;
-  status: string;
+  status: ConversationStatus;
   messages: Message[];
   /** The latest handoff to the team, if any. */
   handoff: Handoff | null;
+}
+
+/** One line in the recent chats list (signed-in customers only). */
+export interface ConversationSummary {
+  id: string;
+  status: ConversationStatus;
+  /** The customer's first message. */
+  title: string;
+  started_at: string;
+  last_message_at: string;
 }
 
 /** Contents of <meta name="docent-widget"> in the frame page. */
@@ -61,7 +73,11 @@ export interface WidgetConfig {
   publicId: string;
   name: string;
   greeting: string;
+  /** Questions offered under the greeting until the first message. */
+  suggestions: string[];
   allowedOrigins: string[];
   anonymous: boolean;
   apiBase: string;
+  /** Docent's website for "Powered by Docent"; null shows the line without a link. */
+  siteUrl: string | null;
 }

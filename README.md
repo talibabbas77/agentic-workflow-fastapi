@@ -94,8 +94,8 @@ from scratch. Local and test environments only.
 
 Each widget's private signing key is saved to `.data/demo-host/` (git-ignored,
 owner-only). Parcelwise's widget has anonymous chat turned off; the others allow
-it. Rerunning the seed puts each widget's anonymous setting, claims, and greeting
-back to the catalog.
+it. Rerunning the seed puts each widget's anonymous setting, claims, greeting, and
+suggested questions back to the catalog.
 
 ### Live showcase
 
@@ -107,9 +107,11 @@ from "See it live" on the landing page:
 | http://localhost:5173/lumen-notes | Lumen Notes, a notes app's public site and help center. The help articles are the ones the agent was taught (`fixtures/golden/lumen-notes`). | Anonymous for every visitor: cited answers, and a handoff that asks for an email. |
 | http://localhost:5173/parcelwise | Parcelwise, a shipping dashboard. Signed out, only a sign-in page with the demo customers Chloe Dubois (Scale), Diego Ramos (Starter), and Emma Wright (Growth), and no chat. | Identified only. The site's server signs a token with the customer's plan, so "What's my per-label fee?" is answered from that plan. Sign-out calls `await Docent.reset()` first. |
 
-Both have a "Try asking" panel: a click copies the question and opens the chat
-(the loader cannot type into the chat, and a host page never reaches into the
-widget's frame). The token's `sub` is the demo customer's id, so the agent
+Both have a "Try asking" panel: a click calls `Docent.open({ prefill })`, which
+opens the chat with the question in its message field, ready to send. The widget
+never sends it by itself, and the host page never reaches into the widget's
+frame. If loader.js has not arrived yet, the call waits in the queue and the
+question is copied as well. The token's `sub` is the demo customer's id, so the agent
 remembers the customer across chats, and its `ctx` carries the figures on the
 dashboard (postage balance, auto-reload, labels this month), so "What's my
 balance?" is answered from them. On a public deployment, where many visitors

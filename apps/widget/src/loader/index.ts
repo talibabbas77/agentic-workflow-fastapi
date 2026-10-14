@@ -3,7 +3,8 @@
 //   <script src="https://WIDGET_ORIGIN/widget/v1/loader.js" data-widget="wid_x" async></script>
 //
 // data-widget alone starts anonymous mode. Docent.init({ widget, getToken })
-// switches to identified mode. Docent.open(), Docent.close(), Docent.reset().
+// switches to identified mode. Docent.open(), Docent.open({ prefill }),
+// Docent.close(), Docent.reset().
 import { originOf } from "./checks";
 import { createLoader } from "./loader";
 import { installApi } from "./queue";

@@ -94,3 +94,55 @@ test("an owner creates a widget, adds and retires keys, and gets the install sni
   await expect(keys.getByRole("row").filter({ hasText: kid })).toContainText("Retired");
   await expect(keys.getByRole("button", { name: "Add key" })).toBeEnabled();
 });
+
+test("an owner edits the questions the widget suggests under its greeting", async ({ page }) => {
+  await signUp(page, "Grace Hopper", "Suggestions");
+  // The test above covers the create dialog; start from a saved widget.
+  const created = await page.request.post("/api/v1/widgets", {
+    headers: { origin: process.env.E2E_BASE_URL ?? "http://localhost:3000" },
+    data: { name: "Help center", allowed_origins: ["https://app.example.com"] },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  const { id } = (await created.json()) as { id: string };
+  await page.goto(`/app/widgets/${id}`);
+
+  const settings = page.getByRole("region", { name: "Settings" });
+  const field = settings.getByRole("group", { name: "Suggested questions" });
+  const save = settings.getByRole("button", { name: "Save changes" });
+  await expect(field.getByRole("textbox")).toHaveCount(0);
+  await expect(save).toBeDisabled();
+
+  // Each new row takes focus, so typing goes straight into it.
+  const add = field.getByRole("button", { name: "Add question" });
+  await add.click();
+  await expect(field.getByRole("textbox", { name: "Question 1" })).toBeFocused();
+  await page.keyboard.type("How do I reset my password?");
+  await add.click();
+  await page.keyboard.type("  how do I RESET   my password? ");
+  await save.click();
+  await expect(field).toContainText(
+    '"how do I RESET my password?" is in the list twice. Each question must be different.',
+  );
+
+  await field.getByRole("textbox", { name: "Question 2" }).fill("Can I pay yearly?");
+  await add.click();
+  await page.keyboard.type("Where are my invoices?");
+  await add.click();
+  await page.keyboard.type("How do I add a teammate?");
+  // Four is the most a widget shows.
+  await expect(add).toBeHidden();
+  await field.getByRole("button", { name: "Remove question 3" }).click();
+  await expect(add).toBeVisible();
+  await save.click();
+  const notifications = page.getByRole("region", { name: "Notifications" });
+  await expect(notifications).toContainText("Widget saved");
+
+  const wanted = ["How do I reset my password?", "Can I pay yearly?", "How do I add a teammate?"];
+  const stored = (await (await page.request.get(`/api/v1/widgets/${id}`)).json()) as { suggestions: string[] };
+  expect(stored.suggestions).toEqual(wanted);
+  await page.reload();
+  const rows = page.getByRole("group", { name: "Suggested questions" }).getByRole("textbox");
+  await expect.poll(() => rows.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value))).toEqual(
+    wanted,
+  );
+});

@@ -10,6 +10,7 @@ import jwt
 import pytest
 from jwt.algorithms import ECAlgorithm
 
+from docent.api.schemas import clean_suggestions
 from docent.config import Settings
 from docent.seed import DEMO_HOST_ORIGIN, DEMO_PASSWORD, WORKSPACES, install_widget, seed
 from tests.conftest import ClientFactory, make_settings
@@ -64,6 +65,14 @@ async def test_seed_creates_walkthrough_and_is_repeatable(
     )
     assert teammate.status_code == 200
     assert teammate.json()["active_tenant"]["role"] == "agent"
+
+
+def test_every_demo_widget_has_valid_suggestions() -> None:
+    """Each company with a widget offers 1 to 4 suggested questions the API accepts as they are."""
+    for ws in WORKSPACES:
+        if ws.docs:
+            assert 1 <= len(ws.suggestions) <= 4, ws.slug
+            assert clean_suggestions(list(ws.suggestions)) == list(ws.suggestions), ws.slug
 
 
 async def test_seed_refuses_outside_local(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -159,9 +168,11 @@ async def test_seed_widget_settings_follow_the_catalog(
     (widget,) = (await api.get("/v1/widgets")).json()
     assert widget["anonymous_enabled"] is False
     assert widget["allowed_claims"] == list(parcelwise.claims)
+    assert widget["suggestions"] == list(parcelwise.suggestions)
 
-    # An admin turns anonymous chat on, edits the greeting, renames the widget,
-    # and adds an origin. A rerun puts back what the catalog owns and keeps the rest.
+    # An admin turns anonymous chat on, edits the greeting and the suggested
+    # questions, renames the widget, and adds an origin. A rerun puts back what
+    # the catalog owns and keeps the rest.
     drifted = {
         "name": "Dashboard chat",
         "allowed_origins": ["https://app.parcelwise.example"],
@@ -169,6 +180,7 @@ async def test_seed_widget_settings_follow_the_catalog(
         "anonymous_daily_cap": 50,
         "allowed_claims": ["plan"],
         "greeting": "Hello there",
+        "suggestions": ["Where is my parcel?"],
     }
     assert (await api.put(f"/v1/widgets/{widget['id']}", json=drifted)).status_code == 200
     line = await install_widget(api, parcelwise, tmp_path)
@@ -177,6 +189,7 @@ async def test_seed_widget_settings_follow_the_catalog(
     assert widget["anonymous_enabled"] is False
     assert widget["allowed_claims"] == list(parcelwise.claims)
     assert widget["greeting"] == parcelwise.greeting
+    assert widget["suggestions"] == list(parcelwise.suggestions)
     assert sorted(widget["allowed_origins"]) == [DEMO_HOST_ORIGIN, "https://app.parcelwise.example"]
     assert (widget["name"], widget["anonymous_daily_cap"]) == ("Dashboard chat", 50)
 

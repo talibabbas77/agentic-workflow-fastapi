@@ -38,8 +38,10 @@ for (const button of document.querySelectorAll("[data-open-chat]")) {
   button.addEventListener("click", () => window.Docent?.open());
 }
 
-// "Try asking": copy the question, then open the chat. The loader cannot type
-// into the chat, and a host page must never reach into the widget's frame.
+// "Try asking": open the chat with the question in its message field, ready to
+// send. Docent.open({ prefill }) never sends by itself. Before loader.js has
+// arrived the call waits in the queue, and the question is copied too, in case
+// the chat cannot load at all.
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text);
@@ -55,14 +57,17 @@ for (const button of document.querySelectorAll("[data-ask]")) {
   button.addEventListener("click", async () => {
     const question = button.getAttribute("data-ask") || "";
     const status = button.closest("section")?.querySelector(".try-status");
-    const copied = await copy(question);
-    if (status) {
-      status.textContent = copied
-        ? `Copied. Paste it into the chat with ${paste}, then press Enter.`
-        : `Type this into the chat: ${question}`;
-    }
+    const loaded = Boolean(window.Docent?.v);
+    window.Docent?.open({ prefill: question });
     for (const other of document.querySelectorAll("[data-ask][data-picked]")) other.removeAttribute("data-picked");
     button.setAttribute("data-picked", "");
-    window.Docent?.open();
+    if (!status) return;
+    if (loaded) {
+      status.textContent = "The question is in the chat box. Press Enter to send it.";
+      return;
+    }
+    status.textContent = (await copy(question))
+      ? `The chat is still loading. The question is copied, so you can paste it with ${paste}.`
+      : `The chat is still loading. When it opens, type: ${question}`;
   });
 }

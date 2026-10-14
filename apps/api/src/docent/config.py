@@ -54,6 +54,9 @@ class Settings(BaseSettings):
 
     # Admin web app
     web_origin: str = "http://localhost:3000"
+    # Docent's public website, linked from "Powered by Docent" in the widget.
+    # Unset means the web origin, which serves the marketing pages too.
+    site_url: str | None = None
     extra_allowed_origins: list[str] = Field(default_factory=list)
     session_cookie_name: str = "docent_session"
     session_ttl_days: int = 14
@@ -125,6 +128,8 @@ class Settings(BaseSettings):
     widget_clock_skew_seconds: int = 60
     widget_anonymous_per_hour: int = 10
     widget_identified_per_hour: int = 30
+    # Conversations a visitor or customer may start in an hour ("New chat" included).
+    widget_new_conversations_per_hour: int = 20
 
     # Billing (Stripe). Without a secret key the API runs with trials and manual
     # plans only, and checkout answers 503. STRIPE_API_BASE points at stripe-mock
@@ -160,6 +165,10 @@ class Settings(BaseSettings):
         if self.object_store_url:
             return self.object_store_url
         return ((repo_root() or Path.cwd()) / ".data" / "objects").as_uri()
+
+    @property
+    def public_site_url(self) -> str:
+        return (self.site_url or self.web_origin).rstrip("/")
 
     @property
     def widget_dist(self) -> Path:

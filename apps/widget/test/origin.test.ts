@@ -117,13 +117,29 @@ describe("frame: config", () => {
     publicId: "wid_abcdefghijklmnop",
     name: "Lumen Notes",
     greeting: "Hi, ask me anything about Lumen Notes.",
+    suggestions: ["How do I export a note?", "Can I get back a deleted note?"],
     allowedOrigins: [HOST],
     anonymous: true,
     apiBase: "/v1/widget",
+    siteUrl: "https://docent.example/",
   };
 
   it("parses the meta config", () => {
     expect(parseConfig(good)).toEqual(good);
+  });
+
+  it("keeps up to four distinct, short suggestions", () => {
+    const parsed = parseConfig({
+      ...good,
+      suggestions: ["  One   two? ", "one TWO?", "", 7, "x".repeat(101), "Three?", "Four?", "Five?", "Six?"],
+    });
+    expect(parsed?.suggestions).toEqual(["One two?", "Three?", "Four?", "Five?"]);
+    expect(parseConfig({ ...good, suggestions: "not a list" })?.suggestions).toEqual([]);
+  });
+
+  it("links Powered by Docent only to an http(s) site", () => {
+    expect(parseConfig({ ...good, siteUrl: "javascript:alert(1)" })?.siteUrl).toBeNull();
+    expect(parseConfig({ ...good, siteUrl: undefined })?.siteUrl).toBeNull();
   });
 
   it("refuses an apiBase that is not a same origin path", () => {

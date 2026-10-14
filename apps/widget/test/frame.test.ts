@@ -645,3 +645,194 @@ describe("frame app, identified", () => {
     expect($("form.contact")).toBeNull();
   });
 });
+
+describe("frame app, panel controls", () => {
+  const withSuggestions = config({ suggestions: ["How long do refunds take?", "Can I pay yearly?"] });
+  const suggestionTexts = () => texts(".suggest:not([hidden]) .suggestion");
+
+  it("suggestions: under the greeting until the first message; a click sends one", async () => {
+    const h = start(
+      [
+        sessionRoute(() => session("st_s1")),
+        conversationRoute(),
+        (url) => (url.endsWith("/messages") ? sse([["message", answer()]]) : undefined),
+      ],
+      { mode: "anonymous" },
+      withSuggestions,
+    );
+    h.send({ type: "open" });
+    expect(suggestionTexts()).toEqual(["How long do refunds take?", "Can I pay yearly?"]);
+    $<HTMLButtonElement>(".suggestion")?.click();
+    await vi.waitFor(() => expect($(".msg.agent:not(.greeting)")).not.toBeNull());
+    expect(texts(".msg.visitor .plain")).toEqual(["How long do refunds take?"]);
+    expect(h.calls.find((c) => c.url.endsWith("/messages"))?.body).toEqual({ content: "How long do refunds take?" });
+    expect(suggestionTexts()).toEqual([]);
+  });
+
+  it("New chat: asks first, then shows the greeting and suggestions, and the next message starts a new conversation", async () => {
+    const created: unknown[] = [];
+    const h = start(
+      [
+        sessionRoute(() => session("st_s2")),
+        (url, req) => {
+          if (url !== "/v1/widget/conversations") return undefined;
+          created.push(JSON.parse(String(req.body)));
+          return json(201, { id: CONV, status: "open", messages: [], handoff: null });
+        },
+        (url) => (url.endsWith("/messages") ? sse([["message", answer()]]) : undefined),
+      ],
+      { mode: "anonymous" },
+      withSuggestions,
+    );
+    h.send({ type: "open" });
+    type("First question");
+    await vi.waitFor(() => expect($(".msg.agent:not(.greeting)")).not.toBeNull());
+    expect(h.storage.get(`docent:conversation:${WID}`)).toBe(CONV);
+
+    const newChat = $<HTMLButtonElement>('button[aria-label="New chat"]');
+    newChat?.click();
+    const confirm = $(".confirm");
+    expect(confirm?.hidden).toBe(false);
+    expect(confirm?.textContent).toContain("You will not be able to come back to this one.");
+    // Escape cancels the question, not the whole chat.
+    confirm?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    expect(confirm?.hidden).toBe(true);
+    expect(h.fromFrame).not.toContainEqual({ type: "close" });
+    expect(texts(".msg.visitor .plain")).toEqual(["First question"]);
+
+    newChat?.click();
+    [...document.querySelectorAll<HTMLButtonElement>(".confirm button")].find((b) => b.textContent === "Start new chat")?.click();
+    expect($(".msg.visitor")).toBeNull();
+    expect(suggestionTexts()).toHaveLength(2);
+    expect(h.app().conversationId()).toBeNull();
+    expect(h.storage.get(`docent:conversation:${WID}`)).toBeNull();
+
+    type("Second question");
+    await vi.waitFor(() => expect(created).toHaveLength(2));
+    expect(created).toEqual([{}, { new: true }]);
+  });
+
+  it("prefill: fills the message field and sends nothing; layout hides Expand on phones", async () => {
+    const h = start([], { mode: "anonymous" }, withSuggestions);
+    const expand = $<HTMLButtonElement>('button[aria-label="Expand chat"]');
+    expect(expand?.hidden).toBe(true);
+    h.send({ type: "layout", compact: false });
+    await vi.waitFor(() => expect(expand?.hidden).toBe(false));
+    expand?.click();
+    expect(expand?.getAttribute("aria-pressed")).toBe("true");
+    await vi.waitFor(() => expect(h.fromFrame).toContainEqual({ type: "expand", expanded: true }));
+    expect(h.storage.get(`docent:expanded:${WID}`)).toBe("1");
+    h.send({ type: "layout", compact: true });
+    await vi.waitFor(() => expect(expand?.hidden).toBe(true));
+
+    h.send({ type: "open" });
+    h.send({ type: "prefill", text: "  How do I export a note?  " });
+    await vi.waitFor(() => expect($<HTMLTextAreaElement>("textarea")?.value).toBe("How do I export a note?"));
+    h.send({ type: "prefill", text: "x".repeat(1001) });
+    h.send({ type: "prefill", text: 42 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect($<HTMLTextAreaElement>("textarea")?.value).toBe("How do I export a note?");
+    expect($<HTMLButtonElement>("button.send")?.disabled).toBe(false);
+    expect(h.calls).toHaveLength(0);
+  });
+
+  it("starts expanded when this tab chose it earlier", async () => {
+    const h = start([], { mode: "anonymous" }, config(), { [`docent:expanded:${WID}`]: "1" });
+    await vi.waitFor(() => expect(h.fromFrame).toContainEqual({ type: "expand", expanded: true }));
+    expect($('button[aria-label="Expand chat"]')?.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("a conversation the team closed is never continued: the message starts a new one", async () => {
+    const created: unknown[] = [];
+    const sent: string[] = [];
+    const NEW = "8c1d8b4f-2222-4333-8444-a55566667777";
+    const h = start(
+      [
+        sessionRoute(() => session("st_s3")),
+        (url, req) => {
+          if (url !== "/v1/widget/conversations") return undefined;
+          const body = JSON.parse(String(req.body));
+          created.push(body);
+          const id = body.new ? NEW : CONV;
+          return json(201, { id, status: "open", messages: body.new ? [] : [{ ...answer(), id: "old" }], handoff: null });
+        },
+        (url) => {
+          if (!url.endsWith("/messages")) return undefined;
+          sent.push(url);
+          return url.includes(CONV)
+            ? json(409, { error: { code: "conversation_closed", message: "This conversation is closed." } })
+            : sse([["message", answer({ id: "a-new" })]]);
+        },
+      ],
+      { mode: "anonymous" },
+      config(),
+      { [`docent:conversation:${WID}`]: CONV },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect($('li[data-id="old"]')).not.toBeNull());
+    type("Is anyone there?");
+    await vi.waitFor(() => expect($('li[data-id="a-new"]')).not.toBeNull());
+    expect(created).toEqual([{ resume_id: CONV, create: false }, { new: true }]);
+    expect(sent).toEqual([`/v1/widget/conversations/${CONV}/messages`, `/v1/widget/conversations/${NEW}/messages`]);
+    // The old thread is gone from view; the new one holds the message.
+    expect($('li[data-id="old"]')).toBeNull();
+    expect(texts(".msg.visitor .plain")).toEqual(["Is anyone there?"]);
+    expect(h.app().conversationId()).toBe(NEW);
+  });
+});
+
+describe("frame app, recent chats", () => {
+  const OLD = "6a0b9c8d-3333-4444-8555-b66677778888";
+  const identified = () => session("st_r", { mode: "identified", visitor_id: null, user: { name: "Ben Carter" } });
+  const summaries = [
+    { id: CONV, status: "open", title: "How long do refunds take?", started_at: new Date().toISOString(), last_message_at: new Date().toISOString() },
+    { id: OLD, status: "closed", title: "Where is my invoice?", started_at: "2025-01-02T10:00:00Z", last_message_at: "2025-01-02T10:05:00Z" },
+  ];
+
+  it("lists the customer's chats, opens one, and shows a closed one read only", async () => {
+    const h = start(
+      [
+        sessionRoute(identified),
+        (url, req) => (url === "/v1/widget/conversations" && req.method === "GET" ? json(200, summaries) : undefined),
+        conversationRoute({ messages: [{ ...answer(), id: "a-current" }] }),
+        (url, req) =>
+          url === `/v1/widget/conversations/${OLD}` && req.method === "GET"
+            ? json(200, { id: OLD, status: "closed", messages: [{ ...answer(), id: "a-old" }], handoff: null })
+            : undefined,
+      ],
+      { mode: "identified", token: "jwt-1" },
+    );
+    const recent = $<HTMLButtonElement>('button[aria-label="Recent chats"]');
+    expect(recent?.hidden).toBe(false);
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect($('li[data-id="a-current"]')).not.toBeNull());
+
+    recent?.click();
+    await vi.waitFor(() => expect(texts(".history-q")).toEqual(["How long do refunds take?", "Where is my invoice?"]));
+    expect(recent?.getAttribute("aria-pressed")).toBe("true");
+    expect($<HTMLElement>(".log")?.hidden).toBe(true);
+    const metas = texts(".history-meta");
+    expect(metas[0]).toBe("Today · Open · Current");
+    expect(metas[1]).toMatch(/· Closed$/);
+    expect($(`.history-item[data-id="${CONV}"]`)?.getAttribute("aria-current")).toBe("true");
+
+    $<HTMLButtonElement>(`.history-item[data-id="${OLD}"]`)?.click();
+    await vi.waitFor(() => expect($('li[data-id="a-old"]')).not.toBeNull());
+    expect(h.app().conversationId()).toBe(OLD);
+    expect($<HTMLElement>(".history")?.hidden).toBe(true);
+    expect($<HTMLFormElement>("form.composer")?.hidden).toBe(true);
+    expect($<HTMLElement>(".closed")?.hidden).toBe(false);
+    expect($(".closed")?.textContent).toContain("This chat is closed.");
+
+    // Start a new chat from there: no question asked, the composer comes back.
+    $<HTMLButtonElement>(".closed button")?.click();
+    expect($<HTMLFormElement>("form.composer")?.hidden).toBe(false);
+    expect(h.app().conversationId()).toBeNull();
+    expect(h.storage.get(`docent:new:${WID}`)).toBe("1");
+  });
+
+  it("anonymous visitors have no Recent chats button", () => {
+    start([]);
+    expect($<HTMLButtonElement>('button[aria-label="Recent chats"]')?.hidden).toBe(true);
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { citationLabel, renderContent, safeUrl } from "../src/frame/render";
+import { citationLabel, plainExcerpt, renderContent, safeUrl } from "../src/frame/render";
 import type { Citation } from "../src/frame/types";
 
 const cite = (marker: number, url: string | null = null): Citation => ({
@@ -109,5 +109,28 @@ describe("citationLabel", () => {
     );
     expect(citationLabel({ ...cite(1), heading_path: "" })).toBe("Billing and refunds");
     expect(citationLabel({ ...cite(1), heading_path: "", document_title: "" })).toBe("Source");
+  });
+
+  it("renders bulleted and numbered lists, with text around them", () => {
+    const div = render("Void windows by carrier:\n- Ridgeway: 30 days [1]\n- Kestrel: 24 hours\nAsk if unsure.\n\n3. Third\n4. Fourth", [cite(1)]);
+    const [ul, ol] = [div.querySelector("ul"), div.querySelector("ol")];
+    expect(div.querySelector("p")?.textContent).toBe("Void windows by carrier:");
+    expect([...(ul?.querySelectorAll("li") ?? [])].map((li) => li.textContent)).toEqual(["Ridgeway: 30 days 1", "Kestrel: 24 hours"]);
+    expect(ul?.querySelector("button.ref")).not.toBeNull();
+    expect(div.querySelectorAll("p")[1]?.textContent).toBe("Ask if unsure.");
+    expect(ol?.getAttribute("start")).toBe("3");
+    expect(ol?.querySelectorAll("li")).toHaveLength(2);
+  });
+
+  it("keeps **bold** at the start of a line out of lists", () => {
+    const div = render("**Note:** labels are PDFs");
+    expect(div.querySelector("ul")).toBeNull();
+    expect(div.querySelector("strong")?.textContent).toBe("Note:");
+  });
+
+  it("shows source excerpts as plain text", () => {
+    expect(plainExcerpt("## Void windows\n\n- **Ridgeway**: 30 days\n- See [carriers](https://x.example/c)")).toBe(
+      "Void windows \u2022 Ridgeway: 30 days \u2022 See carriers",
+    );
   });
 });

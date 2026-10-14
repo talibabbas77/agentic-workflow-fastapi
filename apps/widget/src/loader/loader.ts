@@ -1,4 +1,13 @@
-import { RESET_TIMEOUT_MS, SOURCE, isRecord, type InitMessage, type LoaderToFrame, type Mode } from "../shared/protocol";
+import {
+  PREFILL_MAX_LENGTH,
+  RESET_TIMEOUT_MS,
+  SOURCE,
+  isPrefill,
+  isRecord,
+  type InitMessage,
+  type LoaderToFrame,
+  type Mode,
+} from "../shared/protocol";
 import { isTrustedReady } from "./checks";
 import type { DocentApi, InitOptions } from "./queue";
 import { CSS } from "./styles";
@@ -38,6 +47,12 @@ export function createLoader(env: LoaderEnv): Loader {
   let frame: HTMLIFrameElement | undefined;
   let port: MessagePort | undefined;
   let resetWaiters: (() => void)[] = [];
+  /** The visitor picked the larger panel. The frame remembers it and says so again after a reload. */
+  let expanded = false;
+  /** Text from Docent.open({ prefill }), handed to the frame once it is open. */
+  let prefill: string | null = null;
+  // Same breakpoint as the full screen panel in styles.ts.
+  const narrow = win.matchMedia ? win.matchMedia("(max-width: 479px)") : null;
 
   const resetDone = (): void => {
     const waiters = resetWaiters;
@@ -90,6 +105,10 @@ export function createLoader(env: LoaderEnv): Loader {
       if (!frame || !isOpen) return;
       frame.focus();
       send({ type: "open" });
+      if (port && prefill !== null) {
+        send({ type: "prefill", text: prefill });
+        prefill = null;
+      }
     };
     if (win.requestAnimationFrame && !doc.hidden) win.requestAnimationFrame(go);
     else go();
@@ -97,6 +116,12 @@ export function createLoader(env: LoaderEnv): Loader {
 
   const send = (msg: LoaderToFrame, p: MessagePort | undefined = port): void => {
     if (p) p.postMessage(msg);
+  };
+
+  const layout = (p: MessagePort | undefined = port): void => send({ type: "layout", compact: !!narrow?.matches }, p);
+
+  const size = (): void => {
+    if (frame) frame.className = expanded ? "f x" : "f";
   };
 
   // The identity token is fetched on demand, passed straight to the frame,
@@ -118,6 +143,10 @@ export function createLoader(env: LoaderEnv): Loader {
     else if (d.type === "close") hide(true);
     else if (d.type === "unread") setUnread(isOpen ? 0 : d.count);
     else if (d.type === "reset_done") resetDone();
+    else if (d.type === "expand" && typeof d.expanded === "boolean") {
+      expanded = d.expanded;
+      size();
+    }
   };
 
   const connect = async (f: HTMLIFrameElement): Promise<void> => {
@@ -131,6 +160,7 @@ export function createLoader(env: LoaderEnv): Loader {
     const msg: InitMessage = { source: SOURCE, type: "init", mode };
     if (mode === "identified" && t) msg.token = t;
     f.contentWindow.postMessage(msg, origin, [channel.port2]);
+    layout(p);
     if (isOpen) focusAndOpen();
   };
 
@@ -141,7 +171,7 @@ export function createLoader(env: LoaderEnv): Loader {
   const ensureFrame = (): void => {
     if (frame || !root || !widget) return;
     frame = doc.createElement("iframe");
-    frame.className = "f";
+    size();
     frame.title = "Support chat";
     frame.referrerPolicy = "strict-origin";
     frame.hidden = !isOpen;
@@ -209,6 +239,8 @@ export function createLoader(env: LoaderEnv): Loader {
     port = frame = undefined;
     isOpen = false;
     unread = 0;
+    expanded = false;
+    prefill = null;
     label();
   };
 
@@ -232,6 +264,7 @@ export function createLoader(env: LoaderEnv): Loader {
   }
 
   win.addEventListener("message", onWindowMessage);
+  narrow?.addEventListener?.("change", () => layout());
 
   const api: DocentApi = {
     init(options) {
@@ -252,11 +285,19 @@ export function createLoader(env: LoaderEnv): Loader {
       if (!host) schedule();
       else if (mode === "identified") ensureFrame();
     },
-    open: show,
+    open(options) {
+      const text = isRecord(options) ? options.prefill : undefined;
+      if (isPrefill(text)) prefill = text;
+      else if (text !== undefined && text !== "") {
+        console.warn(`Docent: prefill must be text of at most ${PREFILL_MAX_LENGTH} characters.`);
+      }
+      show();
+    },
     close: () => hide(),
     reset() {
       getToken = undefined;
       mode = "anonymous";
+      prefill = null;
       hide();
       setUnread(0);
       const p = port;

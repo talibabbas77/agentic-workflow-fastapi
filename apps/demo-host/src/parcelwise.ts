@@ -223,7 +223,7 @@ export function dashboardPage(ctx: Context, install: Install | null, persona: Pe
           ? html`<div class="pw-try">${tryAsking(PARCELWISE_SUGGESTIONS, {
               id: "try",
               title: "Ask Parcelwise support",
-              intro: `Support knows you are ${persona.name} on the ${account.plan} plan, because this site's server signed it. Pick a question: we copy it and open the chat, so you only paste and send.`,
+              intro: `Support knows you are ${persona.name} on the ${account.plan} plan, because this site's server signed it. Pick a question: it opens the chat with the question ready to send.`,
             })}</div>`
           : ""
       }

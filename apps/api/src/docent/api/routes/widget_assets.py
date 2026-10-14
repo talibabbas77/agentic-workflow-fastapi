@@ -74,9 +74,11 @@ async def frame(public_id: str, state: State) -> HTMLResponse:
             "publicId": public_id,
             "name": widget["name"],
             "greeting": widget["greeting"],
+            "suggestions": list(widget["suggestions"]),
             "allowedOrigins": origins,
             "anonymous": widget["anonymous_enabled"],
             "apiBase": "/v1/widget",
+            "siteUrl": state.settings.public_site_url,
         }
     )
     csp = "; ".join(

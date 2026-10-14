@@ -1219,14 +1219,43 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Recent Conversations
+         * @description A signed-in customer's latest conversations on this widget, newest first.
+         *
+         *     Only conversations with a message from them are listed. Anonymous visitors
+         *     have no history to list, so they get an empty list.
+         */
+        get: operations["recent_conversations"];
         put?: never;
         /**
          * Open Conversation
          * @description Resume this visitor's conversation, or start one. Opening the panel passes
          *     create=false, so a visitor who never writes leaves no empty conversation behind.
+         *     new=true always starts one (the visitor chose "New chat"); the previous
+         *     conversation stays as it is for the team.
          */
         post: operations["open_conversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/widget/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Conversation
+         * @description One of this visitor's own conversations, for the recent chats view.
+         */
+        get: operations["read_conversation"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3393,6 +3422,12 @@ export interface components {
              * @default true
              */
             create: boolean;
+            /**
+             * New
+             * @description Start a new conversation instead of resuming one. The previous one stays as it is for the team
+             * @default false
+             */
+            new: boolean;
         };
         /** WidgetConversationOut */
         WidgetConversationOut: {
@@ -3410,6 +3445,34 @@ export interface components {
             messages: components["schemas"]["MessageOut"][];
             /** @description The latest handoff, if any */
             handoff: components["schemas"]["WidgetHandoff"] | null;
+        };
+        /** WidgetConversationSummaryOut */
+        WidgetConversationSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "escalated" | "closed";
+            /**
+             * Title
+             * @description The visitor's first message, cut to 120 characters
+             */
+            title: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Last Message At
+             * Format: date-time
+             */
+            last_message_at: string;
         };
         /** WidgetHandoff */
         WidgetHandoff: {
@@ -3447,6 +3510,11 @@ export interface components {
              * @default
              */
             greeting: string;
+            /**
+             * Suggestions
+             * @description Questions shown under the greeting until the first message: 4 at most, 100 characters each, no duplicates
+             */
+            suggestions?: string[];
         };
         /** WidgetInfo */
         WidgetInfo: {
@@ -3454,6 +3522,8 @@ export interface components {
             name: string;
             /** Greeting */
             greeting: string;
+            /** Suggestions */
+            suggestions?: string[];
         };
         /** WidgetOut */
         WidgetOut: {
@@ -3476,6 +3546,8 @@ export interface components {
             allowed_claims: string[];
             /** Greeting */
             greeting: string;
+            /** Suggestions */
+            suggestions: string[];
             /** Keys */
             keys: components["schemas"]["SigningKeyOut"][];
             /**
@@ -8166,6 +8238,64 @@ export interface operations {
             };
         };
     };
+    recent_conversations: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetConversationSummaryOut"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
     open_conversation: {
         parameters: {
             query?: never;
@@ -8183,6 +8313,75 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetConversationOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    read_conversation: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8274,6 +8473,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

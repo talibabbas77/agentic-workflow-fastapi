@@ -150,6 +150,7 @@ function CreateWidgetDialog({ open, onClose }: { open: boolean; onClose: () => v
               anonymous_daily_cap: 200,
               allowed_claims: [],
               greeting: "",
+              suggestions: [],
             },
           }),
         ),

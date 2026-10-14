@@ -26,9 +26,11 @@ const config = {
   publicId: WIDGET_ID,
   name: "Lumen Notes",
   greeting: "Hi, ask me anything about Lumen Notes.",
+  suggestions: ["How do refunds work?", "Can I talk to a human?"],
   allowedOrigins: [HOST],
   anonymous: ANONYMOUS,
   apiBase: "/v1/widget",
+  siteUrl: "http://localhost:3000",
 };
 
 const CSP = [
@@ -52,7 +54,7 @@ const frameHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><m
 
 // In-memory state, enough for a demo.
 const sessions = new Map(); // token -> { mode, visitor, user }
-const conversations = new Map(); // id -> { owner, messages, handoff }
+const conversations = new Map(); // id -> { owner, messages, handoff, started }
 let tokenCount = 0;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -176,7 +178,7 @@ const widget = createServer(async (req, res) => {
         mode: identified ? "identified" : "anonymous",
         visitor_id: visitor,
         user: { name: identified ? "Sam Ortiz" : null },
-        widget: { name: config.name, greeting: config.greeting },
+        widget: { name: config.name, greeting: config.greeting, suggestions: config.suggestions },
       });
     }
 
@@ -190,19 +192,46 @@ const widget = createServer(async (req, res) => {
       return res.end();
     }
 
+    const out = (id, c) => ({ id, status: c.handoff ? "escalated" : "open", messages: c.messages, handoff: c.handoff });
+
     if (req.method === "POST" && path === "/v1/widget/conversations") {
       const body = (await readJson(req)) ?? {};
       let id = null;
-      for (const [cid, c] of conversations) {
-        if (s.mode === "identified" && c.owner === owner) id = cid;
+      if (!body.new) {
+        for (const [cid, c] of conversations) {
+          if (s.mode === "identified" && c.owner === owner) id = cid;
+        }
+        if (s.mode === "anonymous" && body.resume_id && conversations.get(body.resume_id)?.owner === owner) id = body.resume_id;
       }
-      if (s.mode === "anonymous" && body.resume_id && conversations.get(body.resume_id)?.owner === owner) id = body.resume_id;
+      if (!id && body.create === false) return error(res, 404, "no_conversation", "There is no conversation to resume.");
       if (!id) {
         id = randomUUID();
-        conversations.set(id, { owner, messages: [], handoff: null });
+        conversations.set(id, { owner, messages: [], handoff: null, started: new Date().toISOString() });
       }
-      const c = conversations.get(id);
-      return send(res, 201, { id, status: c.handoff ? "escalated" : "open", messages: c.messages, handoff: c.handoff });
+      return send(res, 201, out(id, conversations.get(id)));
+    }
+
+    // Recent chats: identified visitors only, conversations they wrote in, newest first.
+    if (req.method === "GET" && path === "/v1/widget/conversations") {
+      if (s.mode !== "identified") return send(res, 200, []);
+      const mine = [...conversations].filter(([, c]) => c.owner === owner && c.messages.length > 0).reverse();
+      return send(
+        res,
+        200,
+        mine.map(([id, c]) => ({
+          id,
+          status: c.handoff ? "escalated" : "open",
+          title: c.messages[0].content.slice(0, 120),
+          started_at: c.started,
+          last_message_at: c.messages.at(-1).created_at,
+        })),
+      );
+    }
+    const one = /^\/v1\/widget\/conversations\/([^/]+)$/.exec(path);
+    if (req.method === "GET" && one) {
+      const c = conversations.get(one[1]);
+      if (!c || c.owner !== owner) return error(res, 404, "not_found", "Conversation not found.");
+      return send(res, 200, out(one[1], c));
     }
 
     const msg = /^\/v1\/widget\/conversations\/([^/]+)\/(messages|contact)$/.exec(path);

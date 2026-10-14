@@ -12,7 +12,7 @@ from docent.widget.identity import Identity
 
 WIDGET_COLUMNS = """
     id, public_id, name, allowed_origins, anonymous_enabled, anonymous_daily_cap,
-    allowed_claims, greeting, created_at, updated_at
+    allowed_claims, greeting, suggestions, created_at, updated_at
 """
 
 

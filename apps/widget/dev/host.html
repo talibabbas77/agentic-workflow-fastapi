@@ -22,6 +22,7 @@
     <button id="sign-in" type="button">Sign in (identified)</button>
     <button id="sign-out" type="button">Sign out (await Docent.reset)</button>
     <button id="open" type="button">Docent.open()</button>
+    <button id="ask" type="button">Docent.open({ prefill })</button>
     <button id="close" type="button">Docent.close()</button>
   </p>
   <p id="log">Anonymous.</p>
@@ -46,6 +47,7 @@
     log(`Signed out. Docent.reset() resolved in ${Math.round(performance.now() - started)} ms.`);
   };
   document.getElementById("open").onclick = () => Docent.open();
+  document.getElementById("ask").onclick = () => Docent.open({ prefill: "How do refunds work?" });
   document.getElementById("close").onclick = () => Docent.close();
 </script>
 </body>

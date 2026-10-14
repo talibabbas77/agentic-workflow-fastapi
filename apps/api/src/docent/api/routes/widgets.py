@@ -1,4 +1,5 @@
-"""Widgets for staff: allowed origins, anonymous mode, claim allowlist, signing keys."""
+"""Widgets for staff: allowed origins, anonymous mode, claim allowlist, greeting and
+suggested questions, signing keys."""
 
 import uuid
 
@@ -47,8 +48,9 @@ async def create_widget(body: WidgetIn, member: AdminMember, state: State) -> Wi
         await conn.execute(
             """
             insert into widgets (id, public_id, tenant_id, name, allowed_origins,
-                                 anonymous_enabled, anonymous_daily_cap, allowed_claims, greeting)
-            values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                                 anonymous_enabled, anonymous_daily_cap, allowed_claims, greeting,
+                                 suggestions)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             """,
             widget_id,
             new_public_id(),
@@ -59,6 +61,7 @@ async def create_widget(body: WidgetIn, member: AdminMember, state: State) -> Wi
             body.anonymous_daily_cap,
             body.allowed_claims,
             body.greeting,
+            body.suggestions,
         )
         await _audit(conn, member, "widget.created", widget_id)
         return await _out(conn, state.settings, widget_id)
@@ -80,7 +83,8 @@ async def replace_widget(
             """
             update widgets
             set name = $2, allowed_origins = $3, anonymous_enabled = $4,
-                anonymous_daily_cap = $5, allowed_claims = $6, greeting = $7, updated_at = now()
+                anonymous_daily_cap = $5, allowed_claims = $6, greeting = $7,
+                suggestions = $8, updated_at = now()
             where id = $1
             """,
             widget_id,
@@ -90,6 +94,7 @@ async def replace_widget(
             body.anonymous_daily_cap,
             body.allowed_claims,
             body.greeting,
+            body.suggestions,
         )
         if status_line.endswith(" 0"):
             raise not_found("Widget")

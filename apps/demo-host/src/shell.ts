@@ -105,9 +105,10 @@ export function noteFor(ctx: Context, install: Install | null, normal: string): 
 }
 
 /**
- * Suggested questions. A click copies the question and opens the chat: the
- * loader has no way to type into the chat, and the host page must not reach
- * into the widget's frame.
+ * Suggested questions. A click opens the chat with the question in its message
+ * field through Docent.open({ prefill }), so the visitor only presses Enter. The
+ * host page never reaches into the widget's frame, and the widget never sends
+ * the text by itself.
  */
 export function tryAsking(suggestions: Suggestion[], { id, title, intro }: { id: string; title: string; intro: string }): Html {
   return html`<section class="try" aria-labelledby="${id}-title">

@@ -40,6 +40,16 @@ const csp = `Content-Security-Policy: script-src 'self' ${WIDGET_ORIGIN}; frame-
 const reset = `// Before you sign the customer out, so the next person on this device starts fresh.
 await Docent.reset();`;
 
+const open = `// A "Contact support" button on your page.
+Docent.open();
+
+// Open the chat with a question already in the message field. The visitor
+// reads it and presses Enter; the widget never sends it by itself.
+// Text only, at most 1000 characters.
+Docent.open({ prefill: "How do I export a note as a PDF?" });
+
+Docent.close();`;
+
 const claims: { name: string; required: string; value: ReactNode }[] = [
   { name: "alg (header)", required: "Yes", value: "ES256. Any other algorithm is rejected." },
   { name: "kid (header)", required: "Yes", value: "The key id Docent shows when you add the public key." },
@@ -113,6 +123,14 @@ export default function DocsPage() {
             <CodeBlock label="JavaScript" code={reset} />
           </Step>
         </ol>
+      </Section>
+
+      <Section
+        id="open"
+        title="Open the chat from your page"
+        intro="Any page with the widget can open or close the chat, for example from a help link, and can open it with a question typed in for the visitor. To call these before loader.js has loaded, add the queue line that starts the identified-mode snippet; queued calls run once it arrives."
+      >
+        <CodeBlock label="JavaScript" code={open} />
       </Section>
 
       <Section

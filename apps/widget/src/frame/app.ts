@@ -1,9 +1,9 @@
 // Frame controller: wires the port, the session, the conversation, and the UI.
-import { isMode, isRecord, type FrameToLoader, type Mode } from "../shared/protocol";
+import { isMode, isPrefill, isRecord, type FrameToLoader, type Mode } from "../shared/protocol";
 import { ApiError, CONVERSATION_ID, VISITOR_ID, createApi, isNoConversation } from "./api";
 import { SessionError, SessionManager, createTokenRequester, isTokenInvalid, type ActiveSession } from "./session";
 import type { KeyValueStore } from "./storage";
-import type { Handoff, Message, SessionOut, Stage, WidgetConfig } from "./types";
+import type { ConversationOut, Message, SessionOut, Stage, WidgetConfig } from "./types";
 import { MAX_LENGTH, createUi, type StateView } from "./ui";
 
 export interface AppOptions {
@@ -49,6 +49,10 @@ export function createApp(o: AppOptions): App {
   const tokens = createTokenRequester(post);
   const conversationKey = `docent:conversation:${cfg.publicId}`;
   const visitorKey = `docent:visitor:${cfg.publicId}`;
+  /** The visitor chose "New chat" and has not written in it yet: do not resume an older one. */
+  const freshKey = `docent:new:${cfg.publicId}`;
+  /** The larger panel, for the rest of this tab's visit. */
+  const expandedKey = `docent:expanded:${cfg.publicId}`;
 
   const sessions: SessionManager = new SessionManager(
     {
@@ -85,6 +89,16 @@ export function createApp(o: AppOptions): App {
   let inflight: AbortController | null = null;
   /** The team already has an email for the current handoff (from the server, or sent here). */
   let contactGiven = false;
+  let fresh = storage.get(freshKey) === "1";
+  let expanded = storage.get(expandedKey) === "1";
+  /** Bumped for each recent chats request, so only the latest one shows. */
+  let historySeq = 0;
+
+  const setFresh = (next: boolean): void => {
+    fresh = next;
+    if (next) storage.set(freshKey, "1");
+    else storage.remove(freshKey);
+  };
 
   /** An anonymous conversation this tab already started, if any. */
   const storedConversation = (): string | null => {
@@ -96,32 +110,55 @@ export function createApp(o: AppOptions): App {
   /**
    * Whether opening the panel should load a conversation. Identified visitors
    * may have one on the server; anonymous ones only if this tab started one.
-   * Otherwise the panel shows the greeting and nothing is created until the
-   * first message is sent.
+   * Otherwise (and after "New chat") the panel shows the greeting and nothing
+   * is created until the first message is sent.
    */
-  const hasHistory = (): boolean => mode === "identified" || storedConversation() !== null;
+  const hasHistory = (): boolean => !fresh && (mode === "identified" || storedConversation() !== null);
 
-  const ui = createUi(o.root, o.doc, {
-    onSend: (text) => send(text),
-    onClose() {
-      isOpen = false;
-      post({ type: "close" });
+  const ui = createUi(
+    o.root,
+    o.doc,
+    {
+      onSend: (text) => send(text),
+      onClose() {
+        isOpen = false;
+        post({ type: "close" });
+      },
+      onRetry() {
+        ui.showState(null);
+        if (hasHistory()) void load(false).catch(() => undefined);
+        ui.focusInput();
+      },
+      onContact: (email) => contact(email),
+      onNewChat: () => newChat(),
+      onHistory: () => void showHistory(),
+      onPick: (id) => void pick(id),
+      onExpand(next) {
+        expanded = next;
+        if (next) storage.set(expandedKey, "1");
+        else storage.remove(expandedKey);
+        ui.setExpanded(next);
+        post({ type: "expand", expanded: next });
+      },
     },
-    onRetry() {
-      ui.showState(null);
-      if (hasHistory()) void load(false).catch(() => undefined);
-      ui.focusInput();
-    },
-    onContact: (email) => contact(email),
-  });
+    cfg.siteUrl,
+  );
 
   const resetView = (): void => {
     ui.setMode(mode);
     ui.setHeader(cfg.name, null);
     ui.setGreeting(cfg.greeting);
+    ui.setSuggestions(cfg.suggestions);
+    ui.setClosed(false);
+    ui.showChat();
     ui.setMessages([], null);
+    // History may replace the empty conversation; offer the suggestions once it has loaded.
+    ui.allowSuggestions(!hasHistory());
   };
   resetView();
+  ui.setExpanded(expanded);
+  // The loader sizes the iframe; tell it about a choice made earlier in this tab.
+  if (expanded) post({ type: "expand", expanded: true });
 
   const setUnread = (n: number): void => {
     if (n === unread) return;
@@ -134,6 +171,7 @@ export function createApp(o: AppOptions): App {
     const userName = mode === "identified" ? info.user?.name : null;
     ui.setHeader(name, userName ? `Signed in as ${userName}` : null);
     ui.setGreeting(info.widget?.greeting || cfg.greeting);
+    ui.setSuggestions(info.widget?.suggestions.length ? info.widget.suggestions : cfg.suggestions);
   };
 
   const describe = (e: unknown): StateView => {
@@ -190,14 +228,33 @@ export function createApp(o: AppOptions): App {
     return null;
   };
 
+  /** Make a conversation from the server the current one. */
+  const adopt = (conversation: ConversationOut, replace: boolean): void => {
+    conversationId = conversation.id;
+    setFresh(false);
+    if (mode === "anonymous") storage.set(conversationKey, conversation.id);
+    // Ask for an email only under an unresolved handoff the team has no email
+    // for. A later handoff in this conversation asks again.
+    const handoff = conversation.handoff;
+    const pending = handoff !== null && handoff.status !== "resolved";
+    contactGiven = pending && handoff.contact_given;
+    if (replace || conversation.messages.length > 0) {
+      ui.setMessages(conversation.messages, pending ? contactFor(conversation.messages) : null);
+    }
+    ui.setClosed(conversation.status === "closed");
+    ui.allowSuggestions(true);
+  };
+
   /**
    * Session, then the conversation. Opening the panel only looks up history
    * (create=false: nothing is created, a 404 means there is none); the first
-   * sent message creates one. Concurrent calls wait for the one in flight.
+   * sent message creates one, a new one after "New chat". Concurrent calls
+   * wait for the one in flight.
    */
   const load = (create: boolean): Promise<void> => {
     if (conversationId) return Promise.resolve();
     if (loading) return loading.then(() => load(create));
+    if (!create && fresh) return Promise.resolve();
     const gen = generation;
     const run = async (): Promise<void> => {
       if (mode === "anonymous" && !cfg.anonymous) throw new ApiError(403, "anonymous_disabled", "Anonymous chat is off.");
@@ -205,29 +262,21 @@ export function createApp(o: AppOptions): App {
       const s = await sessions.ensure();
       alive(gen);
       applySession(s.info);
-      const resume = mode === "anonymous" ? storedConversation() : null;
+      const resume = mode === "anonymous" && !fresh ? storedConversation() : null;
       let conversation;
       try {
-        conversation = await withSession((t) => api.createConversation(t, resume, create));
+        conversation = await withSession((t) => api.createConversation(t, resume, create, create && fresh));
       } catch (e) {
         if (create || !isNoConversation(e)) throw e;
         // No history: show the greeting; the first message creates the conversation.
         alive(gen);
         storage.remove(conversationKey);
+        ui.allowSuggestions(true);
         ui.setStatus(busy ? "searching" : null);
         return;
       }
       alive(gen);
-      conversationId = conversation.id;
-      if (mode === "anonymous") storage.set(conversationKey, conversation.id);
-      // Ask for an email only under an unresolved handoff the team has no email
-      // for. A later handoff in this conversation asks again.
-      const handoff: Handoff | null = conversation.handoff;
-      const pending = handoff !== null && handoff.status !== "resolved";
-      contactGiven = pending && handoff.contact_given;
-      if (conversation.messages.length > 0) {
-        ui.setMessages(conversation.messages, pending ? contactFor(conversation.messages) : null);
-      }
+      adopt(conversation, false);
       ui.setStatus(busy ? "searching" : null);
     };
     const p = run();
@@ -285,12 +334,20 @@ export function createApp(o: AppOptions): App {
       try {
         reply = await sendOnce(content, controller.signal);
       } catch (e) {
-        // The conversation is gone, or belonged to an older anonymous session:
-        // start or resume one and try once more.
-        if (!(e instanceof ApiError) || e.code !== "not_found" || e.phase !== "request") throw e;
+        // The conversation is gone, belonged to an older anonymous session, or
+        // the team closed it: start or resume one and try once more.
+        const retry = e instanceof ApiError && e.phase === "request" && (e.code === "not_found" || e.code === "conversation_closed");
+        if (!retry) throw e;
         conversationId = null;
         loading = null;
         storage.remove(conversationKey);
+        if (e.code === "conversation_closed") {
+          // A closed conversation is never continued: this message starts a new one.
+          setFresh(true);
+          ui.setMessages([], null);
+          ui.setClosed(false);
+          bubble = ui.addMessage(local);
+        }
         await load(true);
         alive(gen);
         if (!bubble.isConnected) bubble = ui.addMessage(local);
@@ -354,6 +411,67 @@ export function createApp(o: AppOptions): App {
   };
 
   /**
+   * "New chat": an empty conversation with the greeting and suggestions. Nothing
+   * is created until the first message, which then asks for a new conversation
+   * instead of resuming one. The previous conversation stays as it is for the
+   * team; anonymous visitors lose the way back to it (its id is dropped).
+   */
+  const newChat = (): void => {
+    if (busy) return;
+    generation++;
+    historySeq++;
+    loading = null;
+    conversationId = null;
+    contactGiven = false;
+    storage.remove(conversationKey);
+    setFresh(true);
+    ui.setNotice(null);
+    ui.setStatus(null);
+    ui.setClosed(false);
+    ui.showChat();
+    ui.setMessages([], null);
+    ui.allowSuggestions(true);
+    ui.focusInput();
+  };
+
+  /** The signed-in customer's recent chats on this widget. */
+  const showHistory = async (): Promise<void> => {
+    if (mode !== "identified" || busy) return;
+    const seq = ++historySeq;
+    ui.historyLoading("Loading your chats");
+    try {
+      const items = await withSession((t) => api.listConversations(t));
+      if (seq === historySeq) ui.setHistory(items, conversationId);
+    } catch (e) {
+      if (seq !== historySeq) return;
+      if (e instanceof SessionError || isTokenInvalid(e)) fail(e);
+      else ui.historyError("Your chats could not load. Check your connection and try again.");
+    }
+  };
+
+  /** Open a chat from the list. A closed one can be read; an open one can be continued. */
+  const pick = async (id: string): Promise<void> => {
+    if (mode !== "identified" || busy) return;
+    const seq = ++historySeq;
+    const gen = ++generation;
+    loading = null;
+    ui.historyLoading("Opening the chat");
+    try {
+      const conversation = await withSession((t) => api.getConversation(t, id));
+      if (seq !== historySeq || gen !== generation) return;
+      adopt(conversation, true);
+      ui.setNotice(null);
+      ui.setStatus(null);
+      ui.showChat();
+      ui.focusInput();
+    } catch (e) {
+      if (seq !== historySeq || gen !== generation) return;
+      if (e instanceof SessionError || isTokenInvalid(e)) fail(e);
+      else ui.historyError("That chat could not be opened. Try again.");
+    }
+  };
+
+  /**
    * Identified visitors get a session as soon as the frame starts, so the first
    * open is fast. Anonymous sessions wait for history to load or a first message.
    * Errors surface on open.
@@ -389,6 +507,8 @@ export function createApp(o: AppOptions): App {
     if (old.inflight) revokes.push(old.inflight.then((s) => api.revoke(s.token), () => undefined));
     storage.remove(conversationKey);
     storage.remove(visitorKey);
+    setFresh(false);
+    historySeq++;
     conversationId = null;
     loading = null;
     contactGiven = false;
@@ -425,6 +545,9 @@ export function createApp(o: AppOptions): App {
     else if (d.type === "open") onOpen();
     else if (d.type === "close") isOpen = false;
     else if (d.type === "reset" && isMode(d.mode)) onReset(d.mode);
+    // Phones get the full screen panel, so there is nothing to expand.
+    else if (d.type === "layout" && typeof d.compact === "boolean") ui.setExpandable(!d.compact);
+    else if (d.type === "prefill" && isPrefill(d.text)) ui.prefill(d.text.trim());
   };
 
   warm();

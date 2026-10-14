@@ -89,6 +89,7 @@ interface Company {
     anonymous_enabled: boolean;
     allowed_claims: string[];
     greeting: string;
+    suggestions: string[];
   };
 }
 
@@ -175,6 +176,8 @@ export default async function globalSetup(): Promise<() => void> {
           anonymous_enabled: true,
           allowed_claims: ["plan", "workspace"],
           greeting: "Hi, ask me anything about Lumen Notes.",
+          // The second one hands off at once, so clicking it needs no chat model.
+          suggestions: ["How do I export a note as a PDF?", "I want to talk to a human"],
         },
       },
       id,
@@ -189,6 +192,7 @@ export default async function globalSetup(): Promise<() => void> {
           anonymous_enabled: false,
           allowed_claims: ["plan", "account"],
           greeting: "Hi, ask me about shipping, labels, or the Parcelwise API.",
+          suggestions: ["What's my per-label fee?", "I want to talk to a human"],
         },
       },
       id,

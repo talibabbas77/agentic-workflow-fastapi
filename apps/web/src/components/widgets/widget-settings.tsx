@@ -13,10 +13,14 @@ import { useToast } from "@/components/ui/toast";
 import { api, request } from "@/lib/api/browser";
 import { useApiForm } from "@/lib/use-api-form";
 import { OriginsField, readOrigins, toOriginRows } from "./origins-field";
+import { SuggestionsField, duplicateSuggestion, readSuggestions, toSuggestionRows } from "./suggestions-field";
 
 const MAX_CAP = 100_000;
 
-/** Name, greeting, where the widget may appear, and who may use it. Mount with a key per saved version. */
+/**
+ * Name, greeting, suggested questions, where the widget may appear, and who may
+ * use it. Mount with a key per saved version.
+ */
 export function WidgetSettings({
   widget,
   canManage,
@@ -30,6 +34,7 @@ export function WidgetSettings({
   const form = useApiForm();
   const [name, setName] = useState(widget.name);
   const [greeting, setGreeting] = useState(widget.greeting);
+  const [suggestions, setSuggestions] = useState(() => toSuggestionRows(widget.suggestions));
   const [origins, setOrigins] = useState(() => toOriginRows(widget.allowed_origins));
   const [anonymous, setAnonymous] = useState(widget.anonymous_enabled);
   const [cap, setCap] = useState(String(widget.anonymous_daily_cap));
@@ -38,6 +43,7 @@ export function WidgetSettings({
   const changed =
     name.trim() !== widget.name ||
     greeting.trim() !== widget.greeting ||
+    readSuggestions(suggestions).join("\n") !== widget.suggestions.join("\n") ||
     readOrigins(origins).join("\n") !== widget.allowed_origins.join("\n") ||
     anonymous !== widget.anonymous_enabled ||
     cap.trim() !== String(widget.anonymous_daily_cap) ||
@@ -48,6 +54,7 @@ export function WidgetSettings({
     const dailyCap = Number(cap);
     const ok = form.check({
       name: !name.trim() && "Name the widget.",
+      suggestions: duplicateSuggestion(suggestions) ?? undefined,
       anonymous_daily_cap:
         !(cap.trim() && Number.isInteger(dailyCap) && dailyCap >= 0 && dailyCap <= MAX_CAP) &&
         `Choose a whole number from 0 to ${MAX_CAP.toLocaleString("en-US")}.`,
@@ -61,6 +68,7 @@ export function WidgetSettings({
             body: {
               name: name.trim(),
               greeting: greeting.trim(),
+              suggestions: readSuggestions(suggestions),
               allowed_origins: readOrigins(origins),
               anonymous_enabled: anonymous,
               anonymous_daily_cap: dailyCap,
@@ -113,6 +121,12 @@ export function WidgetSettings({
                   placeholder="Hi, ask me anything about your account."
                 />
               </Field>
+              <SuggestionsField
+                rows={suggestions}
+                onChange={setSuggestions}
+                error={form.fieldError("suggestions")}
+                readOnly={!canManage}
+              />
               <OriginsField
                 rows={origins}
                 onChange={setOrigins}

@@ -1,8 +1,20 @@
 // Same-origin client for /v1/widget. Every call after session creation sends
 // "Authorization: Bearer <session_token>". No cookies are sent or needed.
 import { isRecord } from "../shared/protocol";
+import { parseSuggestions } from "./config";
 import { readSse } from "./sse";
-import type { Citation, ConversationOut, Decision, Handoff, Message, Role, SessionOut, Stage } from "./types";
+import type {
+  Citation,
+  ConversationOut,
+  ConversationStatus,
+  ConversationSummary,
+  Decision,
+  Handoff,
+  Message,
+  Role,
+  SessionOut,
+  Stage,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -40,8 +52,18 @@ export interface Api {
   /**
    * Resume this visitor's conversation, or start one. With create=false it only
    * looks up history and throws ApiError 404 "no_conversation" when there is none.
+   * fresh=true always starts a new one (the visitor chose "New chat").
    */
-  createConversation(sessionToken: string, resumeId?: string | null, create?: boolean): Promise<ConversationOut>;
+  createConversation(
+    sessionToken: string,
+    resumeId?: string | null,
+    create?: boolean,
+    fresh?: boolean,
+  ): Promise<ConversationOut>;
+  /** The signed-in customer's latest conversations on this widget. Empty for anonymous visitors. */
+  listConversations(sessionToken: string): Promise<ConversationSummary[]>;
+  /** One of this visitor's own conversations. 404 "not_found" for anything else. */
+  getConversation(sessionToken: string, conversationId: string): Promise<ConversationOut>;
   sendMessage(
     sessionToken: string,
     conversationId: string,
@@ -57,6 +79,9 @@ const ROLES: readonly Role[] = ["visitor", "agent", "human", "system"];
 const HANDOFF: readonly Handoff["status"][] = ["open", "assigned", "waiting", "resolved"];
 const STAGES: readonly Stage[] = ["searching", "writing", "checking"];
 const DECISIONS: readonly Decision["type"][] = ["answer", "clarify", "escalate", "reply"];
+const STATUSES: readonly ConversationStatus[] = ["open", "escalated", "closed"];
+
+const asStatus = (v: unknown): ConversationStatus => (STATUSES.includes(v as ConversationStatus) ? (v as ConversationStatus) : "open");
 
 export const isStage = (v: unknown): v is Stage => STAGES.includes(v as Stage);
 
@@ -102,6 +127,33 @@ export function asMessage(v: unknown): Message | null {
       ? v.citations.map(asCitation).filter((c): c is Citation => c !== null)
       : [],
     created_at: typeof v.created_at === "string" ? v.created_at : null,
+  };
+}
+
+function asConversation(data: unknown, status: number): ConversationOut {
+  if (!isRecord(data) || data.id === undefined || data.id === null) {
+    throw new ApiError(status, "bad_response", "The conversation reply was missing an id.");
+  }
+  const h = data.handoff;
+  return {
+    id: String(data.id),
+    status: asStatus(data.status),
+    messages: Array.isArray(data.messages) ? data.messages.map(asMessage).filter((m): m is Message => m !== null) : [],
+    handoff:
+      isRecord(h) && HANDOFF.includes(h.status as Handoff["status"])
+        ? { status: h.status as Handoff["status"], contact_given: h.contact_given === true }
+        : null,
+  };
+}
+
+function asSummary(v: unknown): ConversationSummary | null {
+  if (!isRecord(v) || typeof v.id !== "string" || typeof v.title !== "string") return null;
+  return {
+    id: v.id,
+    status: asStatus(v.status),
+    title: v.title,
+    started_at: str(v.started_at),
+    last_message_at: str(v.last_message_at),
   };
 }
 
@@ -191,34 +243,36 @@ export function createApi(base: string, fetchImpl: typeof fetch): Api {
           visitor_id: typeof data.visitor_id === "string" && VISITOR_ID.test(data.visitor_id) ? data.visitor_id : null,
           user: isRecord(data.user) ? { name: typeof data.user.name === "string" ? data.user.name : null } : null,
           widget: isRecord(data.widget)
-            ? { name: str(data.widget.name), greeting: str(data.widget.greeting) }
+            ? {
+                name: str(data.widget.name),
+                greeting: str(data.widget.greeting),
+                suggestions: parseSuggestions(data.widget.suggestions),
+              }
             : null,
         },
       };
     },
 
-    async createConversation(token, resumeId, create = true) {
+    async createConversation(token, resumeId, create = true, fresh = false) {
       const res = await call("/conversations", {
         method: "POST",
         token,
-        body: { ...(resumeId ? { resume_id: resumeId } : {}), ...(create ? {} : { create: false }) },
+        body: fresh
+          ? { new: true }
+          : { ...(resumeId ? { resume_id: resumeId } : {}), ...(create ? {} : { create: false }) },
       });
+      return asConversation(await json(res), res.status);
+    },
+
+    async listConversations(token) {
+      const res = await call("/conversations", { method: "GET", token });
       const data = await json(res);
-      if (!isRecord(data) || data.id === undefined || data.id === null) {
-        throw new ApiError(res.status, "bad_response", "The conversation reply was missing an id.");
-      }
-      const h = data.handoff;
-      return {
-        id: String(data.id),
-        status: str(data.status),
-        messages: Array.isArray(data.messages)
-          ? data.messages.map(asMessage).filter((m): m is Message => m !== null)
-          : [],
-        handoff:
-          isRecord(h) && HANDOFF.includes(h.status as Handoff["status"])
-            ? { status: h.status as Handoff["status"], contact_given: h.contact_given === true }
-            : null,
-      };
+      return Array.isArray(data) ? data.map(asSummary).filter((c): c is ConversationSummary => c !== null) : [];
+    },
+
+    async getConversation(token, conversationId) {
+      const res = await call(`/conversations/${encodeURIComponent(conversationId)}`, { method: "GET", token });
+      return asConversation(await json(res), res.status);
     },
 
     async sendMessage(token, conversationId, content, onStatus, signal) {

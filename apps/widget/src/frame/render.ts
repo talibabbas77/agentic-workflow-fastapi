@@ -1,9 +1,10 @@
 // Safe renderer for agent answers. Builds DOM nodes only; text always lands in
 // text nodes, so nothing in a reply is ever parsed as HTML.
 //
-// Supported: paragraphs (blank line), line breaks, **bold**, citation markers
-// [n] (as small chips), and links, but only when the URL is one of the
-// message's own citation URLs. Anything else stays plain text.
+// Supported: paragraphs (blank line), line breaks, bulleted ("- ", "* ") and
+// numbered ("1. ") lists, **bold**, citation markers [n] (as small chips), and
+// links, but only when the URL is one of the message's own citation URLs.
+// Anything else stays plain text.
 import type { Citation } from "./types";
 
 /** Normalized http(s) URL, or null for anything else (javascript:, data:, relative, junk). */
@@ -108,15 +109,53 @@ export function renderContent(
     .replace(/\r\n?/g, "\n")
     .split(/\n[ \t]*\n/);
   for (const para of paragraphs) {
-    const body = para.replace(/^\n+|\n+$/g, "");
-    if (!body.trim()) continue;
-    const p = doc.createElement("p");
-    p.dir = "auto";
-    body.split("\n").forEach((line, i) => {
-      if (i > 0) p.appendChild(doc.createElement("br"));
+    // Consecutive list lines become one list; other lines join into a paragraph.
+    let p: HTMLElement | null = null;
+    let list: HTMLElement | null = null;
+    for (const line of para.split("\n")) {
+      const bullet = BULLET.exec(line);
+      const numbered = bullet ? null : NUMBERED.exec(line);
+      if (bullet || numbered) {
+        const kind = bullet ? "ul" : "ol";
+        if (!list || list.tagName.toLowerCase() !== kind) {
+          list = doc.createElement(kind);
+          list.dir = "auto";
+          const first = numbered ? Number(numbered[1]) : 1;
+          if (first !== 1) list.setAttribute("start", String(first));
+          frag.appendChild(list);
+        }
+        p = null;
+        const li = doc.createElement("li");
+        inline(li, (bullet ? bullet[1] : numbered?.[2]) ?? "", true);
+        list.appendChild(li);
+        continue;
+      }
+      list = null;
+      if (!line.trim()) continue;
+      if (p) {
+        p.appendChild(doc.createElement("br"));
+      } else {
+        p = doc.createElement("p");
+        p.dir = "auto";
+        frag.appendChild(p);
+      }
       inline(p, line, true);
-    });
-    frag.appendChild(p);
+    }
   }
   return frag;
+}
+
+const BULLET = /^[ \t]*[-*\u2022][ \t]+(.+)$/;
+const NUMBERED = /^[ \t]*(\d{1,3})[.)][ \t]+(.+)$/;
+
+/** A source excerpt as plain text: no heading marks, bold marks, link syntax, or list dashes. */
+export function plainExcerpt(text: string): string {
+  return String(text ?? "")
+    .replace(/^[ \t]*#{1,6}[ \t]+/gm, "")
+    .replace(/\*\*(\S(?:[^\n]*?\S)?)\*\*/g, "$1")
+    .replace(/\[([^[\]\n]{1,300})\]\([^)\s]*\)/g, "$1")
+    .replace(/^[ \t]*[-*][ \t]+/gm, "\u2022 ")
+    .replace(/[ \t]*\n[ \t]*/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }

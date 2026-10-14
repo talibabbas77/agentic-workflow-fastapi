@@ -268,7 +268,7 @@ export async function homePage(ctx: Context, install: Install | null): Promise<s
         ? tryAsking(LUMEN_SUGGESTIONS, {
             id: "try",
             title: "Questions before you start? Ask the assistant.",
-            intro: "Pick a question. We copy it and open the chat in the corner, so you only paste and send. Answers come from our help center, with the section they used.",
+            intro: "Pick a question. It opens the chat in the corner with the question ready to send. Answers come from our help center, with the section they used.",
           })
         : ""
     }
@@ -441,7 +441,7 @@ export async function helpPage(ctx: Context, install: Install | null, query: str
           ? tryAsking(LUMEN_SUGGESTIONS, {
               id: "try",
               title: "Or ask the assistant",
-              intro: "Pick a question. We copy it and open the chat, so you only paste and send.",
+              intro: "Pick a question. It opens the chat with the question ready to send.",
             })
           : ""
       }

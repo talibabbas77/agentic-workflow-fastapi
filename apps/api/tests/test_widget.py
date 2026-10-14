@@ -1,5 +1,8 @@
 """Widget: admin setup, signed identity, origins, frame policy, sessions, ownership, limits."""
 
+import html
+import json
+import re
 import runpy
 import time
 import uuid
@@ -16,7 +19,7 @@ from jwt.algorithms import ECAlgorithm
 
 from docent.config import repo_root
 from docent.db.pool import Pool
-from tests.conftest import ClientFactory, Drain, verified_owner
+from tests.conftest import ClientFactory, Drain, set_plan, verified_owner
 
 WIDGET_ORIGIN = "http://localhost:8000"
 SITE = "http://localhost:5173"
@@ -134,7 +137,7 @@ async def test_anonymous_session_and_conversation(frame: httpx.AsyncClient, tena
     assert created.status_code == 201, created.text
     body = created.json()
     assert body["mode"] == "anonymous"
-    assert body["widget"] == {"name": "Help", "greeting": "Ask me anything."}
+    assert body["widget"] == {"name": "Help", "greeting": "Ask me anything.", "suggestions": []}
     headers = bearer(body["session_token"])
     conversation = (await frame.post("/v1/widget/conversations", json={}, headers=headers)).json()
     sent = await frame.post(
@@ -443,3 +446,224 @@ async def test_widget_sessions_are_tenant_scoped(
         [tenant.kid],
     )
     assert (await other.get(f"/v1/widgets/{tenant.widget['id']}")).status_code == 404
+
+
+# Suggested questions, new chats, and recent chats
+
+
+async def identified(
+    frame: httpx.AsyncClient, tenant: Tenant, sub: str = "user_8812"
+) -> dict[str, str]:
+    """Authorization headers for a signed-in customer's widget session."""
+    created = await session(frame, tenant, token=tenant.token(sub=sub))
+    assert created.status_code == 201, created.text
+    return bearer(created.json()["session_token"])
+
+
+async def anonymous(frame: httpx.AsyncClient, tenant: Tenant) -> dict[str, str]:
+    created = await session(frame, tenant)
+    assert created.status_code == 201, created.text
+    return bearer(created.json()["session_token"])
+
+
+async def start(frame: httpx.AsyncClient, headers: dict[str, str], **body: Any) -> dict[str, Any]:
+    response = await frame.post("/v1/widget/conversations", json=body, headers=headers)
+    assert response.status_code == 201, response.text
+    conversation: dict[str, Any] = response.json()
+    return conversation
+
+
+async def ask(
+    frame: httpx.AsyncClient, headers: dict[str, str], conversation: dict[str, Any], text: str
+) -> None:
+    sent = await frame.post(
+        f"/v1/widget/conversations/{conversation['id']}/messages",
+        json={"content": text},
+        headers=headers,
+    )
+    assert "event: message" in sent.text, sent.text
+
+
+async def second_widget(tenant: Tenant, admin_pool: Pool) -> Tenant:
+    """Another widget of the same company, with its own signing key."""
+    await set_plan(tenant.admin, admin_pool, "growth")
+    created = await tenant.admin.post(
+        "/v1/widgets", json={"name": "Dashboard", "allowed_origins": [SITE]}
+    )
+    assert created.status_code == 201, created.text
+    private, jwk = new_key()
+    key = await tenant.admin.post(
+        f"/v1/widgets/{created.json()['id']}/keys", json={"public_jwk": jwk}
+    )
+    assert key.status_code == 201, key.text
+    return Tenant(tenant.admin, created.json(), private, key.json()["kid"])
+
+
+def frame_config(page: httpx.Response) -> dict[str, Any]:
+    match = re.search(r'<meta name="docent-widget" content="([^"]*)">', page.text)
+    assert match is not None
+    config: dict[str, Any] = json.loads(html.unescape(match.group(1)))
+    return config
+
+
+async def test_suggestions_are_cleaned_checked_and_reach_the_frame(
+    frame: httpx.AsyncClient, tenant: Tenant
+) -> None:
+    url = f"/v1/widgets/{tenant.widget['id']}"
+    body = {"name": "Help", "allowed_origins": [SITE], "greeting": "Ask me anything."}
+    assert tenant.widget["suggestions"] == []
+    saved = await tenant.admin.put(
+        url, json=body | {"suggestions": ["  How are   refunds paid? ", "Can I pay yearly?"]}
+    )
+    assert saved.status_code == 200, saved.text
+    wanted = ["How are refunds paid?", "Can I pay yearly?"]
+    assert saved.json()["suggestions"] == wanted
+    assert (await tenant.admin.get(url)).json()["suggestions"] == wanted
+
+    refused = [
+        (["One?", "Two?", "Three?", "Four?", "Five?"], "4 suggested questions at most"),
+        (["Refunds?", "  REFUNDS? "], "must be different"),
+        (["x" * 101], "100 characters or fewer"),
+        (["   "], "remove the empty one"),
+    ]
+    for bad, message in refused:
+        response = await tenant.admin.put(url, json=body | {"suggestions": bad})
+        assert response.status_code == 422, bad
+        assert message in response.json()["error"]["fields"]["suggestions"], bad
+    assert (await tenant.admin.get(url)).json()["suggestions"] == wanted
+    exactly = ["x" * 100, "Two?", "Three?", "Four?"]
+    assert (await tenant.admin.put(url, json=body | {"suggestions": exactly})).status_code == 200
+
+    # The frame page and the session both carry them, plus the link for "Powered by Docent".
+    config = frame_config(await frame.get(f"/widget/v1/frame/{tenant.widget['public_id']}"))
+    assert config["suggestions"] == exactly
+    assert config["siteUrl"] == "http://localhost:3000"
+    created = (await session(frame, tenant)).json()
+    assert created["widget"]["suggestions"] == exactly
+
+    # Leaving them out of a full update clears them, like every other setting.
+    cleared = await tenant.admin.put(url, json=body)
+    assert cleared.json()["suggestions"] == []
+
+
+async def test_identified_customer_starts_a_new_conversation(
+    frame: httpx.AsyncClient, tenant: Tenant
+) -> None:
+    sam = await identified(frame, tenant)
+    first = await start(frame, sam)
+    await ask(frame, sam, first, "how are annual plans refunded")
+    # Without new, the latest open conversation is resumed.
+    assert (await start(frame, sam, create=False))["id"] == first["id"]
+
+    fresh = await start(frame, sam, new=True)
+    assert fresh["id"] != first["id"]
+    assert fresh["messages"] == []
+    # The earlier conversation stays as it was, for the team's inbox.
+    old = await frame.get(f"/v1/widget/conversations/{first['id']}", headers=sam)
+    assert old.status_code == 200
+    assert old.json()["status"] != "closed"
+    assert [m["role"] for m in old.json()["messages"]] == ["visitor", "agent"]
+
+    for contradiction in ({"new": True, "create": False}, {"new": True, "resume_id": first["id"]}):
+        refused = await frame.post("/v1/widget/conversations", json=contradiction, headers=sam)
+        assert refused.status_code == 422, contradiction
+
+
+async def test_starting_conversations_is_rate_limited(
+    frame: httpx.AsyncClient, tenant: Tenant
+) -> None:
+    sam = await identified(frame, tenant)
+    codes = [
+        (await frame.post("/v1/widget/conversations", json={"new": True}, headers=sam)).status_code
+        for _ in range(21)
+    ]
+    assert codes[:20] == [201] * 20
+    assert codes[20] == 429  # the 21st new chat this hour for one customer
+    # Opening the panel only looks up the conversation, so it never counts.
+    assert (
+        await frame.post("/v1/widget/conversations", json={"create": False}, headers=sam)
+    ).status_code == 201
+
+
+async def test_recent_chats_list_only_this_customers_conversations_on_this_widget(
+    frame: httpx.AsyncClient, tenant: Tenant, admin_pool: Pool
+) -> None:
+    sam = await identified(frame, tenant)
+    first = await start(frame, sam)
+    await ask(frame, sam, first, "how are annual plans   refunded")
+    second = await start(frame, sam, new=True)
+    await ask(frame, sam, second, "talk to a human")
+    await start(frame, sam, new=True)  # never written in: not listed
+
+    listed = (await frame.get("/v1/widget/conversations", headers=sam)).json()
+    assert [c["id"] for c in listed] == [second["id"], first["id"]]
+    assert [c["title"] for c in listed] == ["talk to a human", "how are annual plans refunded"]
+    assert listed[0]["status"] == "escalated"
+    assert set(listed[0]) == {"id", "status", "title", "started_at", "last_message_at"}
+
+    # Another customer of the same widget, an anonymous visitor, and the same
+    # customer on another widget of the same company all see none of them.
+    ana = await identified(frame, tenant, sub="user_9000")
+    visitor = await anonymous(frame, tenant)
+    other = await second_widget(tenant, admin_pool)
+    sam_elsewhere = await identified(frame, other)
+    for headers in (ana, visitor, sam_elsewhere):
+        assert (await frame.get("/v1/widget/conversations", headers=headers)).json() == []
+    # Their own chats stay their own.
+    theirs = await start(frame, ana)
+    await ask(frame, ana, theirs, "talk to a human please")
+    assert [c["id"] for c in (await frame.get("/v1/widget/conversations", headers=ana)).json()] == [
+        theirs["id"]
+    ]
+    assert len((await frame.get("/v1/widget/conversations", headers=sam)).json()) == 2
+    assert (await frame.get("/v1/widget/conversations")).status_code == 401
+
+
+async def test_customers_cannot_open_or_continue_other_conversations(
+    frame: httpx.AsyncClient, tenant: Tenant, admin_pool: Pool
+) -> None:
+    sam = await identified(frame, tenant)
+    mine = await start(frame, sam)
+    await ask(frame, sam, mine, "how are annual plans refunded")
+    url = f"/v1/widget/conversations/{mine['id']}"
+    assert (await frame.get(url, headers=sam)).json()["id"] == mine["id"]
+
+    ana = await identified(frame, tenant, sub="user_9000")
+    visitor = await anonymous(frame, tenant)
+    sam_elsewhere = await identified(frame, await second_widget(tenant, admin_pool))
+    for headers in (ana, visitor, sam_elsewhere):
+        assert (await frame.get(url, headers=headers)).status_code == 404
+        sent = await frame.post(f"{url}/messages", json={"content": "hello"}, headers=headers)
+        assert sent.status_code == 404
+        # Asking for a new conversation never hands over someone else's.
+        assert (await start(frame, headers, new=True))["id"] != mine["id"]
+    assert (
+        await frame.get(f"/v1/widget/conversations/{uuid.uuid4()}", headers=sam)
+    ).status_code == 404
+
+    # Closed by the team: still readable, never continued or resumed.
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            "update conversations set status = 'closed', closed_at = now() where id = $1",
+            uuid.UUID(mine["id"]),
+        )
+    assert (await frame.get(url, headers=sam)).json()["status"] == "closed"
+    closed = await frame.post(f"{url}/messages", json={"content": "one more thing"}, headers=sam)
+    assert closed.status_code == 409
+    assert closed.json()["error"]["code"] == "conversation_closed"
+    lookup = await frame.post("/v1/widget/conversations", json={"create": False}, headers=sam)
+    assert lookup.status_code == 404
+
+    # The same holds for an anonymous visitor's stored conversation id.
+    theirs = await start(frame, visitor)
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            "update conversations set status = 'closed' where id = $1", uuid.UUID(theirs["id"])
+        )
+    resumed = await frame.post(
+        "/v1/widget/conversations",
+        json={"resume_id": theirs["id"], "create": False},
+        headers=visitor,
+    )
+    assert resumed.status_code == 404
+    assert resumed.json()["error"]["code"] == "no_conversation"

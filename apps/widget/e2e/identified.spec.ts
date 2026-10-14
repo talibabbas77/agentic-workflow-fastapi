@@ -2,20 +2,21 @@
 // Identified mode on the demo host's signed-in site (Parcelwise): the site signs
 // a customer in with its own login, and its server signs the identity token the
 // widget passes to Docent. Signed out, the site has no chat at all.
-import { expect, test, type Page } from "@playwright/test";
-import { closeWidget, fakeClientIp, hosts, openWidget, recordWidgetCalls, send, shape, widgetFrame } from "./support";
+import { expect, test } from "@playwright/test";
+import {
+  APP,
+  closeWidget,
+  fakeClientIp,
+  hosts,
+  openWidget,
+  recordWidgetCalls,
+  send,
+  shape,
+  signInAsDiego,
+  widgetFrame,
+} from "./support";
 
 test.use({ extraHTTPHeaders: { "x-forwarded-for": fakeClientIp() } });
-
-const APP = "/parcelwise";
-
-/** Signs in on the demo host through its own form, as Diego (Starter plan). */
-async function signInAsDiego(page: Page): Promise<void> {
-  const { host } = hosts();
-  await page.goto(`${host}${APP}`);
-  await page.getByRole("button", { name: /Sign in as Diego Ramos/ }).click();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-}
 
 test("signed out, the signed-in site shows no widget and signs no token", async ({ page, request }) => {
   const { host } = hosts();

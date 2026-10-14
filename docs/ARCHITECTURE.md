@@ -313,7 +313,7 @@ sequenceDiagram
   but each page load starts a new anonymous thread. WebKit keeps partitioned
   storage, so resume works there. A partitioned (CHIPS) cookie would fix it but
   breaks the no-cookies rule, so we accept the limit. Identified visitors are
-  unaffected: the server resumes their latest conversation.
+  unaffected: the server resumes their latest open conversation.
 - Limits: per IP-hash per hour, per widget per day, tighter than identified.
 - Optional bot check (Cloudflare Turnstile) per widget, off by default.
 - Retrieval only sees sources with `audience = 'public'`.
@@ -343,6 +343,66 @@ sequenceDiagram
   This blocks exfiltration through crafted links or image URLs.
 - **Logout**: `await Docent.reset()` resolves after the session is revoked on
   the server (or after 3 seconds), so the host can navigate safely afterwards.
+
+### Panel controls and the host page
+
+After the handshake, everything goes over the transferred `MessagePort`
+(`apps/widget/src/shared/protocol.ts`), which only the loader and its own
+iframe hold. Each side still checks every message's shape and ignores
+anything else.
+
+| Direction | Message | Meaning |
+|---|---|---|
+| frame to loader | `token` | Asks for a fresh identity token. |
+| frame to loader | `close` | The visitor closed the panel. |
+| frame to loader | `unread { count }` | Replies that arrived while the panel was closed. |
+| frame to loader | `reset_done` | Answer to `reset`: the server revoke has settled. |
+| frame to loader | `expand { expanded }` | The visitor wants the larger panel (`true`) or the normal one. `expanded` must be a boolean. |
+| loader to frame | `token { token }` | The identity token, or `null`. |
+| loader to frame | `open`, `close` | The panel was shown or hidden. |
+| loader to frame | `reset { mode }` | Sign out or a mode change: revoke and forget everything. |
+| loader to frame | `layout { compact }` | Sent after init and on every change. `compact` is a phone sized page (under 480px), where the panel is already full screen. |
+| loader to frame | `prefill { text }` | From `Docent.open({ prefill })`. |
+
+- **Expand.** The loader owns the iframe size: 380 by 600 normally, 720px wide
+  by 85% of the window height expanded, never more than the window. The frame
+  shows the button only after a `layout` with `compact: false`, so phones and
+  older loaders never show it. The choice is kept in the frame's own
+  `sessionStorage` (the widget origin's, partitioned), so it lasts for the
+  visit in that tab and nothing is stored on the host page; the frame sends
+  `expand` again after a reload.
+- **Prefill.** `Docent.open({ prefill })` takes text of at most 1000
+  characters. The loader and the frame both check it and ignore anything else
+  (the loader warns in the console). The frame puts the text in the message
+  field and focuses it, and never sends it: the visitor reads it and presses
+  Enter, so a host page cannot make a visitor say something. `open` is in the
+  queue stub already, so existing snippets need no change.
+- **Suggested questions.** `widgets.suggestions`: up to 4, 100 characters
+  each, no repeats ignoring case, whitespace collapsed. They come in the frame
+  config and the session reply, show under the greeting while the conversation
+  has no messages, and a click sends the question as the visitor's own message,
+  through the same limits and guards as typed text.
+- **New chat.** The frame asks first when the conversation has messages. It
+  drops the anonymous resume id, and the first message then sends
+  `POST /v1/widget/conversations {"new": true}`, which always creates a
+  conversation instead of resuming one. Nothing is created until the visitor
+  writes, and the previous conversation stays as it is for the team. `new`
+  with `create: false` or a `resume_id` is refused (422).
+- **Recent chats, identified only.** `GET /v1/widget/conversations` lists the
+  last 10 conversations of the session's verified end user on the session's
+  widget that have a message from them: first question (cut to 120
+  characters), status, start and last message times. Anonymous sessions get an
+  empty list. `GET /v1/widget/conversations/{id}` reads one conversation through
+  the same ownership check as sending (this widget, and this end user or this
+  anonymous visitor id); anything else is 404.
+- **Closed conversations** can be read but not continued. Sending to one is a
+  409 `conversation_closed`, and resume skips them in both modes, so a
+  resolved handoff always starts fresh. If the team closes a conversation while
+  the visitor is in it, the frame starts a new one for their next message.
+- **Powered by Docent.** A quiet line under the composer links to `SITE_URL`
+  (default `WEB_ORIGIN`), passed in the frame config as `siteUrl`. The frame
+  links it only if it is an http(s) URL, in a new tab with
+  `rel="noopener noreferrer"`.
 
 ### What the domain allowlist does not do
 
@@ -401,7 +461,7 @@ erDiagram
 
 | Table | | Key columns |
 |---|---|---|
-| `widgets` | T | `id, public_id unique, tenant_id, name, allowed_origins text[], anonymous_enabled, anonymous_daily_cap, bot_check_enabled, allowed_claims text[], theme jsonb, created_at` |
+| `widgets` | T | `id, public_id unique, tenant_id, name, allowed_origins text[], anonymous_enabled, anonymous_daily_cap, bot_check_enabled, allowed_claims text[], greeting, suggestions text[] (4 at most), theme jsonb, created_at` |
 | `signing_keys` | T | `kid pk, tenant_id, widget_id, alg ('ES256'), public_jwk jsonb, status (active, retired), created_at, retired_at` |
 | `end_users` | T | `id, tenant_id, external_id, email, name, claims jsonb (allowlisted), first_seen_at, last_seen_at`. Unique `(tenant_id, external_id)` |
 | `widget_sessions` | T | `token_hash pk, tenant_id, widget_id, mode (anonymous, identified), end_user_id null, visitor_id null, jti null, parent_origin, ip_hash, created_at, expires_at, revoked_at`. Unique `(widget_id, jti)` |
@@ -1349,3 +1409,32 @@ The portal stays for cards and invoices.
   `inbox.metrics.answer_quality` is the query Phase 6 builds on: agent
   messages with decision type `answer`, and how many were marked wrong.
 
+### 2026-10-14, widget panel controls
+
+Section 4, "Panel controls and the host page", has the details.
+
+- **Suggested questions** per widget (migration 0010: `widgets.suggestions
+  text[]`, a check keeps at most 4 and no nulls). Admins edit them under the
+  greeting in the widget settings; the seed owns them for the demo widgets
+  like the greeting, and every one is answered by that company's help center
+  or, for Parcelwise, the signed-in customer's plan.
+- **New chat** creates nothing by itself. The next message asks for
+  `{"new": true}`, so the resume rules never hand back the old conversation.
+  The old one is untouched for the inbox.
+- **Recent chats** for signed-in customers only, scoped exactly like
+  sending: the session's widget and verified end user. Anonymous visitors get
+  no list, since their only key is a per-tab visitor id.
+- **Closed conversations are read only.** Sending to one is refused (409) and
+  resume skips them for anonymous visitors too; before, an anonymous visitor's
+  stored id could resume a conversation the team had resolved.
+- **Expand** is sized by the loader and remembered in the frame's own
+  sessionStorage, never on the host page. Phones keep the full screen panel
+  and no button.
+- **`Docent.open({ prefill })`** fills the message field and never sends,
+  checked on both sides (text, 1000 characters at most). We extended `open`
+  rather than adding `ask`, so the existing queue stub keeps working. The demo
+  host's "Try asking" buttons use it instead of copying to the clipboard.
+- **Powered by Docent** under the composer, linking to the new `SITE_URL`
+  setting (default `WEB_ORIGIN`) in a new tab. It uses the small mark from
+  `brand/docent-favicon.svg` (the brand file for sizes under 32px), ink with
+  the rust ribbon, and muted text.

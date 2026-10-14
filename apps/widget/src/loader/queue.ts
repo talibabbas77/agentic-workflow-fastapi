@@ -5,9 +5,14 @@ export interface InitOptions {
   getToken?: () => string | Promise<string>;
 }
 
+export interface OpenOptions {
+  /** Text to put in the message field, at most 1000 characters. The visitor still presses Send. */
+  prefill?: string;
+}
+
 export interface DocentApi {
   init(options?: InitOptions): void;
-  open(): void;
+  open(options?: OpenOptions): void;
   close(): void;
   /** Resolves once the server session is revoked (or after 3 s). Await it before signing out. */
   reset(): Promise<void>;

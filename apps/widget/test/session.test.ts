@@ -20,7 +20,7 @@ function created(token: string, lifetimeMs = 30 * MIN, expiresAt?: number): Crea
       mode: "identified",
       visitor_id: null,
       user: { name: "Sam" },
-      widget: { name: "Lumen Notes", greeting: "Hi" },
+      widget: { name: "Lumen Notes", greeting: "Hi", suggestions: [] },
     },
   };
 }

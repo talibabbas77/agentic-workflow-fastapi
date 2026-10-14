@@ -5833,12 +5833,88 @@
       }
     },
     "/v1/widget/conversations": {
+      "get": {
+        "tags": [
+          "widget"
+        ],
+        "summary": "Recent Conversations",
+        "description": "A signed-in customer's latest conversations on this widget, newest first.\n\nOnly conversations with a message from them are listed. Anonymous visitors\nhave no history to list, so they get an empty list.",
+        "operationId": "recent_conversations",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WidgetConversationSummaryOut"
+                  },
+                  "title": "Response Recent Conversations"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "widget"
         ],
         "summary": "Open Conversation",
-        "description": "Resume this visitor's conversation, or start one. Opening the panel passes\ncreate=false, so a visitor who never writes leaves no empty conversation behind.",
+        "description": "Resume this visitor's conversation, or start one. Opening the panel passes\ncreate=false, so a visitor who never writes leaves no empty conversation behind.\nnew=true always starts one (the visitor chose \"New chat\"); the previous\nconversation stays as it is for the team.",
         "operationId": "open_conversation",
         "parameters": [
           {
@@ -5864,6 +5940,100 @@
         },
         "responses": {
           "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetConversationOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/widget/conversations/{conversation_id}": {
+      "get": {
+        "tags": [
+          "widget"
+        ],
+        "summary": "Read Conversation",
+        "description": "One of this visitor's own conversations, for the recent chats view.",
+        "operationId": "read_conversation",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -6001,6 +6171,16 @@
               }
             },
             "description": "Too Many Requests"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "description": "Validation Error",
@@ -11690,6 +11870,12 @@
             "title": "Create",
             "description": "False only looks up history: 404 no_conversation when there is none",
             "default": true
+          },
+          "new": {
+            "type": "boolean",
+            "title": "New",
+            "description": "Start a new conversation instead of resuming one. The previous one stays as it is for the team",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -11739,6 +11925,48 @@
           "handoff"
         ],
         "title": "WidgetConversationOut"
+      },
+      "WidgetConversationSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "escalated",
+              "closed"
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "The visitor's first message, cut to 120 characters"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "last_message_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Message At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "title",
+          "started_at",
+          "last_message_at"
+        ],
+        "title": "WidgetConversationSummaryOut"
       },
       "WidgetHandoff": {
         "properties": {
@@ -11808,6 +12036,15 @@
             "maxLength": 200,
             "title": "Greeting",
             "default": ""
+          },
+          "suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Suggestions",
+            "description": "Questions shown under the greeting until the first message: 4 at most, 100 characters each, no duplicates"
           }
         },
         "additionalProperties": false,
@@ -11826,6 +12063,13 @@
           "greeting": {
             "type": "string",
             "title": "Greeting"
+          },
+          "suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggestions"
           }
         },
         "type": "object",
@@ -11876,6 +12120,13 @@
             "type": "string",
             "title": "Greeting"
           },
+          "suggestions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          },
           "keys": {
             "items": {
               "$ref": "#/components/schemas/SigningKeyOut"
@@ -11909,6 +12160,7 @@
           "anonymous_daily_cap",
           "allowed_claims",
           "greeting",
+          "suggestions",
           "keys",
           "embed_origin",
           "created_at",

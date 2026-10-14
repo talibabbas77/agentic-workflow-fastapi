@@ -4,6 +4,9 @@ Sessions are created from a widget public id plus, in identified mode, a token
 the tenant's server signed. Every later request resolves the session by the
 hash of its token, and the session alone decides tenant, widget, and who the
 visitor is. Nothing in a request body or a chat message can change that.
+
+Every conversation read or write is scoped to the session's widget and visitor:
+the verified end user in identified mode, the visitor id in anonymous mode.
 """
 
 import uuid
@@ -26,6 +29,7 @@ from docent.api.schemas import (
     MessageOut,
     WidgetConversationIn,
     WidgetConversationOut,
+    WidgetConversationSummaryOut,
     WidgetHandoff,
     WidgetInfo,
     WidgetSessionIn,
@@ -46,6 +50,7 @@ router = APIRouter(
 )
 
 SESSIONS_PER_IP = Limit("widget-session-ip", 60, 3600)
+RECENT_CONVERSATIONS = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +151,11 @@ async def create_session(
         mode="identified" if identity else "anonymous",
         visitor_id=visitor_id,
         user=WidgetUser(name=identity.name if identity else None),
-        widget=WidgetInfo(name=widget["name"], greeting=widget["greeting"]),
+        widget=WidgetInfo(
+            name=widget["name"],
+            greeting=widget["greeting"],
+            suggestions=list(widget["suggestions"]),
+        ),
     )
 
 
@@ -159,16 +168,73 @@ async def end_session(session: Session, state: State) -> None:
         )
 
 
+@router.get("/conversations")
+async def recent_conversations(
+    session: Session, state: State
+) -> list[WidgetConversationSummaryOut]:
+    """A signed-in customer's latest conversations on this widget, newest first.
+
+    Only conversations with a message from them are listed. Anonymous visitors
+    have no history to list, so they get an empty list.
+    """
+    if session.end_user_id is None:
+        return []
+    async with transaction(state.pool, tenant_id=session.tenant_id) as conn:
+        rows = await conn.fetch(
+            """
+            select c.id, c.status, c.started_at, c.last_message_at, left(f.content, 120) as title
+            from conversations c
+            join lateral (
+              select m.content from messages m
+              where m.conversation_id = c.id and m.role = 'visitor'
+              order by m.created_at limit 1
+            ) f on true
+            where c.widget_id = $1 and c.end_user_id = $2
+            order by c.last_message_at desc
+            limit $3
+            """,
+            session.widget_id,
+            session.end_user_id,
+            RECENT_CONVERSATIONS,
+        )
+    return [
+        WidgetConversationSummaryOut(
+            id=r["id"],
+            status=r["status"],
+            title=" ".join(r["title"].split()),
+            started_at=r["started_at"],
+            last_message_at=r["last_message_at"],
+        )
+        for r in rows
+    ]
+
+
+@router.get("/conversations/{conversation_id}", responses={404: {"model": ErrorOut}})
+async def read_conversation(
+    conversation_id: uuid.UUID, session: Session, state: State
+) -> WidgetConversationOut:
+    """One of this visitor's own conversations, for the recent chats view."""
+    async with transaction(state.pool, tenant_id=session.tenant_id) as conn:
+        await _owned(conn, session, conversation_id)
+        return await _conversation_out(conn, conversation_id)
+
+
 @router.post(
     "/conversations", status_code=status.HTTP_201_CREATED, responses={404: {"model": ErrorOut}}
 )
 async def open_conversation(
-    body: WidgetConversationIn, session: Session, state: State
+    body: WidgetConversationIn, request: Request, session: Session, state: State
 ) -> WidgetConversationOut:
     """Resume this visitor's conversation, or start one. Opening the panel passes
-    create=false, so a visitor who never writes leaves no empty conversation behind."""
+    create=false, so a visitor who never writes leaves no empty conversation behind.
+    new=true always starts one (the visitor chose "New chat"); the previous
+    conversation stays as it is for the team."""
+    if body.new or body.create:
+        limit = Limit("widget-new", state.settings.widget_new_conversations_per_hour, 3600)
+        who = str(session.end_user_id) if session.end_user_id else ip_key(request, state)
+        await enforce(state, limit, who)
     async with transaction(state.pool, tenant_id=session.tenant_id) as conn:
-        conversation_id = await _resumable(conn, session, body.resume_id)
+        conversation_id = None if body.new else await _resumable(conn, session, body.resume_id)
         if conversation_id is None and not body.create:
             raise AppError(404, "no_conversation", "There is no conversation to resume.")
         if conversation_id is None:
@@ -193,7 +259,7 @@ async def open_conversation(
 @router.post(
     "/conversations/{conversation_id}/messages",
     response_class=StreamingResponse,
-    responses={200: {"content": {"text/event-stream": {}}}},
+    responses={200: {"content": {"text/event-stream": {}}}, 409: {"model": ErrorOut}},
 )
 async def send(
     conversation_id: uuid.UUID, body: MessageIn, request: Request, session: Session, state: State
@@ -206,7 +272,10 @@ async def send(
         limit = Limit("widget-anon", s.widget_anonymous_per_hour, 3600)
         await enforce(state, limit, ip_key(request, state))
     async with transaction(state.pool, tenant_id=session.tenant_id) as conn:
-        await _owned(conn, session, conversation_id)
+        if await _owned(conn, session, conversation_id) == "closed":
+            raise AppError(
+                409, "conversation_closed", "This conversation is closed. Start a new one."
+            )
         if session.mode == "anonymous":
             widget_cap = await conn.fetchval(
                 "select anonymous_daily_cap from widgets where id = $1", session.widget_id
@@ -242,21 +311,22 @@ async def set_contact(
         )
 
 
-async def _owned(conn: Connection, session: WidgetSession, conversation_id: uuid.UUID) -> None:
-    """A widget session may only touch its own visitor's conversations."""
-    owned = await conn.fetchval(
+async def _owned(conn: Connection, session: WidgetSession, conversation_id: uuid.UUID) -> str:
+    """A widget session may only touch its own visitor's conversations. Returns the status."""
+    status_: str | None = await conn.fetchval(
         """
-        select exists(select 1 from conversations
-                      where id = $1 and widget_id = $2
-                        and (end_user_id = $3 or (end_user_id is null and visitor_id = $4)))
+        select status from conversations
+        where id = $1 and widget_id = $2
+          and (end_user_id = $3 or (end_user_id is null and visitor_id = $4))
         """,
         conversation_id,
         session.widget_id,
         session.end_user_id,
         session.visitor_id,
     )
-    if not owned:
+    if status_ is None:
         raise not_found("Conversation")
+    return status_
 
 
 async def _resumable(
@@ -276,10 +346,11 @@ async def _resumable(
     if resume_id is None:
         return None
     try:
-        await _owned(conn, session, resume_id)
+        closed = await _owned(conn, session, resume_id) == "closed"
     except AppError:
         return None
-    return resume_id
+    # A resolved handoff closes its conversation, so the widget starts fresh.
+    return None if closed else resume_id
 
 
 async def _claims(conn: Connection, session: WidgetSession) -> dict[str, str]:

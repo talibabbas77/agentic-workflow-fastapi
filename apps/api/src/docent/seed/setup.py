@@ -167,11 +167,11 @@ async def install_widget(api: httpx.AsyncClient, ws: Workspace, demo_keys: Path 
 def _widget_settings(ws: Workspace, current: dict[str, Any] | None) -> dict[str, Any]:
     """The widget body for POST and PUT /v1/widgets.
 
-    The catalog owns anonymous mode, the allowed claims, and the greeting, and
-    the demo host must stay an allowed origin. The name, the daily cap, and any
-    other origins keep what an admin set. The name is the chat header, so the
-    seed names the widget after the company; "Help center" was the old seed
-    default, not an admin's choice.
+    The catalog owns anonymous mode, the allowed claims, the greeting, and the
+    suggested questions, and the demo host must stay an allowed origin. The
+    name, the daily cap, and any other origins keep what an admin set. The name
+    is the chat header, so the seed names the widget after the company; "Help
+    center" was the old seed default, not an admin's choice.
     """
     origins = list(current["allowed_origins"]) if current else []
     if DEMO_HOST_ORIGIN not in origins:
@@ -184,6 +184,7 @@ def _widget_settings(ws: Workspace, current: dict[str, Any] | None) -> dict[str,
         "anonymous_daily_cap": current["anonymous_daily_cap"] if current else 200,
         "allowed_claims": list(ws.claims),
         "greeting": ws.greeting,
+        "suggestions": list(ws.suggestions),
     }
 
 

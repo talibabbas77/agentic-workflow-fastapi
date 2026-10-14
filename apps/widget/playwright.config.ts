@@ -40,11 +40,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], channel: "chromium" },
     },
     {
-      // WebKit blocks third-party cookies by default. Only the anonymous flow
-      // runs here; the rest is browser independent.
+      // WebKit blocks third-party cookies by default. The anonymous flow and
+      // the panel's controls (focus, sizing) run here; the rest is browser
+      // independent.
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      testMatch: /anonymous\.spec\.ts$/,
+      testMatch: /(anonymous|panel)\.spec\.ts$/,
     },
   ],
   webServer: {

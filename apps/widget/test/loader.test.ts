@@ -158,6 +158,50 @@ describe("loader", () => {
     expect(dot()?.hidden).toBe(true);
   });
 
+  it("tells the frame the layout, and sizes the iframe when the frame asks to expand", async () => {
+    const { api } = makeLoader();
+    api.init({ widget: WID });
+    api.open();
+    const fake = attachFrame();
+    ready(fake.win);
+    const port = await fake.port;
+    const got = listen(port);
+    await vi.waitFor(() => expect(got).toContainEqual({ type: "layout", compact: false }));
+
+    expect(iframe()?.className).toBe("f");
+    port.postMessage({ type: "expand", expanded: true });
+    await vi.waitFor(() => expect(iframe()?.className).toBe("f x"));
+    port.postMessage({ type: "expand", expanded: "yes" });
+    await flush();
+    expect(iframe()?.className).toBe("f x");
+    port.postMessage({ type: "expand", expanded: false });
+    await vi.waitFor(() => expect(iframe()?.className).toBe("f"));
+  });
+
+  it("open({ prefill }) hands the text to the frame after open; bad text is refused", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { api } = makeLoader();
+    api.init({ widget: WID });
+    api.open({ prefill: "How do I export a note?" });
+    const fake = attachFrame();
+    ready(fake.win);
+    const got = listen(await fake.port);
+    await vi.waitFor(() => expect(got).toContainEqual({ type: "prefill", text: "How do I export a note?" }));
+    expect(got.findIndex((m) => (m as { type: string }).type === "open")).toBeLessThan(
+      got.findIndex((m) => (m as { type: string }).type === "prefill"),
+    );
+
+    got.length = 0;
+    api.open({ prefill: "x".repeat(1001) });
+    api.open({ prefill: 42 as unknown as string });
+    await vi.waitFor(() => expect(got.filter((m) => (m as { type: string }).type === "open")).toHaveLength(2));
+    await flush();
+    expect(got.some((m) => (m as { type: string }).type === "prefill")).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith("Docent: prefill must be text of at most 1000 characters.");
+    warn.mockRestore();
+  });
+
   it("switching to identified after an anonymous start resets the frame", async () => {
     const { api } = makeLoader();
     api.init({ widget: WID });

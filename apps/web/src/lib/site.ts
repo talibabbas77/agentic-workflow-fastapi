@@ -47,6 +47,7 @@ export const footerNav = [
     links: [
       { href: "/docs", label: "Install guide" },
       { href: "/docs#identified", label: "Signed-in customers" },
+      { href: "/docs#open", label: "Open the chat" },
       { href: "/docs#claims", label: "Token claims" },
       { href: "/docs#csp", label: "Content Security Policy" },
     ],

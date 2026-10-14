@@ -4,7 +4,15 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from docent.billing.plans import Plan
 from docent.billing.subscriptions import SubscriptionStatus
@@ -418,6 +426,28 @@ class TicketTypeOut(BaseModel):
 
 # Widget (admin)
 
+MAX_SUGGESTIONS = 4
+SUGGESTION_MAX_LENGTH = 100
+
+
+def clean_suggestions(values: list[str]) -> list[str]:
+    """Suggested questions with whitespace collapsed.
+
+    Refuses empty, long, extra, and repeated ones (repeats ignore case).
+    """
+    cleaned = [" ".join(v.split()) for v in values]
+    if len(cleaned) > MAX_SUGGESTIONS:
+        raise ValueError(f"Add {MAX_SUGGESTIONS} suggested questions at most.")
+    if any(not v for v in cleaned):
+        raise ValueError("Write each suggested question, or remove the empty one.")
+    if any(len(v) > SUGGESTION_MAX_LENGTH for v in cleaned):
+        raise ValueError(
+            f"Keep each suggested question to {SUGGESTION_MAX_LENGTH} characters or fewer."
+        )
+    if len({v.casefold() for v in cleaned}) != len(cleaned):
+        raise ValueError("Each suggested question must be different.")
+    return cleaned
+
 
 class WidgetIn(Model):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
@@ -428,6 +458,19 @@ class WidgetIn(Model):
     anonymous_daily_cap: int = Field(default=200, ge=0, le=100_000)
     allowed_claims: list[ClaimKey] = Field(default_factory=list, max_length=20)
     greeting: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = ""
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Questions shown under the greeting until the first message: "
+            f"{MAX_SUGGESTIONS} at most, {SUGGESTION_MAX_LENGTH} characters each, no duplicates"
+        ),
+        json_schema_extra={"maxItems": MAX_SUGGESTIONS},
+    )
+
+    @field_validator("suggestions")
+    @classmethod
+    def _suggestions(cls, values: list[str]) -> list[str]:
+        return clean_suggestions(values)
 
 
 class SigningKeyIn(Model):
@@ -451,6 +494,7 @@ class WidgetOut(BaseModel):
     anonymous_daily_cap: int
     allowed_claims: list[str]
     greeting: str
+    suggestions: list[str]
     keys: list[SigningKeyOut]
     embed_origin: str = Field(description="Origin that serves the loader and the frame")
     created_at: datetime
@@ -470,6 +514,7 @@ class WidgetSessionIn(Model):
 class WidgetInfo(BaseModel):
     name: str
     greeting: str
+    suggestions: list[str] = Field(default_factory=list)
 
 
 class WidgetUser(BaseModel):
@@ -492,6 +537,19 @@ class WidgetConversationIn(Model):
         default=True,
         description="False only looks up history: 404 no_conversation when there is none",
     )
+    new: bool = Field(
+        default=False,
+        description=(
+            "Start a new conversation instead of resuming one. "
+            "The previous one stays as it is for the team"
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _new_alone(self) -> WidgetConversationIn:
+        if self.new and (not self.create or self.resume_id is not None):
+            raise ValueError("A new conversation cannot also resume one or skip creating it.")
+        return self
 
 
 class WidgetHandoff(BaseModel):
@@ -504,6 +562,14 @@ class WidgetConversationOut(BaseModel):
     status: Literal["open", "escalated", "closed"]
     messages: list[MessageOut]
     handoff: WidgetHandoff | None = Field(description="The latest handoff, if any")
+
+
+class WidgetConversationSummaryOut(BaseModel):
+    id: uuid.UUID
+    status: Literal["open", "escalated", "closed"]
+    title: str = Field(description="The visitor's first message, cut to 120 characters")
+    started_at: datetime
+    last_message_at: datetime
 
 
 class ContactIn(Model):

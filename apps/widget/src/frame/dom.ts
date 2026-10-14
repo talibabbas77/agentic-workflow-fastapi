@@ -41,3 +41,22 @@ export function icon(doc: Document, d: string): SVGSVGElement {
   svg.appendChild(path);
   return svg;
 }
+
+/** The Docent mark as drawn for small sizes (brand/docent-favicon.svg): ink bubble, rust ribbon. */
+export function docentMark(doc: Document): SVGSVGElement {
+  const svg = doc.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 32 32");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("class", "mark");
+  for (const [d, cls] of [
+    ["M5.75 6.63H16.75A9.5 9.5 0 0 1 16.75 25.63H10.5L5.75 30.38Z", "mark-b"],
+    ["M9.75 1.63H14.75V16.5L12.25 14L9.75 16.5Z", "mark-r"],
+  ]) {
+    const path = doc.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    path.setAttribute("class", cls);
+    svg.appendChild(path);
+  }
+  return svg;
+}

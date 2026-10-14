@@ -72,6 +72,9 @@ class Workspace:
     invites: tuple[tuple[str, str], ...]  # (email, role)
     docs: str | None = None  # folder under fixtures/
     greeting: str = ""
+    # Shown under the greeting until the first message. Each one is answered by
+    # the workspace's own docs (or, for signed-in customers, their verified plan).
+    suggestions: tuple[str, ...] = ()
     claims: tuple[str, ...] = ()
     # Off for a product only signed-in customers use: the widget then refuses
     # anonymous sessions, even one a script asks for directly.
@@ -111,6 +114,12 @@ LUMEN = Workspace(
     invites=((demo_email("jordan.lee"), "agent"), (demo_email("ava.brooks"), "admin")),
     docs="golden/lumen-notes",
     greeting="Hi, I can help with anything about Lumen Notes.",
+    suggestions=(
+        "How many devices can I use on the Free plan?",
+        "How do I export a note as a PDF?",
+        "Can I get back a note I deleted?",
+        "How do I turn on two-factor authentication?",
+    ),
     claims=("plan", "workspace"),
     restricted_topics=("refund dispute", "data deletion request"),
     ticket_types=(
@@ -224,6 +233,12 @@ PARCELWISE = Workspace(
     invites=((demo_email("noah.patel"), "agent"),),
     docs="golden/parcelwise",
     greeting="Hi, ask me about shipping, labels, or the Parcelwise API.",
+    suggestions=(
+        "What's my per-label fee?",
+        "How many API requests per second can we send?",
+        "What's my postage balance?",
+        "How long do I have to void a label?",
+    ),
     claims=(
         "plan",
         "account",
@@ -318,6 +333,12 @@ TALLYFOX = Workspace(
     invites=(),
     docs="demo/tallyfox",
     greeting="Hi! Ask me about invoices, payments, or your Tallyfox plan.",
+    suggestions=(
+        "How do I add my bank details to invoices?",
+        "Can I bill a client in euros?",
+        "How do I set up a recurring invoice?",
+        "When are payment reminders sent?",
+    ),
     claims=("plan",),
     ticket_types=(
         TicketType(
