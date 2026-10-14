@@ -92,6 +92,47 @@ export const getGaps = () => getOrThrow("/v1/memory/gaps");
 
 export const getRememberedCustomers = () => getOrThrow("/v1/memory/customers");
 
+/**
+ * The signed-in user when they may open the platform admin console. Anyone
+ * else, signed in or not, gets the ordinary 404 page, as the API answers them,
+ * so the console's existence is not revealed. No redirect to log in either.
+ */
+export const getPlatformAdmin = cache(async () => {
+  const result = await settle((await serverApi()).GET("/v1/auth/me"));
+  if (!result.ok || !result.data.platform_admin) notFound();
+  return result.data;
+});
+
+/** A console read. The API answers 404 to anyone who is not a platform admin. */
+async function adminCall<T>(send: (client: ApiClient) => Promise<FetchOutcome<T>>): Promise<T> {
+  const result = await call(send);
+  if (result.status === 404 || result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+type AdminQuery<P extends keyof paths> = paths[P] extends { get: { parameters: { query?: infer Q } } }
+  ? NonNullable<Q>
+  : never;
+
+export const getAdminOverview = () => adminCall((client) => client.GET("/v1/admin/overview"));
+
+export const getAdminWorkspaces = (query: AdminQuery<"/v1/admin/workspaces">) =>
+  adminCall((client) => client.GET("/v1/admin/workspaces", { params: { query } }));
+
+export const getAdminWorkspace = (tenantId: string) =>
+  adminCall((client) =>
+    client.GET("/v1/admin/workspaces/{tenant_id}", { params: { path: { tenant_id: tenantId } } }),
+  );
+
+export const getAdminPeople = (query: AdminQuery<"/v1/admin/people">) =>
+  adminCall((client) => client.GET("/v1/admin/people", { params: { query } }));
+
+export const getAdminJobs = () => adminCall((client) => client.GET("/v1/admin/jobs"));
+
+export const getAdminBillingEvents = (query: AdminQuery<"/v1/admin/billing-events">) =>
+  adminCall((client) => client.GET("/v1/admin/billing-events", { params: { query } }));
+
 /** One widget. A missing widget, or an id that is not one, shows the 404 page. */
 export async function getWidget(widgetId: string) {
   const result = await call((client) =>

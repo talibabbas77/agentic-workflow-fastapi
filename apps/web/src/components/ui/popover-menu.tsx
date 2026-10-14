@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
@@ -101,6 +102,9 @@ export function PopoverMenu({ trigger, children, align = "start", label, classNa
   );
 }
 
+const itemClasses =
+  "flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-base text-ink transition-colors duration-150 hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-offset-0";
+
 export function MenuItem({
   className,
   children,
@@ -108,17 +112,25 @@ export function MenuItem({
   ...rest
 }: React.ComponentProps<"button"> & { icon?: ReactNode }) {
   return (
-    <button
-      type="button"
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-base text-ink transition-colors duration-150 hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-offset-0",
-        className,
-      )}
-      {...rest}
-    >
+    <button type="button" className={cn(itemClasses, className)} {...rest}>
       {icon}
       {children}
     </button>
+  );
+}
+
+/** A menu entry that goes to another page. */
+export function MenuLink({
+  className,
+  children,
+  icon,
+  ...rest
+}: React.ComponentProps<typeof Link> & { icon?: ReactNode }) {
+  return (
+    <Link className={cn(itemClasses, className)} {...rest}>
+      {icon}
+      {children}
+    </Link>
   );
 }
 

@@ -1,13 +1,18 @@
 "use client";
 
 import type { Me } from "@docent/api-client";
-import { SignOutIcon } from "@phosphor-icons/react";
+import { ArrowLeftIcon, ShieldCheckIcon, SignOutIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { MenuItem, MenuSeparator, PopoverMenu } from "@/components/ui/popover-menu";
+import { MenuItem, MenuLink, MenuSeparator, PopoverMenu } from "@/components/ui/popover-menu";
 import { logOut } from "@/lib/api/browser";
 
-export function UserMenu({ me }: { me: Me }) {
+/**
+ * The account menu in the top bar. In the app, platform admins also get a way
+ * into the console at /admin; everyone else never sees it. In the console, it
+ * leads back to the app instead.
+ */
+export function UserMenu({ me, place = "app" }: { me: Me; place?: "app" | "console" }) {
   const [pending, setPending] = useState(false);
   return (
     <PopoverMenu
@@ -30,6 +35,15 @@ export function UserMenu({ me }: { me: Me }) {
         <p className="truncate text-sm text-ink-muted">{me.user.email}</p>
       </div>
       <MenuSeparator />
+      {place === "console" ? (
+        <MenuLink href="/app" icon={<ArrowLeftIcon aria-hidden="true" className="size-4 text-ink-muted" />}>
+          Back to the app
+        </MenuLink>
+      ) : me.platform_admin ? (
+        <MenuLink href="/admin" icon={<ShieldCheckIcon aria-hidden="true" className="size-4 text-ink-muted" />}>
+          Platform admin
+        </MenuLink>
+      ) : null}
       <MenuItem
         disabled={pending}
         icon={<SignOutIcon aria-hidden="true" className="size-4 text-ink-muted" />}

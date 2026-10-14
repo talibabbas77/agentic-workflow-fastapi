@@ -54,7 +54,9 @@ export function CurrentPlan({
         <div className="flex flex-col gap-1">
           <p className="text-2xl font-semibold tracking-[-0.02em] text-ink">{plan.name}</p>
           <p className="text-base text-ink-muted">
-            {plan.price_usd_month > 0 ? (
+            {billing.comped_until ? (
+              "No charge, given by Docent"
+            ) : plan.price_usd_month > 0 ? (
               <>
                 <span className="font-medium text-ink tabular-nums">{monthlyPrice(plan)}</span> a month
               </>
