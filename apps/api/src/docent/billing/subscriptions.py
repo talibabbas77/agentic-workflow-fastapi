@@ -47,9 +47,16 @@ class Entitlement:
     provider: str
     active: bool
     trial_ends_at: datetime | None
+    current_period_start: datetime | None
     current_period_end: datetime | None
     cancel_at: datetime | None
+    cancel_at_period_end: bool
+    scheduled_plan: Plan | None
+    scheduled_change_at: datetime | None
+    schedule_id: str | None
     grace_ends_at: datetime | None
+    first_paid_at: datetime | None
+    refunded_at: datetime | None
     customer_id: str | None
     subscription_id: str | None
 
@@ -106,9 +113,16 @@ def _entitlement(row: asyncpg.Record, now: datetime) -> Entitlement:
         provider=row["provider"],
         active=active,
         trial_ends_at=row["trial_ends_at"],
+        current_period_start=row["current_period_start"],
         current_period_end=row["current_period_end"],
         cancel_at=row["cancel_at"],
+        cancel_at_period_end=row["cancel_at_period_end"],
+        scheduled_plan=PLAN_BY_ID.get(row["scheduled_plan_id"] or ""),
+        scheduled_change_at=row["scheduled_change_at"],
+        schedule_id=row["provider_schedule_id"],
         grace_ends_at=grace_ends_at,
+        first_paid_at=row["first_paid_at"],
+        refunded_at=row["refunded_at"],
         customer_id=row["provider_customer_id"],
         subscription_id=row["provider_subscription_id"],
     )
@@ -136,6 +150,15 @@ async def usage_counts(conn: Connection, *, reinvite: str | None = None) -> dict
     )
     assert row is not None
     return {"widgets": row["widgets"], "seats": row["seats"], "documents": row["documents"]}
+
+
+def limit_noun(kind: Limit, count: int) -> str:
+    one, many = {
+        "widgets": ("widget", "widgets"),
+        "seats": ("team seat", "team seats"),
+        "documents": ("page of docs", "pages of docs"),
+    }[kind]
+    return one if count == 1 else many
 
 
 def plan_limit(plan: Plan, kind: Limit) -> int:

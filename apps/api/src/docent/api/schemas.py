@@ -533,9 +533,16 @@ class BillingOut(BaseModel):
     active: bool = Field(description="False means escalate-only mode")
     provider: Literal["manual", "stripe"]
     trial_ends_at: datetime | None
+    current_period_start: datetime | None
     current_period_end: datetime | None
     cancel_at: datetime | None
+    cancel_at_period_end: bool = Field(description="Canceled; the plan stays until the period ends")
+    scheduled_plan: Plan | None = Field(description="A downgrade waiting for the period to end")
+    scheduled_change_at: datetime | None
     grace_ends_at: datetime | None
+    refund_until: datetime | None = Field(
+        description="End of the 14 day money-back window, while the workspace can still use it"
+    )
     billing_enabled: bool = Field(description="Stripe keys are configured on this server")
     can_manage: bool = Field(description="The current member may change billing")
     usage: BillingUsage
@@ -543,6 +550,36 @@ class BillingOut(BaseModel):
 
 class CheckoutIn(Model):
     plan_id: Literal["starter", "growth", "scale"]
+
+
+class PlanChangeIn(Model):
+    plan_id: Literal["starter", "growth", "scale"]
+
+
+class ChargeLine(BaseModel):
+    label: str
+    amount_cents: int = Field(description="Positive is charged, negative is credited")
+
+
+class PlanChangePreviewOut(BaseModel):
+    kind: Literal["upgrade", "downgrade", "same"]
+    plan: Plan
+    effective_at: datetime = Field(description="When the new plan and its limits start")
+    due_now_cents: int = Field(description="Charged today; 0 for a downgrade")
+    lines: list[ChargeLine] = Field(description="How due_now_cents is worked out, line by line")
+    next_renewal_cents: int = Field(description="The monthly price from the next renewal")
+    explanation: list[str] = Field(description="Plain sentences on what happens and why")
+    blockers: list[str] = Field(description="Why this change cannot be made yet; empty if it can")
+    stripe_due_now_cents: int | None = Field(
+        description="Stripe's own preview of today's charge, when payments are set up"
+    )
+
+
+class RefundOut(BaseModel):
+    eligible: bool
+    amount_cents: int
+    refund_until: datetime | None
+    reason: str = Field(description="Why a refund is or is not available, in plain words")
 
 
 class RedirectOut(BaseModel):

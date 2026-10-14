@@ -43,6 +43,26 @@ class BillingGateway(Protocol):
 
     def verify_event(self, payload: bytes, signature: str) -> dict[str, Any]: ...
 
+    async def preview_upgrade(self, *, customer_id: str, subscription_id: str, plan: Plan) -> int:
+        """Stripe's own figure for what an upgrade charges today, in cents."""
+        ...
+
+    async def upgrade(self, *, subscription_id: str, plan: Plan) -> None:
+        """Switch now, invoice the prorated difference, keep the renewal date."""
+        ...
+
+    async def schedule_downgrade(self, *, subscription_id: str, plan: Plan) -> str:
+        """Switch when the current period ends. Returns the schedule id."""
+        ...
+
+    async def release_schedule(self, *, schedule_id: str) -> None: ...
+
+    async def set_cancel_at_period_end(self, *, subscription_id: str, cancel: bool) -> None: ...
+
+    async def refund_and_cancel(self, *, customer_id: str, subscription_id: str) -> int:
+        """Refund the latest payment in full and end the subscription now. Returns cents."""
+        ...
+
 
 def verify_event(payload: bytes, signature: str, secret: str | None) -> dict[str, Any]:
     """Check Stripe's signature header over the raw body, then parse the event."""
@@ -138,6 +158,103 @@ class StripeGateway:
 
     def verify_event(self, payload: bytes, signature: str) -> dict[str, Any]:
         return verify_event(payload, signature, self._webhook_secret)
+
+    async def preview_upgrade(self, *, customer_id: str, subscription_id: str, plan: Plan) -> int:
+        item_id = await self._item_id(subscription_id)
+        invoice = await self._call(
+            self._client.v1.invoices.create_preview_async(
+                {
+                    "customer": customer_id,
+                    "subscription": subscription_id,
+                    "subscription_details": {
+                        "items": [{"id": item_id, "price": await self._price_id(plan)}],
+                        "proration_behavior": "always_invoice",
+                    },
+                }
+            )
+        )
+        return int(invoice.amount_due)
+
+    async def upgrade(self, *, subscription_id: str, plan: Plan) -> None:
+        item_id = await self._item_id(subscription_id)
+        await self._call(
+            self._client.v1.subscriptions.update_async(
+                subscription_id,
+                {
+                    "items": [{"id": item_id, "price": await self._price_id(plan)}],
+                    "proration_behavior": "always_invoice",
+                    # The upgrade only happens if its prorated invoice is paid.
+                    "payment_behavior": "pending_if_incomplete",
+                },
+            )
+        )
+
+    async def schedule_downgrade(self, *, subscription_id: str, plan: Plan) -> str:
+        subscription = await self._call(
+            self._client.v1.subscriptions.retrieve_async(subscription_id)
+        )
+        existing = subscription.schedule
+        schedule_id = existing if isinstance(existing, str) else existing.id if existing else None
+        if schedule_id is None:
+            created = await self._call(
+                self._client.v1.subscription_schedules.create_async(
+                    {"from_subscription": subscription_id}
+                )
+            )
+            schedule_id = created.id
+        item = subscription["items"]["data"][0]
+        price = item["price"]["id"]
+        await self._call(
+            self._client.v1.subscription_schedules.update_async(
+                schedule_id,
+                {
+                    "end_behavior": "release",
+                    "phases": [
+                        {
+                            "items": [{"price": price, "quantity": 1}],
+                            "start_date": item["current_period_start"],
+                            "end_date": item["current_period_end"],
+                        },
+                        {
+                            "items": [{"price": await self._price_id(plan), "quantity": 1}],
+                            "duration": {"interval": "month", "interval_count": 1},
+                        },
+                    ],
+                },
+            )
+        )
+        return schedule_id
+
+    async def release_schedule(self, *, schedule_id: str) -> None:
+        await self._call(self._client.v1.subscription_schedules.release_async(schedule_id))
+
+    async def set_cancel_at_period_end(self, *, subscription_id: str, cancel: bool) -> None:
+        await self._call(
+            self._client.v1.subscriptions.update_async(
+                subscription_id, {"cancel_at_period_end": cancel}
+            )
+        )
+
+    async def refund_and_cancel(self, *, customer_id: str, subscription_id: str) -> int:
+        charges = await self._call(
+            self._client.v1.charges.list_async({"customer": customer_id, "limit": 1})
+        )
+        if not charges.data:
+            raise BillingError("There is no payment to refund.")
+        charge = charges.data[0]
+        refund = await self._call(
+            self._client.v1.refunds.create_async(
+                {"charge": charge.id, "reason": "requested_by_customer"}
+            )
+        )
+        await self._call(self._client.v1.subscriptions.cancel_async(subscription_id))
+        return int(refund.amount)
+
+    async def _item_id(self, subscription_id: str) -> str:
+        subscription = await self._call(
+            self._client.v1.subscriptions.retrieve_async(subscription_id)
+        )
+        return str(subscription["items"]["data"][0]["id"])
 
     async def sync_catalog(self) -> list[str]:
         """Create or update one product and one monthly price per paid plan. Safe to rerun."""

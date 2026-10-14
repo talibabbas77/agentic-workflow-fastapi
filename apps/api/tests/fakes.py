@@ -102,6 +102,7 @@ class FakeBilling:
     def __init__(self) -> None:
         self.customers: list[dict[str, object]] = []
         self.checkouts: list[dict[str, object]] = []
+        self.calls: list[tuple[str, str]] = []
 
     async def create_customer(self, *, tenant_id: uuid.UUID, name: str, email: str) -> str:
         self.customers.append({"tenant_id": tenant_id, "name": name, "email": email})
@@ -124,3 +125,23 @@ class FakeBilling:
 
     def verify_event(self, payload: bytes, signature: str) -> dict[str, Any]:
         return verify_event(payload, signature, self.webhook_secret)
+
+    async def preview_upgrade(self, *, customer_id: str, subscription_id: str, plan: Plan) -> int:
+        return 3500
+
+    async def upgrade(self, *, subscription_id: str, plan: Plan) -> None:
+        self.calls.append(("upgrade", plan.id))
+
+    async def schedule_downgrade(self, *, subscription_id: str, plan: Plan) -> str:
+        self.calls.append(("schedule_downgrade", plan.id))
+        return "sub_sched_test"
+
+    async def release_schedule(self, *, schedule_id: str) -> None:
+        self.calls.append(("release_schedule", schedule_id))
+
+    async def set_cancel_at_period_end(self, *, subscription_id: str, cancel: bool) -> None:
+        self.calls.append(("cancel_at_period_end", str(cancel)))
+
+    async def refund_and_cancel(self, *, customer_id: str, subscription_id: str) -> int:
+        self.calls.append(("refund_and_cancel", customer_id))
+        return 9900

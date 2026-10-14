@@ -3,14 +3,8 @@
 import uuid
 
 from docent.api.errors import AppError
-from docent.billing.subscriptions import Limit, entitlement, plan_limit, usage_counts
+from docent.billing.subscriptions import Limit, entitlement, limit_noun, plan_limit, usage_counts
 from docent.db.pool import Connection
-
-_NOUNS: dict[Limit, str] = {
-    "widgets": "widgets",
-    "seats": "team seats",
-    "documents": "pages of docs",
-}
 
 
 async def check_limit(
@@ -22,5 +16,6 @@ async def check_limit(
         raise AppError(
             403,
             "plan_limit",
-            f"The {plan.name} plan includes {limit:,} {_NOUNS[kind]}. Upgrade to add more.",
+            f"The {plan.name} plan includes {limit:,} {limit_noun(kind, limit)}. Upgrade to add "
+            "more.",
         )

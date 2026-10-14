@@ -69,10 +69,12 @@ def subscription_event(
                 "status": status,
                 "cancel_at": None,
                 "trial_end": None,
+                "cancel_at_period_end": False,
                 "items": {
                     "data": [
                         {
-                            "current_period_end": now + 30 * 86400,
+                            "current_period_start": now - 15 * 86400,
+                            "current_period_end": now + 15 * 86400,
                             "price": {"lookup_key": f"docent_{plan}_monthly"},
                         }
                     ]
@@ -207,7 +209,7 @@ async def test_out_of_order_and_foreign_events_change_nothing(
 
     stranger = subscription_event("cus_not_ours")
     assert (await deliver(stripe, stranger)).json() == {"outcome": "unknown_customer"}
-    other = {"id": "evt_x", "type": "charge.refunded", "created": now, "data": {"object": {}}}
+    other = {"id": "evt_x", "type": "customer.created", "created": now, "data": {"object": {}}}
     assert (await deliver(stripe, other)).json() == {"outcome": "ignored"}
 
 
@@ -318,7 +320,7 @@ async def test_plan_limits_on_widgets_and_seats(owner: httpx.AsyncClient, admin_
     second = await owner.post("/v1/widgets", json=widget)
     assert second.status_code == 403
     assert second.json()["error"]["code"] == "plan_limit"
-    assert "Trial plan includes 1 widgets" in second.json()["error"]["message"]
+    assert "Trial plan includes 1 widget." in second.json()["error"]["message"]
 
     email = unique_email()
     assert (await owner.post("/v1/invitations", json={"email": email})).status_code == 201
@@ -340,3 +342,159 @@ async def test_a_workspace_missing_its_subscription_starts_a_trial_instead_of_fa
     data = await billing_state(owner)
     assert (data["plan"]["id"], data["status"], data["active"]) == ("trial", "trialing", True)
     assert (await ask(owner))["decision"]["type"] == "escalate"  # the agent still replies
+
+
+async def subscribed(
+    owner: httpx.AsyncClient, billing: FakeBilling, client_factory: ClientFactory, plan: str
+) -> httpx.AsyncClient:
+    """A workspace that paid for `plan` today, halfway through a 30 day period."""
+    customer = await start_checkout(owner, billing)
+    stripe = client_factory(origin=None)
+    await deliver(stripe, subscription_event(customer, plan=plan))
+    paid = {
+        "id": f"evt_{uuid.uuid4().hex}",
+        "type": "invoice.paid",
+        "created": int(time.time()),
+        "data": {"object": {"customer": customer}},
+    }
+    await deliver(stripe, paid)
+    return stripe
+
+
+async def test_previews_explain_upgrades_and_downgrades_line_by_line(
+    owner: httpx.AsyncClient, billing: FakeBilling, client_factory: ClientFactory
+) -> None:
+    await subscribed(owner, billing, client_factory, "growth")
+    up = (await owner.get("/v1/billing/preview", params={"plan_id": "scale"})).json()
+    assert up["kind"] == "upgrade"
+    # Halfway through: $299 / 2 for Scale less $99 / 2 of unused Growth = $100 today.
+    assert [line["amount_cents"] for line in up["lines"]] == [14950, -4950]
+    assert up["due_now_cents"] == 10000
+    assert up["stripe_due_now_cents"] == 3500  # Stripe's own figure is shown beside ours
+    assert up["next_renewal_cents"] == 29900
+    assert up["blockers"] == []
+
+    down = (await owner.get("/v1/billing/preview", params={"plan_id": "starter"})).json()
+    assert (down["kind"], down["due_now_cents"], down["lines"]) == ("downgrade", 0, [])
+    billing_data = await billing_state(owner)
+    assert down["effective_at"] == billing_data["current_period_end"]
+    assert "Nothing is charged or refunded today." in down["explanation"][1]
+
+
+async def test_upgrade_now_downgrade_at_renewal_and_cancel_a_waiting_downgrade(
+    owner: httpx.AsyncClient, billing: FakeBilling, client_factory: ClientFactory
+) -> None:
+    stripe = await subscribed(owner, billing, client_factory, "growth")
+    customer = str(billing.checkouts[-1]["customer_id"])
+
+    upgraded = await owner.post("/v1/billing/change", json={"plan_id": "scale"})
+    assert upgraded.status_code == 200, upgraded.text
+    assert billing.calls[-1] == ("upgrade", "scale")
+    await deliver(stripe, subscription_event(customer, plan="scale"))  # Stripe confirms
+    assert (await billing_state(owner))["plan"]["id"] == "scale"
+
+    scheduled = (await owner.post("/v1/billing/change", json={"plan_id": "starter"})).json()
+    assert scheduled["plan"]["id"] == "scale"  # still Scale until the period ends
+    assert scheduled["scheduled_plan"]["id"] == "starter"
+    assert scheduled["scheduled_change_at"] == scheduled["current_period_end"]
+
+    kept = (await owner.delete("/v1/billing/change")).json()
+    assert kept["scheduled_plan"] is None
+    assert billing.calls[-1] == ("release_schedule", "sub_sched_test")
+
+    await owner.post("/v1/billing/change", json={"plan_id": "starter"})
+    await deliver(stripe, subscription_event(customer, plan="starter"))  # renewal applies it
+    after = await billing_state(owner)
+    assert (after["plan"]["id"], after["scheduled_plan"]) == ("starter", None)
+
+
+async def test_a_downgrade_is_refused_while_the_workspace_uses_more_than_it_allows(
+    owner: httpx.AsyncClient, billing: FakeBilling, client_factory: ClientFactory
+) -> None:
+    await subscribed(owner, billing, client_factory, "growth")
+    widget = {"name": "Help", "allowed_origins": ["https://app.example.com"]}
+    for _ in range(2):
+        assert (await owner.post("/v1/widgets", json=widget)).status_code == 201
+    preview = (await owner.get("/v1/billing/preview", params={"plan_id": "starter"})).json()
+    assert preview["blockers"] == [
+        "Starter includes 1 widget and this workspace uses 2. Remove 1 first."
+    ]
+    refused = await owner.post("/v1/billing/change", json={"plan_id": "starter"})
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "plan_change_blocked"
+    assert ("schedule_downgrade", "starter") not in billing.calls
+
+
+async def test_cancel_at_period_end_and_resume(
+    owner: httpx.AsyncClient, billing: FakeBilling, client_factory: ClientFactory
+) -> None:
+    await subscribed(owner, billing, client_factory, "growth")
+    canceled = (await owner.post("/v1/billing/cancel")).json()
+    assert canceled["cancel_at_period_end"] is True
+    assert canceled["active"] is True  # still answering until the period ends
+    blocked = await owner.post("/v1/billing/change", json={"plan_id": "scale"})
+    assert (
+        blocked.json()["error"]["message"]
+        == "The plan is canceled. Resume it before changing plan."
+    )
+    resumed = (await owner.post("/v1/billing/resume")).json()
+    assert resumed["cancel_at_period_end"] is False
+    assert billing.calls[-2:] == [
+        ("cancel_at_period_end", "True"),
+        ("cancel_at_period_end", "False"),
+    ]
+
+
+async def test_money_back_within_fourteen_days_once(
+    owner: httpx.AsyncClient,
+    billing: FakeBilling,
+    client_factory: ClientFactory,
+    admin_pool: Pool,
+) -> None:
+    await subscribed(owner, billing, client_factory, "growth")
+    offer = (await owner.get("/v1/billing/refund")).json()
+    assert (offer["eligible"], offer["amount_cents"]) == (True, 9900)
+    assert offer["reason"].startswith("Full refund of your first payment until")
+
+    refunded = (await owner.post("/v1/billing/refund")).json()
+    assert refunded["amount_cents"] == 9900
+    data = await billing_state(owner)
+    assert (data["status"], data["active"]) == ("canceled", False)
+    again = await owner.post("/v1/billing/refund")
+    assert again.status_code == 409
+    assert again.json()["error"]["message"] == "This workspace was already refunded."
+
+
+async def test_no_refund_after_the_window(
+    owner: httpx.AsyncClient,
+    billing: FakeBilling,
+    client_factory: ClientFactory,
+    admin_pool: Pool,
+) -> None:
+    await subscribed(owner, billing, client_factory, "growth")
+    async with admin_pool.acquire() as conn:
+        await conn.execute("update subscriptions set first_paid_at = now() - interval '15 days'")
+    offer = (await owner.get("/v1/billing/refund")).json()
+    assert offer["eligible"] is False
+    assert "money-back window ended" in offer["reason"]
+    assert (await owner.post("/v1/billing/refund")).status_code == 409
+
+
+async def test_plan_changes_need_a_paid_subscription_and_an_owner(
+    owner: httpx.AsyncClient, billing: FakeBilling, client_factory: ClientFactory, drain: Drain
+) -> None:
+    preview = (await owner.get("/v1/billing/preview", params={"plan_id": "growth"})).json()
+    assert preview["blockers"] == [
+        "Plan changes need a paid subscription. Choose a plan to start one."
+    ]
+    assert (await owner.post("/v1/billing/change", json={"plan_id": "growth"})).status_code == 409
+
+    await owner.post("/v1/invitations", json={"email": unique_email(), "role": "agent"})
+    agent = client_factory()
+    token = token_from((await drain())[-1])
+    await agent.post(
+        "/v1/invitations/accept", json={"token": token, "name": "Robin", "password": PASSWORD}
+    )
+    for method, path in (("post", "/v1/billing/change"), ("post", "/v1/billing/refund")):
+        response = await getattr(agent, method)(path, json={"plan_id": "growth"})
+        assert response.status_code == 403, path

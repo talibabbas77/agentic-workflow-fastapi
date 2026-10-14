@@ -26,7 +26,7 @@ SUBSCRIPTION_EVENTS = {
     "customer.subscription.paused",
     "customer.subscription.resumed",
 }
-INVOICE_EVENTS = {"invoice.paid", "invoice.payment_failed"}
+INVOICE_EVENTS = {"invoice.paid", "invoice.payment_failed", "charge.refunded"}
 LIVE_STATUSES = ("trialing", "active", "past_due")
 
 
@@ -85,10 +85,19 @@ async def _apply_subscription(
             provider_subscription_id = $2,
             status = $3,
             plan_id = coalesce($4, plan_id),
+            current_period_start = $10,
             current_period_end = $5,
             cancel_at = $6,
+            cancel_at_period_end = $11,
             trial_ends_at = $7,
             past_due_since = case when $3 = 'past_due' then coalesce(past_due_since, $8) end,
+            -- A scheduled downgrade is done once the plan is the scheduled one.
+            scheduled_plan_id = case when coalesce($4, plan_id) = scheduled_plan_id
+                                     then null else scheduled_plan_id end,
+            scheduled_change_at = case when coalesce($4, plan_id) = scheduled_plan_id
+                                       then null else scheduled_change_at end,
+            provider_schedule_id = case when coalesce($4, plan_id) = scheduled_plan_id
+                                        then null else provider_schedule_id end,
             provider_event_at = $8,
             updated_at = now()
         where tenant_id = $1
@@ -105,6 +114,8 @@ async def _apply_subscription(
         _time(sub.get("trial_end")),
         created,
         list(LIVE_STATUSES),
+        _time(item.get("current_period_start")),
+        bool(sub.get("cancel_at_period_end")),
     )
     return "applied" if updated.endswith(" 1") else "stale"
 
@@ -112,7 +123,14 @@ async def _apply_subscription(
 async def _apply_invoice(
     conn: Connection, tenant_id: uuid.UUID, kind: str, created: datetime
 ) -> Outcome:
-    if kind == "invoice.payment_failed":
+    if kind == "charge.refunded":
+        await conn.execute(
+            "update subscriptions set refunded_at = coalesce(refunded_at, $2), updated_at = now()"
+            " where tenant_id = $1",
+            tenant_id,
+            created,
+        )
+    elif kind == "invoice.payment_failed":
         await conn.execute(
             """
             update subscriptions set past_due_since = coalesce(past_due_since, $2),
@@ -122,11 +140,16 @@ async def _apply_invoice(
             tenant_id,
             created,
         )
-    else:
+    else:  # invoice.paid; the first one opens the money-back window
         await conn.execute(
-            "update subscriptions set past_due_since = null, updated_at = now()"
-            " where tenant_id = $1",
+            """
+            update subscriptions
+            set past_due_since = null, first_paid_at = coalesce(first_paid_at, $2),
+                updated_at = now()
+            where tenant_id = $1
+            """,
             tenant_id,
+            created,
         )
     return "applied"
 

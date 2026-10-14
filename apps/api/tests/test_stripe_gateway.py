@@ -43,3 +43,20 @@ async def test_checkout_portal_and_catalog_requests_are_valid(automatic_tax: boo
     assert portal.startswith("https://")
     lines = await gateway.sync_catalog()
     assert len(lines) == 3
+
+
+async def test_plan_change_requests_are_valid() -> None:
+    gateway = StripeGateway("sk_test_123", None, api_base=STRIPE_MOCK_URL)
+    await gateway.sync_catalog()
+    growth, starter = PLAN_BY_ID["growth"], PLAN_BY_ID["starter"]
+    due = await gateway.preview_upgrade(
+        customer_id="cus_123", subscription_id="sub_123", plan=growth
+    )
+    assert isinstance(due, int)
+    await gateway.upgrade(subscription_id="sub_123", plan=growth)
+    schedule = await gateway.schedule_downgrade(subscription_id="sub_123", plan=starter)
+    assert schedule.startswith("sub_sched_")
+    await gateway.release_schedule(schedule_id=schedule)
+    await gateway.set_cancel_at_period_end(subscription_id="sub_123", cancel=True)
+    refunded = await gateway.refund_and_cancel(customer_id="cus_123", subscription_id="sub_123")
+    assert refunded >= 0
