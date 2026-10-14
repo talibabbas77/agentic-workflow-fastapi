@@ -5,10 +5,13 @@ always come from the same weights. embeddinggemma expects task prefixes, which
 are applied here and nowhere else.
 """
 
-from collections import OrderedDict
+import hashlib
+import struct
 from typing import Protocol
 
 import httpx
+
+from docent.cache import TieredCache
 
 
 class EmbeddingError(Exception):
@@ -59,27 +62,34 @@ class OllamaEmbedder:
 
 
 class QueryCache:
-    """Remembers recent query vectors. Customers ask the same things in the same words."""
+    """Remembers query vectors. Customers ask the same things in the same words.
 
-    def __init__(self, inner: Embedder, size: int = 1024) -> None:
+    Vectors go through the two-tier cache as float16 bytes (1.5 KB for 768
+    dimensions, the same precision as the halfvec column they are compared
+    with), so every API instance shares them and they survive a restart.
+    """
+
+    TTL_SECONDS = 30 * 86400
+
+    def __init__(self, inner: Embedder, cache: TieredCache) -> None:
         self._inner = inner
+        self._cache = cache
         self.model = inner.model
-        self._size = size
-        self._vectors: OrderedDict[str, list[float]] = OrderedDict()
 
     async def embed_documents(self, items: list[tuple[str, str]]) -> list[list[float]]:
         return await self._inner.embed_documents(items)
 
     async def embed_query(self, text: str) -> list[float]:
-        key = " ".join(text.lower().split())
-        if (vector := self._vectors.get(key)) is not None:
-            self._vectors.move_to_end(key)
-            return vector
-        vector = await self._inner.embed_query(text)
-        self._vectors[key] = vector
-        if len(self._vectors) > self._size:
-            self._vectors.popitem(last=False)
-        return vector
+        normalized = " ".join(text.lower().split())
+        key = hashlib.sha256(f"{self.model}|{normalized}".encode()).hexdigest()[:40]
+
+        async def fill() -> bytes:
+            vector = await self._inner.embed_query(text)
+            return struct.pack(f"<{len(vector)}e", *vector)
+
+        packed = await self._cache.get_or_fill("emb", key, self.TTL_SECONDS, fill)
+        assert packed is not None
+        return list(struct.unpack(f"<{len(packed) // 2}e", packed))
 
 
 def to_pgvector(vector: list[float]) -> str:

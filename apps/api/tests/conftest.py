@@ -16,6 +16,7 @@ from fastapi import FastAPI
 
 from docent.agent.escalation import make_escalation_handlers
 from docent.api.app import create_app
+from docent.cache import TieredCache
 from docent.cli import API_ROOT
 from docent.config import Settings
 from docent.db.pool import Pool, create_pool
@@ -179,6 +180,7 @@ async def clean(owner_pool: Pool, app: FastAPI) -> AsyncIterator[None]:
         await conn.execute(f"truncate {', '.join(ALL_TABLES)} restart identity cascade")
     state = app.state.docent
     state.limiter = RateLimiter(state.redis)
+    state.cache = TieredCache(state.redis, state.settings.redis_prefix)
     state.llm.calls.clear()
     state.llm.replies.clear()
     yield

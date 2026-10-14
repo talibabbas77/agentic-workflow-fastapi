@@ -28,13 +28,15 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from docent.agent import guards, prompts, repo, triage, usage
+from docent.agent import answer_cache, guards, prompts, repo, triage, usage
 from docent.agent.prompts import AgentDecision, AgentProfile, EscalationReason, Source
 from docent.billing import notifications, subscriptions
+from docent.cache import TieredCache
 from docent.config import Settings
 from docent.db.pool import Connection, Pool, transaction
 from docent.jobs import queue
 from docent.jobs.wake import WorkerWaker
+from docent.knowledge import repo as knowledge_repo
 from docent.knowledge.embeddings import Embedder, EmbeddingError
 from docent.knowledge.search import Hit, search
 from docent.llm.client import ChatModel, LLMError, Structured
@@ -78,6 +80,7 @@ class AgentDeps:
     embedder: Embedder
     llm: ChatModel
     waker: WorkerWaker | None = None
+    cache: TieredCache | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +104,7 @@ class _Outcome:
     account_facts: list[str] = field(default_factory=list)
     generation: Structured[AgentDecision] | None = None
     sorted_as: Structured[triage.Triage] | None = None
+    from_cache: bool = False
     low_confidence_turns: int = 0
 
 
@@ -128,6 +132,11 @@ async def run_turn(
         contact = claims.get("email") or await repo.handoff_contact(conn, conversation_id)
         end_user_id = conversation["end_user_id"]
         memory = await customers.recall(conn, end_user_id) if end_user_id else []
+        cache_key = (
+            answer_cache.cache_key(tenant_id, await knowledge_repo.knowledge_version(conn), text)
+            if deps.cache and anonymous and not history and not claims
+            else None
+        )
 
     low_turns = int(conversation["low_confidence_turns"])
     query_vector: list[float] | None = None
@@ -144,12 +153,24 @@ async def run_turn(
             outcome = _escalate("restricted_topic", low_turns)
         else:
             yield Progress("searching")
-            hits, query_vector = await _retrieve(
-                deps, tenant_id, conversation["mode"], text, history
+            cached = (
+                await answer_cache.lookup(deps.cache, cache_key)
+                if deps.cache and cache_key
+                else None
+            )
+            hits, query_vector = (
+                ([], None)
+                if cached
+                else await _retrieve(deps, tenant_id, conversation["mode"], text, history)
             )
             if not _supported(hits, s.retrieval_min_similarity):
                 hits = []
-            if hits:
+            if cached:
+                answer, confidence, cited = cached
+                outcome = _Outcome(
+                    "answer", answer, confidence=confidence, cited=cited, from_cache=True
+                )
+            elif hits:
                 yield Progress("writing")
                 outcome = await _generate(
                     deps, profile, claims, hits, history, text, low_turns, memory
@@ -172,6 +193,10 @@ async def run_turn(
                 await usage.settle_reply(conn, tenant_id, used=False)
         raise
 
+    if cache_key and deps.cache and outcome.kind == "answer" and not outcome.from_cache:
+        await answer_cache.store(
+            deps.cache, cache_key, outcome.text, outcome.confidence, outcome.cited
+        )
     if outcome.kind == "escalate":
         assert outcome.reason is not None
         contact = contact or _email_in(text)
@@ -412,6 +437,7 @@ async def _persist(
         "citations": [n for n, _ in outcome.cited],
         "account_facts": outcome.account_facts,
         "intent": sorted_as.value.intent if sorted_as else None,
+        "cache": "hit" if outcome.from_cache else None,
     }
     call = gen or sorted_as
     message_id = await repo.add_message(

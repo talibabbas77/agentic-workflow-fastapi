@@ -643,9 +643,47 @@ Every call records `model`, `prompt_version`, tokens, latency, and cost.
 
 ### What Redis is for
 
-Rate limits across instances, revocation cache, short-lived counters. Nothing
-durable. Postgres remains the source of truth for everything, including
-revocation.
+Rate limits across instances, a shared cache, revocation, short-lived counters.
+Nothing durable. Postgres remains the source of truth for everything, including
+revocation, so losing Redis loses speed, never data.
+
+### Key design
+
+- Every key starts with `docent:{env}:`, so local, staging, and production can
+  share one Redis without colliding.
+- Cache keys carry a format version (`docent:{env}:c1:{kind}:{key}`). A change
+  of encoding bumps it, so old values are never misread.
+- Every key has a TTL. Cache TTLs get up to 10 percent jitter, so entries
+  written together do not expire together. Configure the instance with a
+  `volatile-lru` eviction policy: with a TTL on every key, memory pressure
+  evicts the least recently used cache entries, never anything else.
+- Values are compact bytes: a query vector is 768 float16 values (1.5 KB), the
+  same precision as the `halfvec` column it is compared with.
+
+### Rate limits: GCRA
+
+Each limit keeps one number per key, the time the next request is due (the
+generic cell rate algorithm). A full burst is allowed, then one request per
+window divided by the limit. Unlike fixed windows, there is no doubled burst at
+a window edge. One key and one script call per check; the in-process fallback
+runs the same algorithm.
+
+### Cache: two tiers
+
+A small in-process LRU sits in front of Redis (`docent/cache.py`). Repeated
+reads on one instance never reach Redis, which keeps the command count low; a
+miss there falls through to Redis, which shares entries across instances and
+restarts. Concurrent misses for one key share a single fill, so an expiring
+popular entry does not trigger many identical model or embedding calls.
+
+| Cached | Key | TTL | Why it is safe |
+|---|---|---|---|
+| Query embedding | model and normalized text | 30 days | Same model, same text, same vector |
+| Answer to an anonymous visitor's first question | tenant, knowledge version, prompt version, normalized question | 1 day | Public sources only, no history, claims, or memory; any change to sources, team answers, or agent settings bumps the knowledge version |
+
+Only high-confidence, cited answers are cached. A cached answer skips search
+and the model but is stored, cited, and counted like any other reply, so the
+inbox, usage, and billing see no difference.
 
 ### Budget
 
@@ -658,7 +696,9 @@ requests past the limit are rejected with `ERR max requests limit exceeded`.
 | Auth attempt limit (login, signup, reset) | 1 `EVALSHA` | per attempt |
 | Session revocation write | 1 `SET ... EX` | per logout or revoke |
 | Session revocation check | 1 `EXISTS` on in-process cache miss | at most once per 60 s per active session |
-| Widget config, plan entitlements | 0 (in-process LRU, 60 s TTL) | |
+| Query embedding cache | 1 `GET`, plus 1 `SET` on a miss | per visitor message missing the in-process tier |
+| Answer cache | 1 `GET`, plus 1 `SET` for a new answer | per anonymous first message missing the in-process tier |
+| Widget config, plan entitlements | 0 (Postgres primary key reads) | |
 | Job queue, locks, heartbeats | 0 (Postgres) | |
 
 Rough sizing: 50K visitor messages a month costs about 100K to 150K commands.
@@ -680,7 +720,8 @@ Guards:
 
 | Function | Fallback |
 |---|---|
-| Rate limits | In-process token buckets per instance. Exact with one instance, looser with several. Never unlimited. |
+| Rate limits | In-process GCRA per instance. Exact with one instance, looser with several. Never unlimited. |
+| Cache | The in-process tier alone. Slower to warm up, never wrong. |
 | Revocation check | Postgres `widget_sessions.revoked_at` and `user_sessions.revoked_at`, cached in-process for 60 s. |
 | Counters | Postgres. |
 

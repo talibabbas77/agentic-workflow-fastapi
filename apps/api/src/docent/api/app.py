@@ -33,6 +33,7 @@ from docent.api.routes import (
 )
 from docent.api.state import AppState
 from docent.billing.gateway import stripe_gateway
+from docent.cache import TieredCache
 from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
 from docent.jobs.wake import WorkerWaker
@@ -58,12 +59,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             settings.database_url, min_size=settings.db_pool_min, max_size=settings.db_pool_max
         )
         redis = RedisHub(settings.redis_url, settings.redis_timeout_seconds)
+        cache = TieredCache(redis, settings.redis_prefix)
         http = httpx.AsyncClient()
         app.state.docent = AppState(
             settings=settings,
             pool=pool,
             redis=redis,
-            limiter=RateLimiter(redis),
+            limiter=RateLimiter(redis, prefix=f"{settings.redis_prefix}:rl"),
+            cache=cache,
             http=http,
             waker=WorkerWaker(
                 http, settings.worker_url, settings.internal_token.get_secret_value()
@@ -76,7 +79,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     settings.embedding_model,
                     settings.embedding_dims,
                     timeout=15.0,  # a search query must not hang the request
-                )
+                ),
+                cache,
             ),
             llm=chat_model(settings, http, settings.llm_model),
             billing=stripe_gateway(settings),

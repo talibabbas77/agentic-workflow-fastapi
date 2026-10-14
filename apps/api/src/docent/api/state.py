@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import httpx
 
 from docent.billing.gateway import BillingGateway
+from docent.cache import TieredCache
 from docent.config import Settings
 from docent.db.pool import Pool
 from docent.jobs.wake import WorkerWaker
@@ -24,6 +25,7 @@ class AppState:
     http: httpx.AsyncClient
     waker: WorkerWaker
     store: ObjectStore
+    cache: TieredCache
     embedder: Embedder
     llm: ChatModel
     billing: BillingGateway | None = None

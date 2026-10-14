@@ -216,7 +216,12 @@ async def send(
                     429, "anonymous_cap", "Chat is busy today. Sign in or try again tomorrow."
                 )
     deps = AgentDeps(
-        settings=s, pool=state.pool, embedder=state.embedder, llm=state.llm, waker=state.waker
+        settings=s,
+        pool=state.pool,
+        embedder=state.embedder,
+        llm=state.llm,
+        waker=state.waker,
+        cache=state.cache,
     )
     return stream_turn(deps, session.tenant_id, conversation_id, body.content)
 

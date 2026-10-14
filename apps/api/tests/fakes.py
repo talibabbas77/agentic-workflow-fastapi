@@ -21,6 +21,7 @@ class FakeEmbedder:
 
     def __init__(self) -> None:
         self.calls = 0
+        self.query_calls = 0
         self.fail_after: int | None = None
         self.fail_queries = False
 
@@ -31,6 +32,7 @@ class FakeEmbedder:
         return [_vector(f"{title} {text}") for title, text in items]
 
     async def embed_query(self, text: str) -> list[float]:
+        self.query_calls += 1
         if self.fail_queries:
             raise EmbeddingError("embedding service unavailable")
         return _vector(text)

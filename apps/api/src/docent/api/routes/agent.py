@@ -121,6 +121,7 @@ async def send_message(
         embedder=state.embedder,
         llm=state.llm,
         waker=state.waker,
+        cache=state.cache,
     )
     return stream_turn(deps, member.tenant_id, conversation_id, body.content)
 

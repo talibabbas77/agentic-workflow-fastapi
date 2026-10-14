@@ -571,3 +571,32 @@ async def test_handoffs_say_how_the_team_will_reply(
 
     again = await say(owner, anonymous, "can a human also call me?")
     assert again["content"].endswith("They will reply to robin.diaz@example.com by email.")
+
+
+async def test_repeated_first_questions_from_anonymous_visitors_reuse_the_checked_answer(
+    owner: httpx.AsyncClient, chat: FakeChat, admin_pool: Pool
+) -> None:
+    question = "how do refunds work for annual plans"
+    first = await say(owner, await conversation(owner), question)
+    calls = len(chat.calls)
+    second = await say(owner, await conversation(owner), question.upper())
+    assert len(chat.calls) == calls  # no search, no model
+    assert (second["content"], second["citations"]) == (first["content"], first["citations"])
+    async with admin_pool.acquire() as conn:
+        hits = await conn.fetchval(
+            "select count(*) from messages where decision ->> 'cache' = 'hit'"
+        )
+        replies = await conn.fetchval("select count(*) from usage_events where kind = 'ai_reply'")
+    assert (hits, replies) == (1, 2)  # cached answers are still stored and counted
+
+    signed_in = await conversation(owner, mode="identified", claims={"plan": "pro"})
+    await say(owner, signed_in, question)
+    assert len(chat.calls) == calls + 1  # signed-in visitors always get a fresh answer
+    follow_up = await conversation(owner)
+    await say(owner, follow_up, "hello")
+    await say(owner, follow_up, question)
+    assert len(chat.calls) == calls + 2  # so do questions with history
+
+    await owner.patch("/v1/agent/settings", json={"tone": "formal"})
+    await say(owner, await conversation(owner), question)
+    assert len(chat.calls) == calls + 3  # a settings change expires every cached answer

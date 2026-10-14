@@ -151,6 +151,11 @@ class Settings(BaseSettings):
         return self.env in ("staging", "production")
 
     @property
+    def redis_prefix(self) -> str:
+        """Every Redis key starts with this, so environments can share one Redis."""
+        return f"docent:{self.env}"
+
+    @property
     def object_store(self) -> str:
         if self.object_store_url:
             return self.object_store_url
