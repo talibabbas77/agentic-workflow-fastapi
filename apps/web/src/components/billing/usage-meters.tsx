@@ -20,17 +20,26 @@ export function UsageMeters({ billing }: { billing: Billing }) {
   const share = replies.limit > 0 ? replies.used / replies.limit : 0;
   const resets = formatDate(usage.period_end);
 
+  const packs = billing.plan.topup_packs.length > 0;
+  const added = billing.topups.replies;
   let repliesNote: ReactNode = "Answers, clarifying questions, and handoff messages count. Greetings do not.";
   if (!billing.active) {
     repliesNote = "The agent writes no replies in escalate-only mode.";
   } else if (share >= 1) {
-    repliesNote = <Warning>All replies for this month are used. Until {resets}, every message goes to your team.</Warning>;
+    repliesNote = (
+      <Warning>
+        All replies for this month are used. Until {resets}, every message goes to your team
+        {packs ? ", unless you add a top-up pack below." : "."}
+      </Warning>
+    );
   } else if (share >= WARN_AT) {
     repliesNote = (
       <Warning>
         {Math.floor(share * 100)} percent used. At 100 percent, every message goes to your team until {resets}.
       </Warning>
     );
+  } else if (added > 0) {
+    repliesNote = `Includes ${formatCount(added)} replies from top-up packs, which end on ${resets}.`;
   }
 
   return (

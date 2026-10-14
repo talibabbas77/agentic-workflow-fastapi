@@ -53,6 +53,8 @@ export type PaidPlanId = Schemas["CheckoutIn"]["plan_id"];
 export type PlanChangePreview = Schemas["PlanChangePreviewOut"];
 export type ChargeLine = Schemas["ChargeLine"];
 export type RefundStatus = Schemas["RefundOut"];
+export type TopupPack = Schemas["TopupPack"];
+export type Topup = Schemas["TopupOut"];
 export type MemoryOverview = Schemas["MemoryOverviewOut"];
 export type MemorySource = Schemas["MemorySourceOut"];
 export type CitedSection = Schemas["CitedSectionOut"];
@@ -92,6 +94,7 @@ export type WebhookDelivery = Schemas["WebhookDeliveryOut"];
 // Platform admin console
 export type AdminOverview = Schemas["AdminOverviewOut"];
 export type AdminAnomaly = Schemas["AdminAnomalyOut"];
+export type AdminRedis = Schemas["AdminRedisOut"];
 export type AdminPlanStateCount = Schemas["AdminPlanStateCount"];
 export type AdminFigures = Schemas["AdminFiguresOut"];
 export type AdminWorkspaces = Schemas["AdminWorkspacesOut"];

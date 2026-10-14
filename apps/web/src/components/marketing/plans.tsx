@@ -5,12 +5,13 @@ import {
   EnvelopeSimpleIcon,
   InfoIcon,
   MinusIcon,
+  PlusCircleIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type { ReactNode } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { CONTACT_EMAIL } from "@/lib/site";
-import { centsPerReply, count, periodLabel, priceLabel } from "./plan-math";
+import { centsPerReply, count, packPrice, periodLabel, priceLabel } from "./plan-math";
 
 /** The plan marked as a good fit for most teams. A marketing choice, not a price. */
 export const FEATURED_PLAN = "growth";
@@ -162,6 +163,13 @@ export function CapExplainer() {
           At the cap the widget becomes a contact form, so customers still reach your team, and you are never billed
           overage.
         </p>
+        <p className="flex items-start gap-2.5 border-t border-line pt-3 text-base text-ink-muted">
+          <PlusCircleIcon aria-hidden="true" className="mt-0.5 size-4.5 shrink-0 text-rust" />
+          <span>
+            <span className="font-medium text-ink">Busy month?</span> An owner can add a top-up pack at the
+            plan&apos;s own price per reply. It counts for that month only and is never bought automatically.
+          </span>
+        </p>
       </div>
       <div className="flex flex-col gap-6">
         <div aria-hidden="true" className="relative pt-6">
@@ -263,6 +271,22 @@ const rows: Row[] = [
     label: "At the cap",
     help: "What customers see when the month's replies are used.",
     value: () => "Contact form, no overage",
+  },
+  {
+    label: "Top-up packs",
+    help: "Extra replies for one busy month, at the plan's price per reply. Bought by hand, never renewed.",
+    value: (plan) =>
+      plan.topup_packs.length === 0 ? (
+        <span className="text-ink-muted">Paid plans only</span>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {plan.topup_packs.map((pack) => (
+            <li key={pack.id} className="whitespace-nowrap">
+              +{count(pack.replies)} for {packPrice(pack.price_cents)}
+            </li>
+          ))}
+        </ul>
+      ),
   },
 ];
 

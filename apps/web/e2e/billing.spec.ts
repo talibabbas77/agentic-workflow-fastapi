@@ -87,3 +87,43 @@ test("plan changes are explained before they are made, and need a paid plan firs
   await expect(plan.getByRole("button", { name: "Cancel plan" })).toHaveCount(0);
   await expect(plan.getByRole("button", { name: "Request a refund" })).toHaveCount(0);
 });
+
+/*
+ * Top-up packs come from the plan catalog, so the pricing page and the billing
+ * page show the same packs at the same prices. Buying one, its webhook, and the
+ * cap it raises are covered by the API tests, which fake Stripe. Here: the
+ * public line and row, and a trial workspace that is not offered any.
+ */
+test("top-up packs are listed from the plan catalog and offered only on a paid plan", async ({ page }) => {
+  const plans = (await (await page.request.get("/api/v1/public/plans")).json()) as {
+    id: string;
+    topup_packs: { replies: number; price_cents: number }[];
+  }[];
+  const starter = plans.find((p) => p.id === "starter")!;
+  expect(starter.topup_packs).toEqual([
+    expect.objectContaining({ replies: 500, price_cents: 1450 }),
+    expect.objectContaining({ replies: 1000, price_cents: 2900 }),
+  ]);
+  expect(plans.find((p) => p.id === "trial")!.topup_packs).toEqual([]);
+
+  await page.goto("/pricing");
+  await expect(page.getByText("Busy month?")).toBeVisible();
+  const row = page.locator("#compare tr", { hasText: "Top-up packs" });
+  await expect(row).toContainText("Paid plans only");
+  await expect(row).toContainText("+500 for $14.50");
+  await expect(row).toContainText("+1,000 for $29");
+  await expect(row).toContainText("+20,000 for $299");
+
+  await signUp(page, "Katherine Johnson", "Top-ups");
+  const refused = await page.request.post("/api/v1/billing/topups/checkout", {
+    headers: { origin: BASE },
+    data: { pack_id: "starter_500" },
+  });
+  expect(refused.status()).toBe(503); // no Stripe keys on the local stack
+  const billing = await (await page.request.get("/api/v1/billing")).json();
+  expect(billing.topups).toEqual({ replies: 0, bought: [] });
+
+  await page.goto("/app/billing");
+  await expect(page.getByRole("region", { name: "Usage this month" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Need more replies this month?" })).toHaveCount(0);
+});
