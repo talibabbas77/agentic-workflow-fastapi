@@ -3,7 +3,7 @@ import { isMode, isPrefill, isRecord, type FrameToLoader, type Mode } from "../s
 import { ApiError, CONVERSATION_ID, VISITOR_ID, createApi, isNoConversation } from "./api";
 import { SessionError, SessionManager, createTokenRequester, isTokenInvalid, type ActiveSession } from "./session";
 import type { KeyValueStore } from "./storage";
-import type { ConversationOut, Message, SessionOut, Stage, WidgetConfig } from "./types";
+import type { ConversationOut, Message, SessionOut, Stage, Vote, WidgetConfig } from "./types";
 import { MAX_LENGTH, createUi, type StateView } from "./ui";
 
 export interface AppOptions {
@@ -130,6 +130,7 @@ export function createApp(o: AppOptions): App {
         ui.focusInput();
       },
       onContact: (email) => contact(email),
+      onRate: (messageId, vote, comment) => rate(messageId, vote, comment),
       onNewChat: () => newChat(),
       onHistory: () => void showHistory(),
       onPick: (id) => void pick(id),
@@ -312,6 +313,7 @@ export function createApp(o: AppOptions): App {
       decision: null,
       citations: [],
       created_at: null,
+      feedback: null,
     };
     let bubble = ui.addMessage(local);
     ui.setStatus("searching");
@@ -407,6 +409,19 @@ export function createApp(o: AppOptions): App {
       if (e instanceof ApiError && e.status === 422) return "Check the email address and try again.";
       if (isRateLimited(e)) return `Too many attempts. Try again in ${minutes(e.retryAfter)}.`;
       return "Could not save your email. Try again.";
+    }
+  };
+
+  /** "Was this helpful?" Resolves to an error sentence, or null once saved. */
+  const rate = async (messageId: string, vote: Vote | null, comment?: string): Promise<string | null> => {
+    const id = conversationId;
+    if (!id) return "Could not save that. Try again.";
+    try {
+      await withSession((t) => api.rate(t, id, messageId, vote, comment));
+      return null;
+    } catch (e) {
+      if (isRateLimited(e)) return `Too many tries. Try again in ${minutes(e.retryAfter)}.`;
+      return "Could not save that. Try again.";
     }
   };
 

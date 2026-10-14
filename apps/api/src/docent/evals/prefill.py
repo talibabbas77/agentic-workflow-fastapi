@@ -4,7 +4,10 @@ The case asks the visitor's question again, with the turns before it as
 history and the conversation's verified claims as the identity. What should
 happen is a guess a person checks before saving: a handoff the customer asked
 for (or a restricted topic) should stay a handoff; anything else should get an
-answer. An answer marked wrong brings its reason along as the reference.
+answer. An answer marked wrong brings its reason along as the reference. An
+answer the customer voted down is tagged so; their note is shown in the inbox,
+never copied into the case, since it is the visitor's text and not a checked
+answer.
 """
 
 import uuid
@@ -46,9 +49,10 @@ async def prefill(
         return None
     turns = await conn.fetch(
         """
-        select id, role, content, decision, flagged_wrong, flag_reason from messages
-        where conversation_id = $1 and role in ('visitor', 'agent')
-        order by created_at, id
+        select m.id, m.role, m.content, m.decision, m.flagged_wrong, m.flag_reason, f.vote
+        from messages m left join message_feedback f on f.message_id = m.id
+        where m.conversation_id = $1 and m.role in ('visitor', 'agent')
+        order by m.created_at, m.id
         """,
         conversation_id,
     )
@@ -81,7 +85,11 @@ async def prefill(
     decision: dict[str, Any] = dict(agent["decision"] or {}) if agent else {}
     handed_off = decision.get("type") == "escalate"
     wrong = bool(agent and agent["flagged_wrong"])
+    voted_down = bool(agent and agent["vote"] == "down")
     reason = (agent["flag_reason"] or "") if agent and wrong else ""
+    tags = ["marked wrong"] if wrong else ["handoff"] if handed_off else ["conversation"]
+    if voted_down:
+        tags = ["thumbs down", *(t for t in tags if t != "conversation")]
     return Prefill(
         question=turns[asked]["content"][:MAX_TEXT],
         history=[
@@ -95,7 +103,7 @@ async def prefill(
         ),
         expected="escalate" if handed_off and decision.get("reason") in KEEP_HANDOFF else "answer",
         reference_answer="" if reason == REVIEW_FLAG_REASON else reason[:MAX_TEXT],
-        tags=["marked wrong"] if wrong else ["handoff"] if handed_off else ["conversation"],
+        tags=tags,
         source_conversation_id=conversation_id,
         source_message_id=agent["id"] if agent else turns[asked]["id"],
     )

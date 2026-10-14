@@ -86,6 +86,11 @@ class Settings(BaseSettings):
     job_lease_seconds: int = 300
     job_io_slots: int = 4  # emails and summaries
     job_ingest_slots: int = 2  # crawling, parsing, embedding
+    # Retention, applied by a daily job: delivery logs (email, webhook) and notifications
+    # older than this are deleted, and finished send_email jobs lose their content (reply
+    # text, addresses) after retention_job_payload_days.
+    retention_delivery_days: int = Field(default=90, ge=1)
+    retention_job_payload_days: int = Field(default=7, ge=1)
 
     # Auth policy
     password_min_length: int = 10
@@ -149,6 +154,8 @@ class Settings(BaseSettings):
     widget_identified_per_hour: int = 30
     # Conversations a visitor or customer may start in an hour ("New chat" included).
     widget_new_conversations_per_hour: int = 20
+    # "Was this helpful?" votes, counted like messages: per customer, or per address when anonymous.
+    widget_feedback_per_hour: int = 60
 
     # Billing (Stripe). Without a secret key the API runs with trials and manual
     # plans only, and checkout answers 503. STRIPE_API_BASE points at stripe-mock

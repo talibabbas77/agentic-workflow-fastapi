@@ -158,13 +158,16 @@ async def conversation_messages(
     return await conn.fetch(
         """
         select m.id, m.role, m.content, m.decision, m.created_at, m.latency_ms,
+               f.vote, f.comment as feedback_comment, f.updated_at as voted_at,
                coalesce(json_agg(json_build_object(
                  'marker', c.marker, 'document_title', c.document_title,
                  'heading_path', c.heading_path, 'url', c.url, 'excerpt', c.excerpt
                ) order by c.marker) filter (where c.id is not null), '[]') as citations
-        from messages m left join message_citations c on c.message_id = m.id
+        from messages m
+        left join message_citations c on c.message_id = m.id
+        left join message_feedback f on f.message_id = m.id
         where m.conversation_id = $1
-        group by m.id
+        group by m.id, f.id
         order by m.created_at
         """,
         conversation_id,

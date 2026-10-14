@@ -4,7 +4,7 @@ import { WorkspaceForm } from "@/components/app/workspace-form";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loading } from "@/components/ui/loading";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getTenant } from "@/lib/api/server";
+import { getTenant, getTimezones } from "@/lib/api/server";
 
 export const metadata: Metadata = { title: "Workspace settings" };
 
@@ -23,15 +23,15 @@ export default function WorkspaceSettingsPage() {
 }
 
 async function WorkspaceSettings() {
-  const tenant = await getTenant();
+  const [tenant, zones] = await Promise.all([getTenant(), getTimezones()]);
   const canEdit = tenant.your_role === "owner" || tenant.your_role === "admin";
   return (
     <Card aria-labelledby="workspace-heading" className="max-w-2xl">
       <CardHeader>
         <CardTitle id="workspace-heading">Workspace</CardTitle>
-        <CardDescription>The name your team sees across Docent.</CardDescription>
+        <CardDescription>The name your team sees across Docent, and the time zone for daily emails.</CardDescription>
       </CardHeader>
-      <WorkspaceForm key={tenant.name} tenant={tenant} canEdit={canEdit} />
+      <WorkspaceForm key={`${tenant.name}:${tenant.timezone}`} tenant={tenant} canEdit={canEdit} zones={zones} />
     </Card>
   );
 }

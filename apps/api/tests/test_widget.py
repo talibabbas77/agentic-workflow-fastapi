@@ -67,8 +67,15 @@ def new_key() -> tuple[ec.EllipticCurvePrivateKey, dict[str, Any]]:
 
 @pytest.fixture
 async def tenant(client_factory: ClientFactory, drain: Drain) -> Tenant:
+    return await make_tenant(client_factory, drain)
+
+
+async def make_tenant(
+    client_factory: ClientFactory, drain: Drain, workspace: str = "Lumen Notes"
+) -> Tenant:
+    """A company with a billing guide, a widget on SITE, and a signing key."""
     admin = client_factory()
-    await verified_owner(admin, drain, "Lumen Notes")
+    await verified_owner(admin, drain, workspace)
     await admin.post("/v1/knowledge/uploads", files={"file": ("billing.md", DOC)})
     await drain()
     created = await admin.post(

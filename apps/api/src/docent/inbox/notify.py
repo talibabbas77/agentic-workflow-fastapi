@@ -1,9 +1,17 @@
-"""Notifications: new handoff emails, Slack messages, and the daily digest.
+"""Notifications: new handoff emails, Slack messages, the bell in the admin app, and
+the daily digest.
 
 Every notification is a row with a dedupe key unique per workspace, written in
 the same transaction as the job that sends it. A job that runs twice finds the
 row already there and sends nothing, which is what keeps the digest to one
 email per member per day.
+
+In-app notifications (channel in_app) are the bell's rows: a new handoff routed
+to a member, and a handoff assigned to them. They are "sent" when written, and
+read_at records when the member read one (or opened its handoff).
+
+The digest goes out at 08:00 in each workspace's own time zone, once per member
+per local day.
 """
 
 import json
@@ -21,12 +29,13 @@ from docent.inbox.events import ISSUE_SQL
 from docent.inbox.outbound import UNREACHABLE, OutboundDeps, describe_error, response_excerpt
 from docent.jobs import queue
 from docent.jobs.worker import JobContext, PermanentJobError
+from docent.timezones import zone
 
 log = logging.getLogger(__name__)
 
 SEND_SLACK = "send_slack"
 SEND_DIGEST = "send_digest"
-DIGEST_HOUR_UTC = 8
+DIGEST_HOUR = 8  # local time in the workspace's time zone
 DIGEST_ITEMS = 6
 # The scheduler checks hourly; each workspace gets one digest job per day.
 SCHEDULE_EVERY_SECONDS = 3600.0
@@ -64,6 +73,36 @@ async def notify_once(
         escalation_id,
         user_id,
         channel_id,
+        dedupe_key,
+        payload or {},
+    )
+    return notification_id
+
+
+async def notify_in_app(
+    conn: Connection,
+    *,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    kind: str,
+    escalation_id: uuid.UUID,
+    dedupe_key: str,
+    payload: dict[str, Any] | None = None,
+) -> uuid.UUID | None:
+    """A notification for a member's bell in the admin app. None if it already exists."""
+    notification_id: uuid.UUID | None = await conn.fetchval(
+        """
+        insert into notifications (id, tenant_id, kind, channel, escalation_id, user_id,
+                                   dedupe_key, payload, status, sent_at)
+        values ($1, $2, $3, 'in_app', $4, $5, $6, $7, 'sent', now())
+        on conflict (tenant_id, dedupe_key) do nothing
+        returning id
+        """,
+        new_id(),
+        tenant_id,
+        kind,
+        escalation_id,
+        user_id,
         dedupe_key,
         payload or {},
     )
@@ -198,33 +237,46 @@ async def _slack_result(
 # Daily digest
 
 
-def digest_run_at(now: datetime) -> datetime:
-    return max(now, datetime.combine(now.date(), time(DIGEST_HOUR_UTC), UTC))
+def digest_day(now: datetime, timezone: str | None) -> date:
+    """The workspace's local date at this moment."""
+    return now.astimezone(zone(timezone)).date()
+
+
+def digest_run_at(now: datetime, timezone: str | None = None) -> datetime:
+    """08:00 on the workspace's local date, in UTC; now if that has passed."""
+    local = zone(timezone)
+    at = datetime.combine(digest_day(now, timezone), time(DIGEST_HOUR), local)
+    return max(now, at.astimezone(UTC))
 
 
 async def schedule_digests(pool: Pool, now: datetime | None = None) -> int:
-    """Queue today's digest for every active workspace that does not have one yet."""
+    """Queue each active workspace's digest for its local day, unless it has one already.
+
+    The scheduler runs hourly, so a workspace's job is queued within an hour of
+    its local midnight and waits for 08:00 local. The day in the dedupe key is
+    the local date, so a workspace gets one digest job per local day.
+    """
     now = now or datetime.now(UTC)
-    day = now.date().isoformat()
     async with transaction(pool, scheduler=True) as conn:
-        tenant_ids = [
-            r["id"]
-            for r in await conn.fetch("select id from tenant_profiles where status = 'active'")
-        ]
+        workspaces = await conn.fetch(
+            "select id, timezone from tenant_profiles where status = 'active'"
+        )
     queued = 0
     async with transaction(pool) as conn:
-        for tenant_id in tenant_ids:
+        for workspace in workspaces:
+            tenant_id, timezone = workspace["id"], workspace["timezone"]
+            day = digest_day(now, timezone).isoformat()
             job_id = await queue.enqueue_once(
                 conn,
                 SEND_DIGEST,
-                {"day": day},
+                {"day": day, "timezone": timezone},
                 tenant_id=tenant_id,
-                run_at=digest_run_at(now),
+                run_at=digest_run_at(now, timezone),
                 dedupe_key=f"digest:{tenant_id}:{day}",
             )
             queued += job_id is not None
     if queued:
-        log.info("daily digests queued", extra={"count": queued, "day": day})
+        log.info("daily digests queued", extra={"count": queued})
     return queued
 
 

@@ -46,6 +46,7 @@ from docent.api.schemas import (
     InboxSort,
     InboxStatsOut,
     InboxUpdateIn,
+    MessageFeedbackOut,
     MessageFlagOut,
     NoteIn,
     NoteOut,
@@ -437,6 +438,15 @@ async def update_handoff(
                 type_id=type_id,
             )
             if "assignee" in changes and assignee and assignee != member.user_id:
+                await notify.notify_in_app(
+                    conn,
+                    tenant_id=member.tenant_id,
+                    user_id=assignee,
+                    kind="assigned",
+                    escalation_id=escalation_id,
+                    dedupe_key=f"app:assigned:{escalation_id}:{assignee}:{new_id()}",
+                    payload={"by": member.user.name},
+                )
                 queued = await _email_assignee(conn, state, member, escalation_id, assignee)
             queued = (
                 await _emit_update(
@@ -875,6 +885,13 @@ def _message(row: asyncpg.Record, delivery: EmailDeliveryOut | None) -> InboxMes
             else None
         ),
         delivery=delivery,
+        feedback=(
+            MessageFeedbackOut(
+                vote=row["vote"], comment=row["feedback_comment"], updated_at=row["voted_at"]
+            )
+            if row["vote"]
+            else None
+        ),
     )
 
 

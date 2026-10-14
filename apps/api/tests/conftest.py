@@ -74,6 +74,7 @@ TENANT_TABLES = [
     "eval_results",
     "review_items",
     "topups",
+    "message_feedback",
 ]
 # Tables the platform admin console reads across tenants, through a select-only policy on
 # the app.platform_admin capability (migration 0011). Content tables are never on it.
@@ -94,6 +95,7 @@ CONSOLE_TABLES = [
 ALL_TABLES = [
     "redis_usage",
     "topups",
+    "message_feedback",
     "review_items",
     "eval_results",
     "eval_runs",

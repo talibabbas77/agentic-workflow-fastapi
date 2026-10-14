@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReviewQueue as Queue, ReviewGrade } from "@docent/api-client";
-import { CaretRightIcon, CheckIcon, XIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, CheckIcon, ThumbsDownIcon, ThumbsUpIcon, XIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EvalsIllustration } from "@/components/illustrations/illustrations";
@@ -56,8 +56,9 @@ export function ReviewQueue({ queue }: { queue: Queue }) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex max-w-2xl flex-col gap-1.5">
           <p className="text-base text-ink-muted">
-            Each week, up to {queue.sample_size} conversations your agent answered are picked at random for a person to
-            read. A wrong grade marks the answer as wrong, so it counts in your wrong-answer rate.
+            Each week, up to {queue.sample_size} conversations your agent answered are picked for a person to read:
+            answers customers voted down come first, then ones they voted up, then the rest at random. A wrong grade
+            marks the answer as wrong, so it counts in your wrong-answer rate.
           </p>
         </div>
         <div className="w-full shrink-0 sm:w-80">
@@ -112,6 +113,16 @@ export function ReviewQueue({ queue }: { queue: Queue }) {
                     <p className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
                       <GradeBadge grade={item.grade} />
                       <span>{item.mode === "identified" ? "Signed-in customer" : "Anonymous visitor"}</span>
+                      {item.feedback ? (
+                        <span className="inline-flex items-center gap-1">
+                          {item.feedback.vote === "down" ? (
+                            <ThumbsDownIcon aria-hidden="true" className="size-3.5 text-rust" weight="bold" />
+                          ) : (
+                            <ThumbsUpIcon aria-hidden="true" className="size-3.5 text-ink" weight="bold" />
+                          )}
+                          {item.feedback.vote === "down" ? "Customer said it did not help" : "Customer said it helped"}
+                        </span>
+                      ) : null}
                       {item.escalated ? <span>Later handed off</span> : null}
                       {item.graded_by ? <span>Graded by {item.graded_by}</span> : null}
                     </p>

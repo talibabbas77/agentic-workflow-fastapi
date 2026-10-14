@@ -65,13 +65,19 @@ async def tenants_for_user(conn: Connection) -> list[asyncpg.Record]:
 
 async def get_tenant(conn: Connection, tenant_id: uuid.UUID) -> asyncpg.Record | None:
     return await conn.fetchrow(
-        "select id, name, slug, created_at from tenants where id = $1", tenant_id
+        "select id, name, slug, timezone, created_at from tenants where id = $1", tenant_id
     )
 
 
 async def rename_tenant(conn: Connection, tenant_id: uuid.UUID, name: str) -> None:
     await conn.execute(
         "update tenants set name = $2, updated_at = now() where id = $1", tenant_id, name
+    )
+
+
+async def set_timezone(conn: Connection, tenant_id: uuid.UUID, timezone: str) -> None:
+    await conn.execute(
+        "update tenants set timezone = $2, updated_at = now() where id = $1", tenant_id, timezone
     )
 
 

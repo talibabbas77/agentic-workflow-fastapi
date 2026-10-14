@@ -1,9 +1,13 @@
 """The weekly review queue: a person grades a sample of real answered conversations.
 
 Weeks start on Monday, UTC. The first time anyone opens the queue in a week, it
-samples up to 20 widget conversations at random from those the agent answered
-in the 7 days before; later visits that week top it up to 20 with newer ones.
-A conversation is sampled once, ever, so a week never repeats an earlier one.
+samples up to 20 widget conversations from those the agent answered in the 7
+days before; later visits that week top it up to 20 with newer ones. A
+conversation is sampled once, ever, so a week never repeats an earlier one.
+
+Answers the customer rated come first: thumbs down, then thumbs up, then the
+rest at random. In a conversation, the answer graded is the one voted down,
+else the one voted up, else the last answer.
 
 Each item is graded right or wrong, with an optional note. Wrong also marks the
 graded answer as wrong (unless someone already had), so it counts in the
@@ -43,15 +47,19 @@ async def top_up(conn: Connection, tenant_id: uuid.UUID, now: datetime) -> int:
     rows = await conn.fetch(
         """
         select conversation_id, message_id from (
-          select distinct on (m.conversation_id) m.conversation_id, m.id as message_id
+          select distinct on (m.conversation_id) m.conversation_id, m.id as message_id,
+                 case f.vote when 'down' then 0 when 'up' then 1 else 2 end as rated
           from messages m join conversations c on c.id = m.conversation_id
+          left join message_feedback f on f.message_id = m.id
           where c.channel = 'widget' and m.role = 'agent' and m.decision ->> 'type' = 'answer'
             and m.created_at >= $1 and m.created_at <= $2
             and not exists (
               select 1 from review_items r where r.conversation_id = m.conversation_id)
-          order by m.conversation_id, m.created_at desc, m.id desc
+          order by m.conversation_id,
+                   case f.vote when 'down' then 0 when 'up' then 1 else 2 end,
+                   m.created_at desc, m.id desc
         ) answered
-        order by random()
+        order by rated, random()
         limit $3
         """,
         now - WINDOW,
@@ -74,6 +82,7 @@ ITEM_COLUMNS = """
     r.id, r.week_start, r.conversation_id, r.message_id, r.grade, r.note, r.graded_at,
     r.sampled_at, gu.name as graded_by_name, c.mode, c.started_at, c.claims,
     m.content as answer, m.flagged_wrong,
+    fb.vote as feedback_vote, fb.comment as feedback_comment, fb.updated_at as voted_at,
     (select v.content from messages v
      where v.conversation_id = r.conversation_id and v.role = 'visitor'
        and (v.created_at, v.id) < (m.created_at, m.id)
@@ -89,6 +98,7 @@ async def week_items(conn: Connection, week: date) -> list[asyncpg.Record]:
         from review_items r
         join conversations c on c.id = r.conversation_id
         join messages m on m.id = r.message_id
+        left join message_feedback fb on fb.message_id = r.message_id
         left join users gu on gu.id = r.graded_by
         where r.week_start = $1
         order by r.sampled_at, r.id
@@ -104,6 +114,7 @@ async def get_item(conn: Connection, item_id: uuid.UUID) -> asyncpg.Record | Non
         from review_items r
         join conversations c on c.id = r.conversation_id
         join messages m on m.id = r.message_id
+        left join message_feedback fb on fb.message_id = r.message_id
         left join users gu on gu.id = r.graded_by
         where r.id = $1
         """,  # noqa: S608

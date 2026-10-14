@@ -48,6 +48,9 @@ def make_handlers(sender: EmailSender, secret_key: str) -> dict[str, Handler]:
             and await deliveries.already_sent(ctx.pool, tenant_id, delivery_id)
         ):
             return
+        if payload.get("redacted_at"):
+            # The retention purge emptied this finished job; there is nothing left to send.
+            raise PermanentJobError("The email's content was removed by retention.")
         try:
             email = build_email(
                 str(payload["template"]), open_link(secret_key, dict(payload["data"]))

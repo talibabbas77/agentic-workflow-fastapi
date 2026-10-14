@@ -8,6 +8,9 @@ addresses (or, for a customer's handoff, to owners and admins when nothing
 else would hear about it), Slack channels, and the escalation.created webhook
 event. Handoffs from the preview chat are routed the same way, so a team can
 try its rules, but never fall back to owners and admins.
+
+Members among those email recipients also get the handoff in the bell in the
+admin app, and an assignee always does, even with assignment emails turned off.
 """
 
 import logging
@@ -268,6 +271,22 @@ async def route(
             kind="notification",
             escalation_id=escalation_id,
             notification_id=notification_id,
+        )
+
+    # The bell: members the email went to, and the assignee whatever their email choice.
+    in_app = {user_id: assigned for _, user_id, assigned in recipients.values() if user_id}
+    if assignee:
+        in_app[assignee] = True
+    for user_id, assigned in in_app.items():
+        kind = "assigned" if assigned else "new_handoff"
+        await notify.notify_in_app(
+            conn,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            kind=kind,
+            escalation_id=escalation_id,
+            dedupe_key=f"app:{kind}:{escalation_id}:{user_id}",
+            payload={"rule": rule.name} if rule else {},
         )
 
     channels = await conn.fetch(

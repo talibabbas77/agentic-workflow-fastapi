@@ -458,6 +458,7 @@
           "workspace"
         ],
         "summary": "Update Tenant",
+        "description": "Rename the workspace or set its time zone. Send only what changes.",
         "operationId": "update_tenant",
         "requestBody": {
           "content": {
@@ -496,6 +497,42 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tenant/timezones": {
+      "get": {
+        "tags": [
+          "workspace"
+        ],
+        "summary": "List Timezones",
+        "description": "Time zones a workspace can pick: UTC, then IANA names such as Europe/Berlin.",
+        "operationId": "list_timezones",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response List Timezones"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
                 }
               }
             }
@@ -4079,6 +4116,141 @@
               }
             },
             "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "operationId": "list_notifications",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 15,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications/{notification_id}/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Read Notification",
+        "operationId": "read_notification",
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/notifications/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Read All Notifications",
+        "operationId": "read_all_notifications",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
           }
         }
       }
@@ -8107,6 +8279,214 @@
               }
             },
             "description": "Too Many Requests"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/widget/conversations/{conversation_id}/messages/{message_id}/feedback": {
+      "put": {
+        "tags": [
+          "widget"
+        ],
+        "summary": "Rate Answer",
+        "description": "Was this helpful? One vote per answer; voting again changes it. A note on what\nwas wrong is kept with a thumbs down only.",
+        "operationId": "rate_answer",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageFeedbackOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "widget"
+        ],
+        "summary": "Take Back Vote",
+        "operationId": "take_back_vote",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "description": "Validation Error",
@@ -13858,6 +14238,31 @@
         "type": "object",
         "title": "EvalSetUpdateIn"
       },
+      "FeedbackIn": {
+        "properties": {
+          "vote": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Vote"
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Comment",
+            "description": "What was wrong. Kept with a thumbs down only",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "vote"
+        ],
+        "title": "FeedbackIn"
+      },
       "FlagIn": {
         "properties": {
           "reason": {
@@ -14533,6 +14938,17 @@
               }
             ],
             "description": "The email that carried a human reply"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageFeedbackOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The customer's own vote on this answer, from the widget"
           }
         },
         "type": "object",
@@ -14672,7 +15088,7 @@
           "wrong_answers_30d": {
             "type": "integer",
             "title": "Wrong Answers 30D",
-            "description": "Agent answers the team marked wrong"
+            "description": "Agent answers the team marked wrong or the customer voted down"
           },
           "wrong_answer_rate_30d": {
             "anyOf": [
@@ -15183,6 +15599,35 @@
         ],
         "title": "MemorySourceOut"
       },
+      "MessageFeedbackOut": {
+        "properties": {
+          "vote": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ],
+            "title": "Vote"
+          },
+          "comment": {
+            "type": "string",
+            "title": "Comment",
+            "description": "What was wrong, from a thumbs down; empty otherwise"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vote",
+          "comment",
+          "updated_at"
+        ],
+        "title": "MessageFeedbackOut"
+      },
       "MessageFlagOut": {
         "properties": {
           "reason": {
@@ -15279,6 +15724,17 @@
               }
             ],
             "title": "Created At"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageFeedbackOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The visitor's own vote on this answer (widget only)"
           }
         },
         "type": "object",
@@ -15415,6 +15871,73 @@
         ],
         "title": "NoteOut"
       },
+      "NotificationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "new_handoff",
+              "assigned"
+            ],
+            "title": "Kind"
+          },
+          "escalation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Escalation Id"
+          },
+          "issue": {
+            "type": "string",
+            "title": "Issue",
+            "description": "The handoff's issue, as the inbox shows it"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "Who assigned it, or the rule that routed it"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "escalation_id",
+          "issue",
+          "detail",
+          "created_at",
+          "read_at"
+        ],
+        "title": "NotificationOut"
+      },
       "NotificationPrefs": {
         "properties": {
           "daily_digest": {
@@ -15502,6 +16025,35 @@
           "sent_at"
         ],
         "title": "NotificationStateOut"
+      },
+      "NotificationsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationOut"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Your latest notifications, newest first"
+          },
+          "unread": {
+            "type": "integer",
+            "title": "Unread",
+            "description": "Your unread notifications"
+          },
+          "inbox_unread": {
+            "type": "integer",
+            "title": "Inbox Unread",
+            "description": "Unread handoffs that are not resolved, as in the inbox"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "unread",
+          "inbox_unread"
+        ],
+        "title": "NotificationsOut"
       },
       "OnboardingOut": {
         "properties": {
@@ -15792,7 +16344,23 @@
           },
           "marked_wrong": {
             "type": "integer",
-            "title": "Marked Wrong"
+            "title": "Marked Wrong",
+            "description": "Answers the team marked wrong, in the inbox or review"
+          },
+          "voted_up": {
+            "type": "integer",
+            "title": "Voted Up",
+            "description": "Answers a customer said helped"
+          },
+          "voted_down": {
+            "type": "integer",
+            "title": "Voted Down",
+            "description": "Answers a customer said did not help"
+          },
+          "wrong_answers": {
+            "type": "integer",
+            "title": "Wrong Answers",
+            "description": "Marked wrong or voted down, each answer once"
           },
           "reviewed": {
             "type": "integer",
@@ -15920,6 +16488,9 @@
           "escalated",
           "answers",
           "marked_wrong",
+          "voted_up",
+          "voted_down",
+          "wrong_answers",
           "reviewed",
           "reviewed_wrong",
           "auto_resolution_rate",
@@ -16556,6 +17127,17 @@
             "type": "string",
             "format": "date-time",
             "title": "Sampled At"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageFeedbackOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The customer's vote on the graded answer"
           }
         },
         "type": "object",
@@ -18061,6 +18643,11 @@
             "type": "string",
             "title": "Slug"
           },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "description": "IANA time zone. The daily digest goes out at 08:00 there"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -18081,6 +18668,7 @@
           "id",
           "name",
           "slug",
+          "timezone",
           "created_at",
           "your_role"
         ],
@@ -18123,18 +18711,37 @@
       "TenantUpdateIn": {
         "properties": {
           "name": {
-            "type": "string",
-            "maxLength": 120,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Name"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone",
+            "description": "IANA time zone, such as Europe/Berlin. The daily digest goes out at 08:00"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "TenantUpdateIn"
+        "title": "TenantUpdateIn",
+        "description": "Send only what changes."
       },
       "TicketField": {
         "properties": {

@@ -1,8 +1,9 @@
-"""Inbox numbers: open work, response times, and how often agent answers were marked wrong.
+"""Inbox numbers: open work, response times, and how often agent answers were wrong.
 
 answer_quality is the metrics query Phase 6 builds its dashboard on: an answer
 is an agent message with decision type "answer"; a wrong answer is one the team
-marked wrong from the inbox.
+marked wrong (from the inbox or the weekly review) or the customer voted down in
+the widget. An answer with both counts once.
 """
 
 import uuid
@@ -24,10 +25,14 @@ class AnswerQuality:
 async def answer_quality(conn: Connection, days: int = 30) -> AnswerQuality:
     row = await conn.fetchrow(
         """
-        select count(*) as answers, count(*) filter (where flagged_wrong) as flagged_wrong
-        from messages
-        where role = 'agent' and decision ->> 'type' = 'answer'
-          and created_at > now() - make_interval(days => $1)
+        select count(*) as answers,
+               count(*) filter (
+                 where m.flagged_wrong or exists (
+                   select 1 from message_feedback f where f.message_id = m.id and f.vote = 'down')
+               ) as flagged_wrong
+        from messages m
+        where m.role = 'agent' and m.decision ->> 'type' = 'answer'
+          and m.created_at > now() - make_interval(days => $1)
         """,
         days,
     )

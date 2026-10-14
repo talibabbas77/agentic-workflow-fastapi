@@ -1,15 +1,16 @@
 "use client";
 
-import type { EmailDelivery, HandoffReason, InboxMessage } from "@docent/api-client";
+import type { EmailDelivery, HandoffReason, InboxMessage, MessageFeedback } from "@docent/api-client";
 import {
   ArrowCounterClockwiseIcon,
   CaretRightIcon,
   CheckIcon,
   HeadsetIcon,
   ThumbsDownIcon,
+  ThumbsUpIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { confidenceLabel, MessageText, Source } from "@/components/agent/chat-message";
 import { AddToEvalSet } from "@/components/evals/add-to-eval-set";
 import { Button } from "@/components/ui/button";
@@ -27,9 +28,11 @@ const timeFormat = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "
 
 /**
  * The conversation as the customer had it. The customer is on the left; the
- * agent and your team on the right. Agent answers keep their sources, and any
- * of them can be marked as wrong. With `evalConversationId`, owners and admins
- * can also turn any agent answer into a test case.
+ * agent and your team on the right. Agent answers keep their sources and the
+ * customer's own "Was this helpful?" vote, and any of them can be marked as
+ * wrong. With `evalConversationId`, owners and admins can also turn any agent
+ * answer into a test case; on an answer the customer voted down, that offer
+ * sits with their note.
  */
 export function Transcript({
   messages,
@@ -133,6 +136,7 @@ function MessageRow({
     <>
       <AgentMessage
         message={message}
+        customer={customer}
         onFlag={onFlag}
         onChange={onChange}
         evalConversationId={evalConversationId}
@@ -153,11 +157,13 @@ function MessageRow({
 
 function AgentMessage({
   message,
+  customer,
   onFlag,
   onChange,
   evalConversationId,
 }: {
   message: InboxMessage;
+  customer: string;
   onFlag: () => void;
   onChange: (message: InboxMessage) => void;
   evalConversationId?: string;
@@ -172,6 +178,7 @@ function AgentMessage({
   const citations = conversational ? [] : message.citations;
   const confidence = decision?.type === "answer" ? decision.confidence : null;
   const sourceId = (marker: number) => `${sourcesId}-${marker}`;
+  const votedDown = message.feedback?.vote === "down";
 
   function cite(marker: number) {
     setOpen(true);
@@ -232,7 +239,7 @@ function AgentMessage({
               Mark as wrong
             </button>
           )}
-          {evalConversationId && !conversational ? (
+          {evalConversationId && !conversational && !votedDown ? (
             <AddToEvalSet compact conversationId={evalConversationId} messageId={message.id} />
           ) : null}
         </div>
@@ -249,6 +256,17 @@ function AgentMessage({
                 />
               ))}
           </ol>
+        ) : null}
+        {message.feedback ? (
+          <CustomerVote
+            feedback={message.feedback}
+            customer={customer}
+            addToEvalSet={
+              votedDown && evalConversationId ? (
+                <AddToEvalSet compact conversationId={evalConversationId} messageId={message.id} />
+              ) : null
+            }
+          />
         ) : null}
         {message.flag ? (
           <div className="flex w-full items-start gap-2.5 rounded-md border border-rust/40 bg-rust-soft px-3 py-2.5 text-sm">
@@ -276,6 +294,45 @@ function AgentMessage({
         ) : null}
       </div>
     </li>
+  );
+}
+
+/** What the customer said about this answer in the widget. */
+function CustomerVote({
+  feedback,
+  customer,
+  addToEvalSet,
+}: {
+  feedback: MessageFeedback;
+  customer: string;
+  addToEvalSet: ReactNode;
+}) {
+  const now = useNow();
+  const when = formatRelative(feedback.updated_at, now);
+  if (feedback.vote === "up") {
+    return (
+      <p className="max-w-full text-right text-sm text-ink-muted">
+        <ThumbsUpIcon aria-hidden="true" className="mr-1.5 inline size-3.5 align-[-2px] text-ink" weight="bold" />
+        {customer} said this helped, {when}
+      </p>
+    );
+  }
+  return (
+    <div className="flex w-full items-start gap-2.5 rounded-md border border-line bg-surface px-3 py-2.5 text-sm">
+      <ThumbsDownIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-rust" weight="bold" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="font-medium text-ink">{customer} said this did not help</p>
+        {feedback.comment ? (
+          <p dir="auto" className="break-words whitespace-pre-wrap text-ink">
+            {feedback.comment}
+          </p>
+        ) : null}
+        <p className="text-ink-muted">
+          In the widget, {when}. It counts in your wrong-answer rate.
+        </p>
+        {addToEvalSet ? <div className="pt-1 text-ink-muted">{addToEvalSet}</div> : null}
+      </div>
+    </div>
   );
 }
 

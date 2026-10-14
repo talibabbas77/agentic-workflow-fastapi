@@ -12,6 +12,7 @@ type GetPath =
   | "/v1/auth/me"
   | "/v1/onboarding"
   | "/v1/tenant"
+  | "/v1/tenant/timezones"
   | "/v1/members"
   | "/v1/knowledge/sources"
   | "/v1/agent/settings"
@@ -77,6 +78,8 @@ export const getMe = cache(() => getOrThrow("/v1/auth/me"));
 export const getOnboarding = () => getOrThrow("/v1/onboarding");
 
 export const getTenant = () => getOrThrow("/v1/tenant");
+
+export const getTimezones = () => getOrThrow("/v1/tenant/timezones");
 
 /** Members and invitations, or a 403 result for agents. */
 export const getMembers = () => get("/v1/members");

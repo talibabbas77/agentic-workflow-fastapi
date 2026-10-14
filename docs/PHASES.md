@@ -304,6 +304,16 @@ with a test message, signed webhooks with a delivery log, the support
 address, and each member's notification choices). Design notes are in the
 architecture change log.
 
+Gaps closed later on 2026-10-14 (migration 0014): an unread count beside Inbox
+in the sidebar and a bell in the top bar listing new handoffs routed to you
+and handoffs assigned to you, with mark as read and mark all read (polled
+every 30 seconds while the tab is visible); a daily retention job that deletes
+delivery logs and notifications after 90 days (`RETENTION_DELIVERY_DAYS`) and
+empties finished email jobs after 7; and the daily digest at 08:00 in each
+workspace's own time zone, set on the workspace settings page. Covered by
+`tests/test_notifications.py`, `tests/test_retention.py`, the digest tests in
+`tests/test_automation.py`, and `e2e/feedback.spec.ts` in the web app.
+
 **Goal:** escalations reach the right person quickly, with enough context to
 reply without asking the customer to repeat themselves.
 
@@ -352,6 +362,17 @@ metrics against hand-written SQL, the review sample, the gate, and isolation
 on every new table and route (`tests/test_evals.py`, `tests/test_rls.py`).
 `e2e/evals.spec.ts` creates a set and a case in the browser, runs it, and
 reads the results.
+
+Added 2026-10-14: "Was this helpful?" under every widget answer. A thumbs up
+confirms the conversation as resolved, a thumbs down counts in the
+wrong-answer rate with Mark as wrong and shows in the inbox transcript with
+the customer's note and "Add to eval set", and the weekly review samples rated
+answers first. Covered by `tests/test_feedback.py` (ownership, one vote,
+changing it, other workspaces, the rate limit, the metrics against
+hand-written SQL, the review sample), the widget's unit tests and
+`e2e/feedback.spec.ts` (Chromium and WebKit), and the web app's
+`e2e/feedback.spec.ts` (the transcript test needs a chat model,
+`E2E_CHAT_MODEL=1`).
 
 | Check | Result |
 |---|---|

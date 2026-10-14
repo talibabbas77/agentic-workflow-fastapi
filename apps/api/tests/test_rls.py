@@ -146,11 +146,30 @@ async def two_tenants(
             algorithm="ES256",
             headers={"kid": key.json()["kid"]},
         )
-        created = await client_factory(origin="http://localhost:8000").post(
+        frame = client_factory(origin="http://localhost:8000")
+        created = await frame.post(
             "/v1/widget/sessions",
             json={"widget": widget["public_id"], "parent_origin": SITE, "token": token},
         )
         assert created.status_code == 201, created.text
+        # A customer's thumbs down on a widget answer.
+        bearer = {"authorization": f"Bearer {created.json()['session_token']}"}
+        chat = (await frame.post("/v1/widget/conversations", json={}, headers=bearer)).json()
+        sent = await frame.post(
+            f"/v1/widget/conversations/{chat['id']}/messages",
+            json={"content": "shared text in both tenants"},
+            headers=bearer,
+        )
+        assert "event: message" in sent.text, sent.text
+        reply = (await frame.get(f"/v1/widget/conversations/{chat['id']}", headers=bearer)).json()[
+            "messages"
+        ][-1]
+        vote = await frame.put(
+            f"/v1/widget/conversations/{chat['id']}/messages/{reply['id']}/feedback",
+            json={"vote": "down", "comment": "Not it."},
+            headers=bearer,
+        )
+        assert vote.status_code == 200, vote.text
         # Inbox: a read marker, a note, preferences, a channel, a webhook, a rule.
         handoff = (await c.get("/v1/inbox")).json()["items"][0]["id"]
         assert (await c.post(f"/v1/inbox/{handoff}/read")).status_code == 204

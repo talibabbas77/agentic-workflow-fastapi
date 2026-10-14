@@ -42,10 +42,10 @@ export default defineConfig({
     {
       // WebKit blocks third-party cookies by default. The anonymous flow and
       // the panel's controls (focus, sizing) run here; the rest is browser
-      // independent.
+      // independent. "Was this helpful?" runs here too.
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
-      testMatch: /(anonymous|panel)\.spec\.ts$/,
+      testMatch: /(anonymous|panel|feedback)\.spec\.ts$/,
     },
   ],
   webServer: {

@@ -3,9 +3,13 @@
 import type { Mode } from "../shared/protocol";
 import { docentMark, dom, icon } from "./dom";
 import { citationLabel, plainExcerpt, renderContent, safeUrl } from "./render";
-import type { Citation, ConversationStatus, ConversationSummary, Message, Stage } from "./types";
+import type { Citation, ConversationStatus, ConversationSummary, Message, Stage, Vote } from "./types";
 
 export const MAX_LENGTH = 2000;
+/** "What was wrong?" under a thumbs down. */
+export const NOTE_LENGTH = 500;
+/** Sent as the visitor's own message, so the usual rules hand the conversation to a person. */
+export const ASK_FOR_PERSON = "I would like to talk to a person.";
 const COUNT_FROM = 1800;
 
 export const STAGE_TEXT: Record<Stage | "loading", string> = {
@@ -49,6 +53,8 @@ export interface UiHandlers {
   onRetry(): void;
   /** Resolves to an error sentence, or null on success. */
   onContact(email: string): Promise<string | null>;
+  /** "Was this helpful?" on an answer; vote null takes it back. Resolves to an error sentence, or null. */
+  onRate(messageId: string, vote: Vote | null, comment?: string): Promise<string | null>;
   /** Start an empty conversation. The UI has already asked when the current one has messages. */
   onNewChat(): void;
   /** Show the signed-in customer's recent chats. */
@@ -95,6 +101,8 @@ const HISTORY_ICON = "M3 12a9 9 0 1 0 2.64-6.36L3 8.3M3 3.5v4.8h4.8M12 7.5V12l3.
 const EXPAND_ICON = "M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5";
 const COLLAPSE_ICON = "M13.5 4.5v6h6M20 4l-6.5 6.5M10.5 19.5v-6h-6M4 20l6.5-6.5";
 const BACK_ICON = "M19 12H5M11 6l-6 6 6 6";
+const UP_ICON = "M7 10v11M7 10l4-8a2.5 2.5 0 0 1 2.5 2.5V8h5.3a2 2 0 0 1 2 2.3l-1.2 8.7a2 2 0 0 1-2 2H7M7 10H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h3";
+const DOWN_ICON = "M17 14V3M17 14l-4 8a2.5 2.5 0 0 1-2.5-2.5V16H5.2a2 2 0 0 1-2-2.3l1.2-8.7a2 2 0 0 1 2-2H17M17 14h3a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-3";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function createUi(
@@ -482,7 +490,128 @@ export function createUi(
       li.appendChild(h("p", { class: "from-account" }, "From your account"));
     }
     if (m.decision?.type === "escalate") li.appendChild(escalation(contactFor !== null && contactFor === m.id));
+    // Only answers are rated: not greetings, clarifying questions, or handoffs.
+    if (m.role === "agent" && m.decision?.type === "answer" && m.id) li.appendChild(rating(m));
     return li;
+  };
+
+  /** A person can still be asked for: the chat is open and nothing was handed off yet. */
+  const canAskForPerson = (): boolean => !closed && list.querySelector(".msg.agent .note") === null;
+
+  /**
+   * "Was this helpful?" under an answer. A thumbs up says thanks; a thumbs down
+   * also offers a short note on what was wrong and a way to reach a person.
+   * Pressing the chosen thumb again takes the vote back.
+   */
+  const rating = (m: Message): HTMLElement => {
+    const qid = `docent-rate-${++uid}`;
+    let vote: Vote | null = m.feedback?.vote ?? null;
+    let saving = false;
+    const thumb = (label: string, d: string): HTMLButtonElement =>
+      h("button", { type: "button", class: "rate-btn", "aria-label": label, title: label, "aria-pressed": "false" }, icon(doc, d));
+    const up = thumb("Helpful", UP_ICON);
+    const down = thumb("Not helpful", DOWN_ICON);
+    const said = h("p", { class: "rate-said", "aria-live": "polite" });
+    const box = h(
+      "div",
+      { class: "rate", role: "group", "aria-labelledby": qid },
+      h("div", { class: "rate-row" }, h("span", { id: qid, class: "rate-q" }, "Was this helpful?"), up, down),
+      said,
+    );
+    const press = (): void => {
+      up.setAttribute("aria-pressed", String(vote === "up"));
+      down.setAttribute("aria-pressed", String(vote === "down"));
+    };
+    press();
+    if (vote) said.textContent = "Thanks for letting us know.";
+
+    /** The note form, or after it was sent, the offer of a person on its own. */
+    let more: HTMLElement | null = null;
+    const closeMore = (): void => {
+      more?.remove();
+      more = null;
+    };
+    const personButton = (): HTMLButtonElement | null => {
+      if (!canAskForPerson()) return null;
+      const person = h("button", { type: "button", class: "btn quiet rate-person", disabled: busy }, "Talk to a person");
+      person.addEventListener("click", () => {
+        if (handlers.onSend(ASK_FOR_PERSON)) {
+          closeMore();
+          input.focus();
+        }
+      });
+      return person;
+    };
+    const openMore = (): void => {
+      if (more) return;
+      const id = `docent-note-${++uid}`;
+      const text = h("textarea", { id, class: "rate-text", rows: "2", maxlength: String(NOTE_LENGTH), dir: "auto" });
+      const send = h("button", { type: "submit", class: "btn" }, "Send");
+      const form = h(
+        "form",
+        { class: "rate-more", novalidate: true },
+        h("label", { for: id }, "What was wrong? (optional)"),
+        text,
+        h("div", { class: "rate-actions" }, send, personButton()),
+      );
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const note = text.value.trim();
+        if (saving) return;
+        if (!note) {
+          text.focus();
+          return;
+        }
+        saving = true;
+        send.disabled = true;
+        const problem = await handlers.onRate(m.id, "down", note.slice(0, NOTE_LENGTH));
+        saving = false;
+        send.disabled = false;
+        if (problem) {
+          said.textContent = problem;
+          return;
+        }
+        closeMore();
+        said.textContent = "Thanks. The team will read your note.";
+        // The note is sent; a person is still one click away.
+        const person = personButton();
+        if (person) {
+          more = h("div", { class: "rate-actions" }, person);
+          box.appendChild(more);
+          more.scrollIntoView?.({ block: "nearest" });
+        }
+        down.focus();
+      });
+      more = form;
+      box.appendChild(form);
+      text.focus();
+      // The whole form, buttons too, in view: it opens under the last answer.
+      form.scrollIntoView?.({ block: "nearest" });
+    };
+
+    const choose = async (next: Vote): Promise<void> => {
+      if (saving) return;
+      const before = vote;
+      vote = vote === next ? null : next;
+      press();
+      said.textContent = "";
+      if (vote !== "down") closeMore();
+      saving = true;
+      const problem = await handlers.onRate(m.id, vote);
+      saving = false;
+      if (problem) {
+        vote = before;
+        press();
+        said.textContent = problem;
+        return;
+      }
+      if (vote === "down") {
+        openMore();
+      } else if (vote === "up") said.textContent = "Thanks for letting us know.";
+    };
+    up.addEventListener("click", () => void choose("up"));
+    down.addEventListener("click", () => void choose("down"));
+    return box;
   };
 
   const dropOpenForms = (): void => {
@@ -542,6 +671,7 @@ export function createUi(
       fresh.disabled = next;
       recent.disabled = next;
       suggestList.querySelectorAll("button").forEach((b) => (b.disabled = next));
+      list.querySelectorAll<HTMLButtonElement>(".rate-person").forEach((b) => (b.disabled = next));
       syncInput();
     },
     setNotice(text) {

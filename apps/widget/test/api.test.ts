@@ -178,4 +178,32 @@ describe("api client", () => {
     expect(init?.keepalive).toBe(true);
     expect(headersOf(init).Authorization).toBe("Bearer st_9");
   });
+
+  it("rates an answer with PUT, takes the vote back with DELETE, and reads votes back", async () => {
+    const saved = json(200, { vote: "down", comment: "Wrong.", updated_at: "2026-10-14T10:00:00Z" });
+    const { api, fetch } = setup([saved, new Response(null, { status: 204 })]);
+    await api.rate("st_5", "c1", "m/1", "down", "Wrong.");
+    await api.rate("st_5", "c1", "m/1", null);
+    const [[url, put], [, del]] = fetch.mock.calls;
+    expect(url).toBe("/v1/widget/conversations/c1/messages/m%2F1/feedback");
+    expect(put?.method).toBe("PUT");
+    expect(JSON.parse(String(put?.body))).toEqual({ vote: "down", comment: "Wrong." });
+    expect(headersOf(put).Authorization).toBe("Bearer st_5");
+    expect(del?.method).toBe("DELETE");
+
+    const { api: reader } = setup([
+      json(200, {
+        id: "c1",
+        status: "open",
+        handoff: null,
+        messages: [
+          { ...MESSAGE, feedback: { vote: "up", comment: "" } },
+          { ...MESSAGE, id: "b", feedback: { vote: "meh" } },
+          { ...MESSAGE, id: "c" },
+        ],
+      }),
+    ]);
+    const conversation = await reader.getConversation("st", "c1");
+    expect(conversation.messages.map((m) => m.feedback)).toEqual([{ vote: "up", comment: "" }, null, null]);
+  });
 });

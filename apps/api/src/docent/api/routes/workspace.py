@@ -1,15 +1,30 @@
 """The active workspace: details, settings, onboarding progress."""
 
+import uuid
+
+import asyncpg
 from fastapi import APIRouter
 
 from docent.api.deps import AdminMember, CurrentMember, State
 from docent.api.errors import not_found
 from docent.api.schemas import ErrorOut, OnboardingOut, OnboardingStep, TenantOut, TenantUpdateIn
-from docent.db.pool import transaction
+from docent.db.pool import Connection, transaction
 from docent.knowledge import repo as knowledge
 from docent.services import audit, tenants
+from docent.timezones import timezone_names
 
 router = APIRouter(prefix="/v1", tags=["workspace"], responses={403: {"model": ErrorOut}})
+
+
+def _tenant_out(row: asyncpg.Record, role: str) -> TenantOut:
+    return TenantOut(
+        id=row["id"],
+        name=row["name"],
+        slug=row["slug"],
+        timezone=row["timezone"],
+        created_at=row["created_at"],
+        your_role=role,  # type: ignore[arg-type]
+    )
 
 
 @router.get("/tenant")
@@ -18,35 +33,54 @@ async def get_tenant(member: CurrentMember, state: State) -> TenantOut:
         row = await tenants.get_tenant(conn, member.tenant_id)
     if row is None:
         raise not_found("Workspace")
-    return TenantOut(
-        id=row["id"],
-        name=row["name"],
-        slug=row["slug"],
-        created_at=row["created_at"],
-        your_role=member.role,  # type: ignore[arg-type]
-    )
+    return _tenant_out(row, member.role)
+
+
+@router.get("/tenant/timezones")
+async def list_timezones(member: CurrentMember) -> list[str]:
+    """Time zones a workspace can pick: UTC, then IANA names such as Europe/Berlin."""
+    return timezone_names()
 
 
 @router.patch("/tenant")
 async def update_tenant(body: TenantUpdateIn, member: AdminMember, state: State) -> TenantOut:
+    """Rename the workspace or set its time zone. Send only what changes."""
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
-        await tenants.rename_tenant(conn, member.tenant_id, body.name)
-        await audit.record(
-            conn,
-            tenant_id=member.tenant_id,
-            actor_user_id=member.user_id,
-            action="tenant.renamed",
-            target_type="tenant",
-            target_id=member.tenant_id,
-        )
+        row = await tenants.get_tenant(conn, member.tenant_id)
+        if row is None:
+            raise not_found("Workspace")
+        if body.name is not None and body.name != row["name"]:
+            await tenants.rename_tenant(conn, member.tenant_id, body.name)
+            await _audit(conn, member.tenant_id, member.user_id, "tenant.renamed", {})
+        if body.timezone is not None and body.timezone != row["timezone"]:
+            await tenants.set_timezone(conn, member.tenant_id, body.timezone)
+            await _audit(
+                conn,
+                member.tenant_id,
+                member.user_id,
+                "tenant.timezone_changed",
+                {"from": row["timezone"], "to": body.timezone},
+            )
         row = await tenants.get_tenant(conn, member.tenant_id)
     assert row is not None
-    return TenantOut(
-        id=row["id"],
-        name=row["name"],
-        slug=row["slug"],
-        created_at=row["created_at"],
-        your_role=member.role,  # type: ignore[arg-type]
+    return _tenant_out(row, member.role)
+
+
+async def _audit(
+    conn: Connection,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    action: str,
+    metadata: dict[str, str],
+) -> None:
+    await audit.record(
+        conn,
+        tenant_id=tenant_id,
+        actor_user_id=user_id,
+        action=action,
+        target_type="tenant",
+        target_id=tenant_id,
+        metadata=metadata,
     )
 
 
