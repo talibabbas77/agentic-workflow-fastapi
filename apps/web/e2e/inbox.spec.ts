@@ -102,7 +102,10 @@ test("on the board, a handoff moves to another column with the keyboard", async 
   await expect(page.getByText(/^Moved to Waiting on customer/)).toBeAttached();
 
   await page.reload();
-  await expect(page.getByRole("region", { name: "Waiting on customer" }).getByText(contact)).toBeVisible();
+  // Until the summary lands, the card's title is the customer's message, which also has the email.
+  await expect(
+    page.getByRole("region", { name: "Waiting on customer" }).getByRole("listitem").filter({ hasText: contact }),
+  ).toBeVisible();
 });
 
 test("a handoff gets a reply by email, a note, and an answer marked as wrong", async ({ page }) => {
