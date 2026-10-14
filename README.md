@@ -241,6 +241,11 @@ and grade the weekly review):
 - **Compare** two runs of a set, **Metrics** from real widget traffic,
   **Review** of 20 sampled conversations a week, and **Calibration**, where
   labels you give judged answers show how far to trust the judge.
+- **Customer votes**: "Was this helpful?" under every answer in the widget. A
+  thumbs up confirms the conversation as resolved; a thumbs down (with an
+  optional note on what was wrong) counts as a wrong answer, shows in the inbox
+  transcript with "Add to eval set" beside it, and puts the conversation first
+  in line for the weekly review.
 
 `EVAL_JUDGE_MODEL` picks the judge's model (default: the chat model; use a
 different one in production).

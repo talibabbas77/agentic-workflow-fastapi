@@ -1,7 +1,7 @@
 # Docent architecture
 
 Status: draft for review. Nothing here is built yet.
-Last updated: 2026-10-13.
+Last updated: 2026-10-14.
 
 This document is the plan that every phase in [PHASES.md](PHASES.md) builds
 against. Project rules in [CLAUDE.md](../CLAUDE.md) win if the two disagree.
@@ -196,7 +196,7 @@ carries a narrow capability that a dedicated `for select` policy honors:
 | `app.user_id` | The user's own `memberships` rows and the `tenants` they belong to | Log in, tenant switcher, `/me` |
 | `app.invite_token` | The one `invitations` row whose token hash matches, and its tenant's name | Invitation lookup and accept |
 | `app.billing_customer` | The one `subscriptions` row of that Stripe customer | Billing webhooks |
-| `app.scheduler` | Every tenant's id, name, and status, only through the `tenant_profiles` view | The daily digest scheduler |
+| `app.scheduler` | Every tenant's id, name, status, and time zone, only through the `tenant_profiles` view | The daily digest scheduler and the retention job |
 | `app.platform_admin` | Select only, in every tenant, on exactly the tables the console reads (section 12). Never a write | Platform admin console, after the API checked the user |
 
 The widget id lookup in Phase 4 uses the same pattern (`app.widget_public_id`).
@@ -396,6 +396,23 @@ anything else.
   empty list. `GET /v1/widget/conversations/{id}` reads one conversation through
   the same ownership check as sending (this widget, and this end user or this
   anonymous visitor id); anything else is 404.
+- **Was this helpful?** Under each agent answer (decision type `answer`; never
+  the greeting, a clarifying question, or a handoff), a thumbs up and a thumbs
+  down, both buttons with `aria-pressed` in a group labelled by the question.
+  `PUT /v1/widget/conversations/{id}/messages/{message_id}/feedback` with
+  `{"vote": "up" | "down", "comment"}` records the visitor's vote, and `DELETE`
+  takes it back (pressing the chosen thumb again). Ownership is the same check
+  as sending (this widget, and this end user or this anonymous visitor id), and
+  the message must be an agent answer in that conversation: anything else is
+  404, a message that is not an answer 422. One row per answer, so voting again
+  changes the vote. The note on what was wrong (500 characters) is kept with a
+  thumbs down only. Votes are limited like messages, per customer or per
+  address (`WIDGET_FEEDBACK_PER_HOUR`, 60). A thumbs down also offers "Talk to
+  a person", beside the note and still after it is sent, which sends "I would
+  like to talk to a person." as the visitor's own message, so the usual rule
+  hands off; it is not offered once the conversation was handed off or closed. Reading a conversation returns each
+  answer's vote on `messages[].feedback`, so history shows it pressed. The
+  loader is unchanged.
 - **Closed conversations** can be read but not continued. Sending to one is a
   409 `conversation_closed`, and resume skips them in both modes, so a
   resolved handoff always starts fresh. If the team closes a conversation while
@@ -450,7 +467,7 @@ erDiagram
 
 | Table | | Key columns |
 |---|---|---|
-| `tenants` | | `id, name, slug unique, status (active, suspended, deleted), plan_id, settings jsonb (tone, restricted_topics, escalation thresholds), created_at, deleted_at` |
+| `tenants` | | `id, name, slug unique, status (active, suspended, deleted), plan_id, settings jsonb (tone, restricted_topics, escalation thresholds), timezone (IANA name, default UTC; the digest goes out at 08:00 there), created_at, deleted_at` |
 | `users` | | `id, email unique (lowercased), password_hash (argon2id), name, email_verified_at, last_login_at, is_platform_admin (set only from the CLI), created_at` |
 | `memberships` | T | `tenant_id, user_id, role (owner, admin, agent), created_at`. PK `(tenant_id, user_id)` |
 | `user_sessions` | | `token_hash pk, user_id, active_tenant_id, ip_hash, user_agent, created_at, expires_at, revoked_at` |
@@ -487,9 +504,10 @@ on pages (section 10) keep this in check.
 
 | Table | | Key columns |
 |---|---|---|
-| `conversations` | T | `id, tenant_id, widget_id, mode, end_user_id null, visitor_id null, status (open, escalated, closed), outcome (auto_resolved, confirmed_resolved, escalated, abandoned) null, feedback (up, down) null, page_url, locale, started_at, last_message_at, closed_at` |
+| `conversations` | T | `id, tenant_id, widget_id, mode, end_user_id null, visitor_id null, status (open, escalated, closed), outcome (auto_resolved, confirmed_resolved, escalated, abandoned) null, page_url, locale, started_at, last_message_at, closed_at` |
 | `messages` | T | `id, tenant_id, conversation_id, role (visitor, agent, human, system), content, decision jsonb (type, confidence, reason), model, prompt_version, tokens_in, tokens_out, latency_ms, flagged_wrong bool, created_at` |
 | `message_citations` | T | `tenant_id, message_id, marker, chunk_id null, document_title, url, excerpt, score`. Snapshot fields keep old answers auditable after a source is deleted |
+| `message_feedback` | T | `id, tenant_id, conversation_id, message_id unique, end_user_id null, visitor_id null, vote (up, down), comment (500 at most, thumbs down only), created_at, updated_at`. The visitor's "Was this helpful?" on one answer; one per answer, changeable |
 
 ### Escalations and inbox
 
@@ -500,7 +518,7 @@ on pages (section 10) keep this in check.
 | `escalation_reads` | T | `tenant_id, user_id, escalation_id, read_at`. Unread means `updated_at` is later than the member's `read_at` |
 | `escalation_notes` | T | `id, tenant_id, escalation_id, author_user_id, body, created_at`. Internal, never sent |
 | `routing_rules` | T | `id, tenant_id, name, position, active, ticket_type_ids uuid[], reasons text[], claim_conditions jsonb, assign_user_id, set_priority, notify_emails text[], notify_channel_id, webhook_id` |
-| `notifications` | T | `id, tenant_id, kind (new_handoff, assigned, daily_digest, test), channel (email, slack), escalation_id, user_id, channel_id, email_delivery_id, dedupe_key unique per tenant, payload jsonb, status, attempts, last_error, sent_at, read_at, created_at` |
+| `notifications` | T | `id, tenant_id, kind (new_handoff, assigned, daily_digest, test), channel (email, slack, in_app), escalation_id, user_id, channel_id, email_delivery_id, dedupe_key unique per tenant, payload jsonb, status, attempts, last_error, sent_at, read_at, created_at`. `in_app` rows are the bell in the admin app; `read_at` is when the member read one |
 | `notification_channels` | T | `id, tenant_id, kind (slack_webhook), name, target_encrypted, target_hint, events text[], active` |
 | `notification_preferences` | T | `tenant_id, user_id, daily_digest, assigned_email` |
 | `email_deliveries` | T | `id, tenant_id, escalation_id null, message_id null, kind (reply, notification, digest), to_hash, to_hint, subject, status (queued, sent, retrying, dead), attempts, provider_message_id, last_error, sent_at` |
@@ -878,6 +896,15 @@ returning *;
 - **Tenant context**: the worker reads the job as `docent_worker`, then runs the
   handler inside a transaction with `set_config('app.tenant_id', job.tenant_id, true)`.
 - **Retention**: succeeded jobs deleted after 7 days, dead jobs after 30.
+  Finished `send_email` jobs lose their content (reply text, the customer's
+  issue, addresses) after `RETENTION_JOB_PAYLOAD_DAYS` (7), since `jobs` has no
+  row-level security; such a dead job can no longer be retried. Email and
+  webhook delivery logs and notifications are deleted after
+  `RETENTION_DELIVERY_DAYS` (90). Both run in the daily `purge_retention` job,
+  which the worker's maintenance step queues once per UTC day, like the digest
+  scheduler, so an idle worker sends no extra queries. The job lists workspaces
+  through `app.scheduler` and deletes each workspace's rows in that
+  workspace's own transaction and tenant context.
 
 ### Waking the worker without burning Neon compute
 
@@ -973,20 +1000,23 @@ is dropped. Drafts carry no required phrases; see the change log.
 
 **Production numbers** come from widget conversations only, grouped by the
 period they started in. Resolved automatically: quiet for 30 minutes, no
-handoff, nothing marked wrong, last agent answer (greetings and thanks aside)
-backed by a source or verified details. Resolved, confirmed: graded right in
-the weekly review (the widget has no thumbs up yet). The weekly review samples
-up to 20 conversations the agent answered in the 7 days before, the first time
-the queue is opened each week (Monday, UTC), and tops up later that week. A
-wrong grade marks the answer as wrong, so it counts with the inbox's marks.
+handoff, nothing marked wrong, no thumbs down, last agent answer (greetings and
+thanks aside) backed by a source or verified details. Resolved, confirmed: the
+customer gave an answer a thumbs up with no thumbs down and no handoff in the
+conversation, or a teammate graded it right in the weekly review. The weekly
+review samples up to 20 conversations the agent answered in the 7 days before,
+the first time the queue is opened each week (Monday, UTC), and tops up later
+that week: answers voted down first, then voted up, then the rest at random,
+and in a conversation the rated answer is the one graded. A wrong grade marks
+the answer as wrong, so it counts with the inbox's marks.
 
 ### Metrics
 
 | Metric | Definition | Initial target |
 |---|---|---|
-| Resolution rate (production) | Conversations with outcome `auto_resolved` or `confirmed_resolved` divided by conversations with at least one visitor message. `auto_resolved` = closed after 30 idle minutes, last agent turn was a cited answer, no escalation, no thumbs-down. `confirmed_resolved` = thumbs-up. Both are shown separately. | Track, no target until baseline |
+| Resolution rate (production) | Conversations with outcome `auto_resolved` or `confirmed_resolved` divided by conversations with at least one visitor message. `auto_resolved` = closed after 30 idle minutes, last agent turn was a cited answer, no escalation, no thumbs-down. `confirmed_resolved` = a thumbs up with no thumbs down and no handoff, or graded right in the weekly review. Both are shown separately. | Track, no target until baseline |
 | Wrong-answer rate (offline) | Cases judged `wrong` or `unsupported`, plus cases that expected `escalate` but got an answer, divided by all cases. | 5 percent or less |
-| Wrong-answer rate (production) | Agent answers marked wrong (from the inbox, or graded wrong in the weekly review) divided by agent answers in the period. The review queue's own rate, wrong grades over grades, is shown beside it. Review queue samples 20 answered conversations per tenant per week. | 5 percent or less |
+| Wrong-answer rate (production) | Agent answers marked wrong (from the inbox, or graded wrong in the weekly review) or voted down by the customer, each answer once, divided by agent answers in the period. The review queue's own rate, wrong grades over grades, is shown beside it. Review queue samples 20 answered conversations per tenant per week. | 5 percent or less |
 | Escalation rate | Escalated conversations divided by conversations, split by reason. | Track per reason |
 | Escalation recall (offline) | Of cases expecting escalation, share that escalated. | 95 percent or more |
 | Retrieval recall at 8 | Gold document present in the top 8. | 85 percent or more |
@@ -1226,7 +1256,8 @@ customer's real data arrives**.
 - **Logs** never contain message content, tokens, or emails. They carry
   `request_id`, `tenant_id`, `conversation_id`.
 - **Retention**: conversations kept 90 days by default, configurable per plan.
-  Deleted tenants purged 30 days after deletion.
+  Deleted tenants purged 30 days after deletion. Delivery logs and
+  notifications go after 90 days and email job content after 7 (section 8).
 - **End-user deletion**: API endpoint to delete all data for
   `(tenant, external_id)`, for GDPR-style requests.
 - **Audit log** for settings changes, key changes, member changes, exports.
@@ -1601,3 +1632,43 @@ and lets the API reset a dead job's status columns. Decisions made on the way:
   recall may fall 5 points but never below 95 percent, safety cases must all
   pass. The `agent-gate` job runs it when the repository has a chat model
   configured.
+
+### 2026-10-14, customer votes, notifications in the app, retention, digest time zones
+
+Migration 0014 (revises 0012; renumbered at merge if another 0013 lands first).
+
+- **"Was this helpful?"** under widget answers (section 4) writes
+  `message_feedback`, a tenant table with forced RLS. A thumbs down counts as a
+  wrong answer next to Mark as wrong (each answer once); a thumbs up confirms
+  the conversation as resolved when nothing in it was voted down or handed off.
+  A thumbs down keeps an answer out of "resolved automatically". The note is
+  the visitor's text, so it is shown to the team but never copied into an eval
+  case: "Add to eval set" on a voted-down answer tags the case "thumbs down"
+  and leaves the reference answer to a person. The weekly review samples rated
+  answers first. The repeated-failure rule's "two thumbs-down" became an offer
+  of a person on every thumbs down, through the normal handoff.
+- **The bell and the Inbox badge.** `notifications` rows with channel
+  `in_app`: a member gets one when a new handoff is routed to them (they are
+  among its email recipients, including the owners and admins fallback) and
+  when a handoff is assigned to them by a rule or a teammate, even with
+  assignment emails turned off. Their own changes never notify them. Opening a
+  handoff reads its notifications; the bell has mark as read and mark all as
+  read. Notes have no mentions yet, so there are no mention notifications.
+  `GET /v1/notifications` returns the latest 15, the unread count, and the
+  inbox's own unread count (unresolved handoffs changed since the member last
+  opened them), polled every 30 seconds while the tab is visible and on every
+  page change. The inbox list reports its count to the badge as it refreshes.
+- **Retention** (section 8): the daily `purge_retention` job. The worker gains
+  delete on `email_deliveries`, `webhook_deliveries`, and `notifications`, and
+  each gets a `(tenant_id, created_at)` index so the per-workspace delete is
+  an index range. Retention reuses the `app.scheduler` capability to list
+  workspaces; it gains no cross-tenant write.
+- **Digest time zones.** `tenants.timezone`, an IANA name the API checks
+  against the system's time zone database (Area/City names plus UTC; legacy
+  aliases such as US/Eastern are refused), editable by owners and admins on
+  the workspace settings page. `tenant_profiles` exposes it. The scheduler
+  still runs hourly; each workspace's job is keyed by its local date
+  (`digest:<tenant>:<local day>`) and runs at 08:00 local, so the digest goes
+  out once per member per local day. Where 08:00 local falls on the previous
+  UTC day (Auckland, UTC+13), the job for the 15th runs at 19:00 UTC on the
+  14th. A stored zone that no longer loads falls back to UTC.
