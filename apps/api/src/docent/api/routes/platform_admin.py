@@ -272,7 +272,7 @@ async def admin_jobs(admin: PlatformAdmin, state: State) -> AdminJobsOut:
 
 @router.post("/jobs/{job_id}/retry", responses={409: {"model": ErrorOut}})
 async def admin_retry_job(
-    job_id: Annotated[int, Path(ge=1)], admin: PlatformAdmin, state: State
+    job_id: Annotated[int, Path(ge=1, le=2**63 - 1)], admin: PlatformAdmin, state: State
 ) -> AdminJobsOut:
     """Put a dead job back in the queue with fresh attempts, and wake the worker."""
     async with transaction(state.pool, platform_admin=True) as conn:
