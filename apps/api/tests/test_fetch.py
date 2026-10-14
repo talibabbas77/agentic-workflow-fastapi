@@ -1,6 +1,7 @@
 """Fetching customer URLs: private addresses blocked, robots.txt and site boundaries respected."""
 
 import threading
+import uuid
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -8,6 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
+from docent.db.pool import Pool
 from docent.knowledge.fetch import FetchError, fetch, guarded_client, is_public_address
 from tests.conftest import ClientFactory, Drain, verified_owner
 
@@ -150,3 +152,38 @@ async def test_single_page_that_does_not_exist_fails_cleanly(
     detail = (await owner.get(f"/v1/knowledge/sources/{source['id']}")).json()
     assert detail["source"]["status"] == "failed"
     assert "not found" in detail["documents"][0]["last_error"].lower()
+
+
+async def test_a_sitemap_resync_stays_within_the_plans_page_limit(
+    site: str, client_factory: ClientFactory, drain: Drain, admin_pool: Pool
+) -> None:
+    """A sitemap can grow after it was added; re-syncing must stay within the plan."""
+    owner: httpx.AsyncClient = client_factory()
+    me = await verified_owner(owner, drain)
+    tenant_id = uuid.UUID(me["active_tenant"]["id"])
+    response = await owner.post(
+        "/v1/knowledge/sources",
+        json={"kind": "sitemap", "url": f"{site}/sitemap.xml", "page_limit": 10},
+    )
+    source = response.json()
+    await drain()
+
+    other = uuid.uuid4()
+    async with admin_pool.acquire() as conn:  # other pages fill all but one of the trial's 200
+        await conn.execute(
+            "insert into knowledge_sources (id, tenant_id, kind, title)"
+            " values ($1, $2, 'upload', 'x')",
+            other,
+            tenant_id,
+        )
+        await conn.executemany(
+            """
+            insert into documents (id, tenant_id, source_id, locator, mime, status)
+            values ($1, $2, $3, $4, 'text/markdown', 'ready')
+            """,
+            [(uuid.uuid4(), tenant_id, other, f"page-{n}.md") for n in range(199)],
+        )
+    assert (await owner.post(f"/v1/knowledge/sources/{source['id']}/sync")).status_code == 202
+    await drain()
+    detail = (await owner.get(f"/v1/knowledge/sources/{source['id']}")).json()
+    assert len(detail["documents"]) == 1

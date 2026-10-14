@@ -20,8 +20,10 @@ import asyncpg
 import httpx
 from defusedxml import ElementTree
 
+from docent.billing.plans import PLAN_BY_ID, TRIAL
+from docent.billing.subscriptions import plan_limit
 from docent.config import Settings
-from docent.db.pool import transaction
+from docent.db.pool import Connection, transaction
 from docent.jobs import queue
 from docent.jobs.worker import Handler, JobContext, PermanentJobError
 from docent.knowledge import repo
@@ -87,8 +89,10 @@ def make_knowledge_handlers(deps: KnowledgeDeps) -> dict[str, Handler]:
             if source["kind"] in ("upload", "answer"):  # stored files: one per upload or answer
                 document_ids = await repo.queue_source_documents(conn, source_id)
             else:
+                # A sitemap can grow after it was added; never past the plan's page limit.
+                room = await _page_room(conn, source_id)
                 document_ids = await repo.sync_url_documents(
-                    conn, tenant_id=tenant_id, source_id=source_id, urls=urls
+                    conn, tenant_id=tenant_id, source_id=source_id, urls=urls[:room]
                 )
             for document_id in document_ids:
                 await queue.enqueue(
@@ -99,6 +103,15 @@ def make_knowledge_handlers(deps: KnowledgeDeps) -> dict[str, Handler]:
                     dedupe_key=f"parse:{document_id}",
                 )
             await repo.refresh_source(conn, source_id)
+
+    async def _page_room(conn: Connection, source_id: uuid.UUID) -> int:
+        """Pages this source may hold: the plan's limit less every other source's pages."""
+        plan_id = await conn.fetchval("select plan_id from subscriptions")
+        plan = PLAN_BY_ID.get(plan_id or "", TRIAL)
+        others: int = await conn.fetchval(
+            "select count(*) from documents where source_id <> $1", source_id
+        )
+        return max(plan_limit(plan, "documents") - others, 0)
 
     async def parse_document(ctx: JobContext) -> None:
         document_id = uuid.UUID(ctx.job.payload["document_id"])
