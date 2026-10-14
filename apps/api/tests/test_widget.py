@@ -437,3 +437,9 @@ async def test_widget_sessions_are_tenant_scoped(
     assert response.json()["id"] != other_conversation["id"]
     widgets = (await other.get("/v1/widgets")).json()
     assert widgets == []
+    found = (await tenant.admin.get(f"/v1/widgets/{tenant.widget['id']}")).json()
+    assert (found["public_id"], [k["kid"] for k in found["keys"]]) == (
+        tenant.widget["public_id"],
+        [tenant.kid],
+    )
+    assert (await other.get(f"/v1/widgets/{tenant.widget['id']}")).status_code == 404

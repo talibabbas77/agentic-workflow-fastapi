@@ -360,6 +360,9 @@ async def _persist(
     )
     reply = {
         "id": message_id,
+        "created_at": await conn.fetchval(
+            "select created_at from messages where id = $1", message_id
+        ),
         "role": "agent",
         "content": outcome.text,
         "decision": decision,

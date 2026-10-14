@@ -1,12 +1,18 @@
 """The agent turn: guards, evidence gate, validation, escalation, usage, and the API around it."""
 
+import asyncio
 import json
-from typing import Any
+import uuid
+from collections.abc import AsyncGenerator
+from typing import Any, cast
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from docent.agent import guards
+from docent.agent.loop import AgentDeps
+from docent.api import streaming
 from docent.db.pool import Pool
 from docent.llm.client import LLMError
 from tests.conftest import PASSWORD, ClientFactory, Drain, token_from, unique_email, verified_owner
@@ -73,7 +79,9 @@ async def test_answer_streams_progress_and_cites_sources(
     stream = events(response)
     assert [e for e, _ in stream] == ["status", "status", "status", "message"]
     assert [d["stage"] for e, d in stream if e == "status"] == ["searching", "writing", "checking"]
+    assert response.headers["cache-control"] == "no-store, no-transform"
     message = stream[-1][1]
+    assert message["created_at"] is not None
     assert message["decision"]["type"] == "answer"
     assert message["citations"][0]["heading_path"] == "Billing guide > Refunds"
     assert len(chat.calls) == 1
@@ -397,3 +405,36 @@ async def test_other_tenants_conversations_are_not_found(
         f"/v1/agent/conversations/{cid}/messages", json={"content": "hello"}
     )
     assert response.status_code == 404
+
+
+async def test_a_dropped_stream_still_stores_the_reply(
+    owner: httpx.AsyncClient, app: FastAPI
+) -> None:
+    """The turn outlives the connection: a closed tab or a proxy timeout loses nothing."""
+    cid = await conversation(owner)
+    tenant_id = uuid.UUID((await owner.get("/v1/tenant")).json()["id"])
+    state = app.state.docent
+    deps = AgentDeps(
+        settings=state.settings, pool=state.pool, embedder=state.embedder, llm=state.llm
+    )
+    response = streaming.stream_turn(
+        deps, tenant_id, uuid.UUID(cid), "how do refunds work for annual plans"
+    )
+    body = cast(AsyncGenerator[str], response.body_iterator)
+    assert (await anext(body)).startswith("event: status")
+    await body.aclose()  # the visitor closed the tab
+    async with asyncio.timeout(10):
+        await streaming.drain()
+    detail = (await owner.get(f"/v1/agent/conversations/{cid}")).json()
+    assert [m["role"] for m in detail["messages"]] == ["visitor", "agent"]
+
+
+async def test_quiet_streams_get_a_heartbeat() -> None:
+    events: asyncio.Queue[str | None] = asyncio.Queue()
+    relay = streaming._relay(events, heartbeat=0.01)
+    assert await anext(relay) == ": keepalive\n\n"
+    events.put_nowait("event: message\ndata: {}\n\n")
+    events.put_nowait(None)
+    assert [chunk async for chunk in relay if not chunk.startswith(":")] == [
+        "event: message\ndata: {}\n\n"
+    ]

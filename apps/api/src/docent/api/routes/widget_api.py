@@ -19,7 +19,6 @@ from docent.agent import repo as agent_repo
 from docent.agent.loop import AgentDeps
 from docent.api.deps import State, enforce, ip_key
 from docent.api.errors import AppError, not_found, unauthenticated
-from docent.api.routes.agent import stream_turn
 from docent.api.schemas import (
     ContactIn,
     ErrorOut,
@@ -33,6 +32,7 @@ from docent.api.schemas import (
     WidgetSessionOut,
     WidgetUser,
 )
+from docent.api.streaming import stream_turn
 from docent.db.pool import Connection, transaction
 from docent.ids import hash_token, new_token
 from docent.security.ratelimit import Limit

@@ -74,11 +74,14 @@ export const getTicketTypes = () => getOrThrow("/v1/ticket-types");
 
 export const getWidgets = () => getOrThrow("/v1/widgets");
 
-/** One widget. The API has no single-widget read, so this picks it from the list; a missing one shows the 404 page. */
+/** One widget. A missing widget, or an id that is not one, shows the 404 page. */
 export async function getWidget(widgetId: string) {
-  const widget = (await getWidgets()).find((w) => w.id === widgetId);
-  if (!widget) notFound();
-  return widget;
+  const result = await call((client) =>
+    client.GET("/v1/widgets/{widget_id}", { params: { path: { widget_id: widgetId } } }),
+  );
+  if (result.status === 404 || result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
 }
 
 /** One source and its documents. A missing source, or an id that is not one, shows the 404 page. */

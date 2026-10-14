@@ -5,17 +5,14 @@ and checks, then one `message` with the validated reply (or `error`). Nothing
 unchecked is ever sent, so the stream carries progress, not tokens.
 """
 
-import json
 import logging
 import uuid
-from collections.abc import AsyncIterator
-from typing import Any
 
 from fastapi import APIRouter, status
 from fastapi.responses import StreamingResponse
 
 from docent.agent import repo
-from docent.agent.loop import AgentDeps, ConversationNotFound, Progress, run_turn
+from docent.agent.loop import AgentDeps
 from docent.api.deps import AdminMember, CurrentMember, State, enforce
 from docent.api.errors import not_found
 from docent.api.schemas import (
@@ -28,6 +25,7 @@ from docent.api.schemas import (
     MessageIn,
     MessageOut,
 )
+from docent.api.streaming import stream_turn
 from docent.db.pool import Connection, transaction
 from docent.security import ratelimit
 from docent.services import audit
@@ -123,39 +121,6 @@ async def send_message(
         waker=state.waker,
     )
     return stream_turn(deps, member.tenant_id, conversation_id, body.content)
-
-
-def stream_turn(
-    deps: AgentDeps, tenant_id: uuid.UUID, conversation_id: uuid.UUID, text: str
-) -> StreamingResponse:
-    """One agent turn as Server-Sent Events. Shared by staff previews and the widget."""
-    return StreamingResponse(
-        _events(deps, tenant_id, conversation_id, text),
-        media_type="text/event-stream",
-        headers={"cache-control": "no-store", "x-accel-buffering": "no"},
-    )
-
-
-async def _events(
-    deps: AgentDeps, tenant_id: uuid.UUID, conversation_id: uuid.UUID, text: str
-) -> AsyncIterator[str]:
-    try:
-        async for event in run_turn(
-            deps, tenant_id=tenant_id, conversation_id=conversation_id, text=text
-        ):
-            if isinstance(event, Progress):
-                yield _sse("status", {"stage": event.stage})
-            else:
-                yield _sse("message", MessageOut(**event.message).model_dump(mode="json"))
-    except ConversationNotFound:
-        yield _sse("error", {"code": "not_found", "message": "Conversation not found."})
-    except Exception:
-        log.exception("agent turn failed")
-        yield _sse("error", {"code": "agent_error", "message": "The agent could not reply."})
-
-
-def _sse(event: str, data: dict[str, Any]) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
 async def _settings(conn: Connection, tenant_id: uuid.UUID) -> AgentSettingsOut:

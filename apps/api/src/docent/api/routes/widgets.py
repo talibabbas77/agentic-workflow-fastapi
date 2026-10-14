@@ -62,6 +62,12 @@ async def create_widget(body: WidgetIn, member: AdminMember, state: State) -> Wi
         return await _out(conn, state.settings, widget_id)
 
 
+@router.get("/{widget_id}")
+async def get_widget(widget_id: uuid.UUID, member: CurrentMember, state: State) -> WidgetOut:
+    async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
+        return await _out(conn, state.settings, widget_id)
+
+
 @router.put("/{widget_id}")
 async def replace_widget(
     widget_id: uuid.UUID, body: WidgetIn, member: AdminMember, state: State

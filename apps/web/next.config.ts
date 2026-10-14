@@ -30,10 +30,6 @@ const nextConfig: NextConfig = {
     // default, which breaks knowledge uploads. The API allows 20 MB files; the extra
     // room covers multipart overhead, and the API still rejects anything larger.
     proxyClientMaxBodySize: "21mb",
-    // The /api rewrite drops a response after 30 idle seconds by default. An agent turn
-    // streams progress events, but while the model writes the stream is silent for as
-    // long as the model takes: up to two attempts of 120 seconds each.
-    proxyTimeout: 300_000,
   },
   turbopack: {
     root: repoRoot,

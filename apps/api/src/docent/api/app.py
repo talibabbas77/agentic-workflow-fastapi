@@ -1,5 +1,7 @@
 """FastAPI application factory."""
 
+import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -7,6 +9,7 @@ import httpx
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
+from docent.api import streaming
 from docent.api.errors import install_error_handlers
 from docent.api.middleware import (
     BodySizeLimitMiddleware,
@@ -77,6 +80,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            with contextlib.suppress(TimeoutError):
+                async with asyncio.timeout(settings.llm_timeout_seconds):
+                    await streaming.drain()
             await http.aclose()
             await redis.close()
             await pool.close()
