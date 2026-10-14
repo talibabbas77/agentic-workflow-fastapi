@@ -214,9 +214,13 @@ cited, and anything the agent cannot back up goes to a human.
 
 ## Phase 4. Widget with signed identity
 
-**Status: API built 2026-10-14 (checks 3, 6, 7, 9, 10 run in the API suite);
-widget package, admin Widget pages, and demo host in progress.** Checks 11 and
-12 wait on O2, O3, and O5.
+**Status: built 2026-10-14 except staging; admin Widget pages in progress.**
+Checks 3, 6, 7, and 9 run in the API suite. Checks 2, 4, 5, and 10 run in the
+widget's Playwright suite (Chromium and WebKit) against the demo host; check 8
+runs in CI (loader 3.1 KB gzipped). Check 1 passes with the local model but is
+gated behind `E2E_CHAT_MODEL=1` because CI has no chat model. Signing snippets
+for all five languages are verified by `examples/signing/verify.sh`. Checks 11
+and 12 wait on O2, O3, and O5.
 
 **Goal:** a tenant pastes one script tag (anonymous) or adds server-side signing
 (identified), and the agent works on their site with every widget security rule

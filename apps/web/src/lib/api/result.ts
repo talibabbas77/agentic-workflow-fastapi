@@ -6,7 +6,7 @@ export type Result<T> =
 
 export type FetchOutcome<T> = { data?: T; error?: unknown; response: Response };
 
-const NETWORK_ERROR: ApiError = {
+export const NETWORK_ERROR: ApiError = {
   code: "network_error",
   message: "Could not reach Docent. Check your connection and try again.",
 };

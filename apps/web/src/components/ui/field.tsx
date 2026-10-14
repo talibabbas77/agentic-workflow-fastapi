@@ -82,3 +82,16 @@ export function Input({ className, id, ...rest }: ComponentProps<"input">) {
     />
   );
 }
+
+export function Textarea({ className, id, ...rest }: ComponentProps<"textarea">) {
+  const field = useField();
+  return (
+    <textarea
+      id={id ?? field?.id}
+      aria-describedby={field?.describedBy}
+      aria-invalid={field?.invalid || undefined}
+      className={cn(controlClasses, readOnlyClasses, "block px-3 py-2 text-md sm:text-base", className)}
+      {...rest}
+    />
+  );
+}

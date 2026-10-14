@@ -7,17 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { api, request } from "@/lib/api/browser";
-import { cn } from "@/lib/cn";
 import { plural } from "@/lib/format";
 import { useApiForm } from "@/lib/use-api-form";
 
 const EXCERPT_CHARS = 320;
 
-const audiences: { value: Audience; label: string }[] = [
+const audiences = [
   { value: "public", label: "Anonymous visitor" },
   { value: "identified", label: "Signed-in customer" },
-];
+] as const satisfies readonly { value: Audience; label: string }[];
 
 /** Ask a question the way a visitor would and see which passages the agent would use. */
 export function TestSearch({ disabled }: { disabled: boolean }) {
@@ -62,42 +62,18 @@ export function TestSearch({ disabled }: { disabled: boolean }) {
                 </Button>
               </div>
             </Field>
-            <AudienceToggle value={audience} onChange={setAudience} />
+            <SegmentedControl
+              legend="Asking as"
+              name="search-audience"
+              value={audience}
+              options={audiences}
+              onChange={setAudience}
+            />
           </fieldset>
         </form>
         {result ? <Results query={result.query} data={result.data} /> : null}
       </CardBody>
     </Card>
-  );
-}
-
-/** Two-option segmented control built on native radios, so arrow keys and forms just work. */
-function AudienceToggle({ value, onChange }: { value: Audience; onChange: (value: Audience) => void }) {
-  return (
-    <fieldset className="flex flex-col gap-1.5">
-      <legend className="mb-1.5 text-sm font-medium text-ink">Asking as</legend>
-      <div className="inline-flex self-start rounded-md border border-line-strong bg-surface-2 p-0.5">
-        {audiences.map((option) => (
-          <label
-            key={option.value}
-            className={cn(
-              "relative rounded-sm px-3 py-1.5 text-sm transition-colors duration-150 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-rust",
-              value === option.value ? "bg-surface font-medium text-ink" : "text-ink-muted hover:text-ink",
-            )}
-          >
-            <input
-              type="radio"
-              name="search-audience"
-              value={option.value}
-              checked={value === option.value}
-              onChange={() => onChange(option.value)}
-              className="sr-only"
-            />
-            {option.label}
-          </label>
-        ))}
-      </div>
-    </fieldset>
   );
 }
 

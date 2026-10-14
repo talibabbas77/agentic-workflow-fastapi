@@ -37,7 +37,13 @@ export function useApiForm() {
     return Object.keys(found).length === 0;
   }
 
-  const fieldError = (name: string) => local[name] ?? error?.fields?.[name] ?? undefined;
+  /** The message for `name`, or for any item inside it, such as `notify_emails.0` for `notify_emails`. */
+  const fieldError = (name: string) => {
+    if (local[name]) return local[name];
+    const fields = error?.fields ?? {};
+    if (fields[name]) return fields[name];
+    return Object.entries(fields).find(([key]) => key.startsWith(`${name}.`))?.[1];
+  };
 
   /** The top-level message, unless it only says that fields need attention. */
   const formError = error && !(error.code === "invalid_request" && error.fields) ? error.message : null;

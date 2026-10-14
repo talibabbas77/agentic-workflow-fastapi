@@ -32,6 +32,13 @@ const steps: { key: Key; title: string; icon: ReactNode; todo: string }[] = [
   { key: "first_answer", title: "First answer", icon: <ChatCircleTextIcon />, todo: "Ask a test question" },
 ];
 
+/** Where a step that is still to do takes you. */
+const stepLinks: Partial<Record<Key, string>> = {
+  teach_agent: "/app/knowledge",
+  install_widget: "/app/widgets",
+  first_answer: "/app/agent",
+};
+
 const NARROW_PITCH = 64;
 const WIDE_PITCH = 140;
 
@@ -93,13 +100,14 @@ export function OnboardingJourney({ onboarding, role }: { onboarding: Onboarding
     } else {
       node.detail = step.todo;
       node.status = "To do";
+      const href = stepLinks[step.key];
       if (step.key === "verify_email") {
         node.render = (content, className) => (
           <ResendVerificationNode className={className}>{content}</ResendVerificationNode>
         );
-      } else if (step.key === "teach_agent") {
+      } else if (href) {
         node.render = (content, className) => (
-          <Link href="/app/knowledge" className={className}>
+          <Link href={href} className={className}>
             {content}
           </Link>
         );

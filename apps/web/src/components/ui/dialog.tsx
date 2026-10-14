@@ -11,13 +11,15 @@ type DialogProps = {
   title: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
+  /** Wider for forms with rows of controls. */
+  size?: "md" | "lg";
 };
 
 /**
  * Native modal dialog. showModal() gives us the focus trap, inert background,
  * Escape to close, and top-layer stacking for free.
  */
-export function Dialog({ open, onClose, title, description, children }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, size = "md" }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const pressedOnBackdrop = useRef(false);
   const titleId = useId();
@@ -43,7 +45,10 @@ export function Dialog({ open, onClose, title, description, children }: DialogPr
         if (pressedOnBackdrop.current && event.target === event.currentTarget) onClose();
         pressedOnBackdrop.current = false;
       }}
-      className="dialog m-auto w-[calc(100%-2rem)] max-w-md rounded-md border border-line bg-surface p-0 text-ink"
+      className={cn(
+        "dialog m-auto w-[calc(100%-2rem)] rounded-md border border-line bg-surface p-0 text-ink",
+        size === "lg" ? "max-w-2xl" : "max-w-md",
+      )}
     >
       <div className="flex items-start justify-between gap-4 px-6 pt-5">
         <div className="flex flex-col gap-1">

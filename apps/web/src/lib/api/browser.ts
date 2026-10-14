@@ -14,10 +14,13 @@ export const api = createApiClient({ baseUrl: "/api" });
  */
 export async function request<T>(call: Promise<FetchOutcome<T>>): Promise<Result<T>> {
   const result = await settle(call);
-  if (result.status === 401) {
-    return hardNavigate(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-  }
+  if (result.status === 401) return logInAgain();
   return result;
+}
+
+/** The session ended: log in, then come back to this page. */
+export function logInAgain() {
+  return hardNavigate(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
 }
 
 export async function logOut(next = "/login") {

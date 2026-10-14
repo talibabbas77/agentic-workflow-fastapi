@@ -7,6 +7,14 @@ import { defineConfig, devices } from "@playwright/test";
  */
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 
+/**
+ * Each run signs up several fresh owners, and signups are limited per client
+ * address. The local API trusts X-Forwarded-For from the Next proxy on the same
+ * machine, so a made-up address per run keeps reruns within the hour working.
+ * Production sits behind an edge proxy that replaces this header.
+ */
+const runIp = `10.${Array.from({ length: 3 }, () => Math.floor(Math.random() * 254) + 1).join(".")}`;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
@@ -18,6 +26,7 @@ export default defineConfig({
   reporter: process.env.CI ? "github" : "list",
   use: {
     baseURL,
+    extraHTTPHeaders: { "x-forwarded-for": runIp },
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

@@ -8,7 +8,15 @@ import { settle, type FetchOutcome, type Result } from "./result";
 
 const API_INTERNAL_URL = process.env.API_INTERNAL_URL ?? "http://127.0.0.1:8000";
 
-type GetPath = "/v1/auth/me" | "/v1/onboarding" | "/v1/tenant" | "/v1/members" | "/v1/knowledge/sources";
+type GetPath =
+  | "/v1/auth/me"
+  | "/v1/onboarding"
+  | "/v1/tenant"
+  | "/v1/members"
+  | "/v1/knowledge/sources"
+  | "/v1/agent/settings"
+  | "/v1/ticket-types"
+  | "/v1/widgets";
 type GetData<P extends GetPath> = paths[P]["get"]["responses"][200]["content"]["application/json"];
 
 /**
@@ -59,6 +67,19 @@ export const getTenant = () => getOrThrow("/v1/tenant");
 export const getMembers = () => get("/v1/members");
 
 export const getSources = () => getOrThrow("/v1/knowledge/sources");
+
+export const getAgentSettings = () => getOrThrow("/v1/agent/settings");
+
+export const getTicketTypes = () => getOrThrow("/v1/ticket-types");
+
+export const getWidgets = () => getOrThrow("/v1/widgets");
+
+/** One widget. The API has no single-widget read, so this picks it from the list; a missing one shows the 404 page. */
+export async function getWidget(widgetId: string) {
+  const widget = (await getWidgets()).find((w) => w.id === widgetId);
+  if (!widget) notFound();
+  return widget;
+}
 
 /** One source and its documents. A missing source, or an id that is not one, shows the 404 page. */
 export async function getSource(sourceId: string) {

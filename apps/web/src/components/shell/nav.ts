@@ -1,11 +1,12 @@
 import {
   BookOpenTextIcon,
   ChartBarIcon,
+  ChatCircleTextIcon,
   CodeIcon,
   ExamIcon,
   GearSixIcon,
+  HeadsetIcon,
   HouseIcon,
-  TagIcon,
   TrayIcon,
   type Icon,
 } from "@phosphor-icons/react";
@@ -15,9 +16,11 @@ export type NavItem = { href: string; label: string; icon: Icon };
 export const mainNav: NavItem[] = [
   { href: "/app", label: "Overview", icon: HouseIcon },
   { href: "/app/inbox", label: "Inbox", icon: TrayIcon },
+  // Setup order: teach the agent, try it, decide what a handoff collects, then install.
   { href: "/app/knowledge", label: "Knowledge", icon: BookOpenTextIcon },
-  { href: "/app/widget", label: "Widget", icon: CodeIcon },
-  { href: "/app/ticket-types", label: "Ticket types", icon: TagIcon },
+  { href: "/app/agent", label: "Agent", icon: ChatCircleTextIcon },
+  { href: "/app/handoffs", label: "Handoffs", icon: HeadsetIcon },
+  { href: "/app/widgets", label: "Widgets", icon: CodeIcon },
   { href: "/app/evals", label: "Evals", icon: ExamIcon },
   { href: "/app/usage", label: "Usage", icon: ChartBarIcon },
 ];
