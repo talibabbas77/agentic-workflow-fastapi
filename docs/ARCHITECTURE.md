@@ -154,7 +154,7 @@ create policy tenant_isolation on chunks
 | `docent_owner` | owns tables | Alembic migrations only | Never used by the running app. |
 | `docent_app` | enforced | API process | No `BYPASSRLS`, no DDL. |
 | `docent_worker` | enforced | Worker process | Sets tenant per job. Can read `jobs`. |
-| `docent_ops` | `BYPASSRLS` | Billing rollups, platform admin scripts | Separate connection string, used by named code paths only, every use audited. |
+| `docent_ops` | `BYPASSRLS` | Billing rollups, platform admin scripts | Separate connection string, used by named code paths only, every use audited. Not created yet; the platform admin console reads through the `app.platform_admin` capability instead (section 12). |
 
 ### Setting the tenant
 
@@ -197,6 +197,7 @@ carries a narrow capability that a dedicated `for select` policy honors:
 | `app.invite_token` | The one `invitations` row whose token hash matches, and its tenant's name | Invitation lookup and accept |
 | `app.billing_customer` | The one `subscriptions` row of that Stripe customer | Billing webhooks |
 | `app.scheduler` | Every tenant's id, name, and status, only through the `tenant_profiles` view | The daily digest scheduler |
+| `app.platform_admin` | Select only, in every tenant, on exactly the tables the console reads (section 12). Never a write | Platform admin console, after the API checked the user |
 
 The widget id lookup in Phase 4 uses the same pattern (`app.widget_public_id`).
 
@@ -450,7 +451,7 @@ erDiagram
 | Table | | Key columns |
 |---|---|---|
 | `tenants` | | `id, name, slug unique, status (active, suspended, deleted), plan_id, settings jsonb (tone, restricted_topics, escalation thresholds), created_at, deleted_at` |
-| `users` | | `id, email unique (lowercased), password_hash (argon2id), name, email_verified_at, last_login_at, created_at` |
+| `users` | | `id, email unique (lowercased), password_hash (argon2id), name, email_verified_at, last_login_at, is_platform_admin (set only from the CLI), created_at` |
 | `memberships` | T | `tenant_id, user_id, role (owner, admin, agent), created_at`. PK `(tenant_id, user_id)` |
 | `user_sessions` | | `token_hash pk, user_id, active_tenant_id, ip_hash, user_agent, created_at, expires_at, revoked_at` |
 | `auth_tokens` | | `token_hash pk, user_id, purpose (verify_email, reset_password), expires_at, used_at` |
@@ -511,12 +512,12 @@ on pages (section 10) keep this in check.
 | Table | | Key columns |
 |---|---|---|
 | `plans` | | `id, name, price_cents, replies_cap, pages_cap, sources_cap, widgets_cap, seats_cap, anonymous_allowed, active` |
-| `subscriptions` | T | `tenant_id pk, provider, provider_customer_id, provider_subscription_id, plan_id, status, current_period_start, current_period_end, cancel_at` |
+| `subscriptions` | T | `tenant_id pk, provider, provider_customer_id, provider_subscription_id, plan_id, status, current_period_start, current_period_end, cancel_at, comped_until` (a manual paid plan given until then) |
 | `topups` | T | `id, tenant_id, replies, provider_order_id, period_start, created_at` |
 | `usage_events` | T | `id, tenant_id, kind (ai_reply, llm_call, embedding, ingest_page), quantity, model, tokens_in, tokens_out, cost_micros, conversation_id null, message_id null, idempotency_key unique, occurred_at` |
 | `usage_periods` | T | `tenant_id, period_start, period_end, replies_cap, replies_used, replies_reserved, cost_micros, notified_80_at, notified_100_at`. PK `(tenant_id, period_start)` |
 | `model_prices` | | `model, input_micros_per_mtok, output_micros_per_mtok, effective_from` |
-| `billing_events` | | `provider_event_id pk, provider, type, payload jsonb, tenant_id null, processed_at` |
+| `billing_events` | | `provider_event_id pk, provider, type, payload jsonb, tenant_id null, processed_at, outcome (applied, ignored, stale, unknown_customer)` |
 
 ### Evaluation
 
@@ -1048,7 +1049,9 @@ Chosen: Stripe (D19). Integration as built:
   one.
 - Our database owns entitlements and caps. Stripe owns payment status.
 - Every tenant has one `subscriptions` row from creation: a 14 day trial
-  (provider `manual`), then Stripe after checkout. Comped plans stay `manual`.
+  (provider `manual`), then Stripe after checkout. Comped plans stay `manual`:
+  a paid plan given from the platform admin console until `comped_until`,
+  when it ends by itself like a trial. A Stripe subscription replaces it.
 - Failed payment: 7-day grace from the first failure, then escalate-only mode.
   An expired trial or a canceled plan is escalate-only too. Data is kept.
 - Plan limits are enforced when adding: widgets, seats (members plus open
@@ -1089,7 +1092,8 @@ waits for that. `invoice.paid` opens the refund window (`first_paid_at`) and
 
 Per tenant per month: replies, tokens, cost, revenue, margin. Alert when a
 tenant's cost per reply is more than 3 times the median (prompt abuse or a
-runaway loop).
+runaway loop). Built as the platform admin console's overview and workspace
+pages (section 12); the alert is the anomaly list there, not an email yet.
 
 ---
 
@@ -1179,6 +1183,46 @@ customer's real data arrives**.
 - **Audit log** for settings changes, key changes, member changes, exports.
 - **Dependency hygiene**: lockfiles committed, automated update PRs, no AGPL
   dependencies in the API or worker.
+
+### Platform admin console
+
+Docent's own operators, not a workspace's team, look across every workspace
+at `/admin` (API under `/v1/admin`).
+
+- **Who**: a user with `users.is_platform_admin` and a verified email. The flag
+  is set only from the command line, `docent admin grant|revoke <email>` (the
+  local seed sets it for its owner account). No screen or API route can set it,
+  and a revoke applies on the next request.
+- **Hidden from everyone else**: anyone else, signed in or not, gets the same
+  404 as an unknown path. On the API a gate answers before routing, so not even
+  a 405 or a 422 gives the console away, and every route checks again on its
+  own. The web app answers `/admin` the same way from its proxy, with no
+  redirect to log in.
+- **Reads without BYPASSRLS**: the API sets the `app.platform_admin` capability
+  (section 3) only after it checked the flag and the verified email.
+  Select-only policies honor it on exactly the tables the console reads:
+  `tenants`, `memberships`, `subscriptions`, `usage_periods`, `usage_events`,
+  `widgets`, `knowledge_sources`, `documents`, `conversations`, `escalations`,
+  `audit_log`. `users`, `jobs`, and `billing_events` are global tables. The
+  capability grants no write; tests check both.
+- **Counts and metadata only**: messages, citations, chunks, team answers,
+  knowledge gaps, and customer memory have no console policy, so the console
+  cannot read them. Conversations and handoffs are counted, never read. The
+  pages say so.
+- **Changes run as the workspace**: extend a trial by 1 to 30 days, give a
+  comp (a paid plan on provider `manual` until a date), end a comp, and retry a
+  dead job. Each runs in the target workspace's own tenant context, never
+  through a broad write policy. A workspace that pays through Stripe is refused
+  with a plain explanation, because Stripe owns that subscription.
+- **Audit**: every action, with its required reason, and every opening of a
+  workspace's page is written to that workspace's `audit_log` with the admin as
+  actor. A retried job that belongs to no workspace is logged instead.
+- **Figures**: replies are the billed count the cap enforces (`usage_periods`),
+  cost is the `usage_events` ledger, revenue is the monthly price of an active
+  Stripe subscription (trials and comps bring in nothing), and margin is revenue
+  less model cost. A cost per reply above 3 times the median of every workspace
+  with replies this month is flagged (section 10); while the median is zero,
+  nothing is.
 
 ---
 
@@ -1438,3 +1482,23 @@ Section 4, "Panel controls and the host page", has the details.
   setting (default `WEB_ORIGIN`) in a new tab. It uses the small mark from
   `brand/docent-favicon.svg` (the brand file for sizes under 32px), ink with
   the rust ribbon, and muted text.
+
+### 2026-10-14, platform admin console
+
+A console for Docent's own operators at `/admin` (section 12): overview with
+MRR, model cost, gross margin, signups, and the cost-per-reply anomaly list;
+workspaces with search, filters, and server-side pages; a workspace page with
+its subscription, six months of usage, members, widgets, and counts; people;
+job queue health with retry for dead jobs; Stripe events. Migration 0011 adds
+`users.is_platform_admin`, the `app.platform_admin` capability and its
+select-only policies, `subscriptions.comped_until`, `billing_events.outcome`,
+and lets the API reset a dead job's status columns. Decisions made on the way:
+
+- A comp is a manual paid plan with an end date, and the entitlement now ends
+  it at `comped_until`. A manual active plan without one (as the demo seed
+  makes) still runs until changed, and the console counts it as comped, since
+  no Stripe money is behind it.
+- Stripe webhooks now store what applying each event did, so the console can
+  show it, and a Stripe subscription clears a comp it replaces.
+- The section 3 plan for `docent_ops` with `BYPASSRLS` is not used for this.
+  The console reads through a capability like every other cross-tenant lookup.

@@ -36,6 +36,16 @@ export function planState(billing: Billing, now: number | null): PlanState {
     const days = Math.max(0, Math.ceil((Date.parse(billing.trial_ends_at) - now) / DAY_MS));
     return { label: `Trial, ${days} ${plural(days, "day")} left`, detail: `The trial ends on ${ends}.`, warn: false };
   }
+  if (status === "active" && billing.comped_until) {
+    // A paid plan Docent gave at no charge. It ends by itself; nothing renews.
+    const ends = date(billing.comped_until);
+    if (!active) return { label: "Free plan ended", detail: `It ended on ${ends}.`, warn: true };
+    return {
+      label: `Free until ${ends}`,
+      detail: "Docent gave this workspace the plan at no charge. Choose a plan to keep answers on after that.",
+      warn: false,
+    };
+  }
   if (status === "active") {
     const ends = date(billing.cancel_at ?? billing.current_period_end);
     if (billing.cancel_at_period_end || billing.cancel_at) {
@@ -73,6 +83,8 @@ export function inactiveReason(billing: Billing) {
   switch (billing.status) {
     case "trialing":
       return "The trial has ended";
+    case "active":
+      return billing.comped_until ? "The free plan from Docent has ended" : "The plan is not active";
     case "canceled":
       return "The plan was canceled";
     case "past_due":

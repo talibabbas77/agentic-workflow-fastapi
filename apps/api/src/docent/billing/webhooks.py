@@ -59,15 +59,31 @@ async def apply_event(pool: Pool, event: dict[str, Any]) -> Outcome:
         )
         if not first_time:
             return "duplicate"
-        if kind not in SUBSCRIPTION_EVENTS | INVOICE_EVENTS:
-            return "ignored"
-        if tenant_id is None:
-            log.warning("billing event for an unknown customer", extra={"event": event["id"]})
-            return "unknown_customer"
-        await set_context(conn, tenant_id=tenant_id)
-        if kind in SUBSCRIPTION_EVENTS:
-            return await _apply_subscription(conn, tenant_id, kind, obj, created)
-        return await _apply_invoice(conn, tenant_id, kind, created)
+        outcome = await _apply(conn, tenant_id, kind, obj, created, event["id"])
+        # Kept with the event, so the platform admin console can show what each one did.
+        await conn.execute(
+            "update billing_events set outcome = $2 where id = $1", event["id"], outcome
+        )
+        return outcome
+
+
+async def _apply(
+    conn: Connection,
+    tenant_id: uuid.UUID | None,
+    kind: str,
+    obj: dict[str, Any],
+    created: datetime,
+    event_id: str,
+) -> Outcome:
+    if kind not in SUBSCRIPTION_EVENTS | INVOICE_EVENTS:
+        return "ignored"
+    if tenant_id is None:
+        log.warning("billing event for an unknown customer", extra={"event": event_id})
+        return "unknown_customer"
+    await set_context(conn, tenant_id=tenant_id)
+    if kind in SUBSCRIPTION_EVENTS:
+        return await _apply_subscription(conn, tenant_id, kind, obj, created)
+    return await _apply_invoice(conn, tenant_id, kind, created)
 
 
 async def _apply_subscription(
@@ -83,6 +99,7 @@ async def _apply_subscription(
         update subscriptions
         set provider = 'stripe',
             provider_subscription_id = $2,
+            comped_until = null,  -- a paid subscription replaces a plan Docent gave
             status = $3,
             plan_id = coalesce($4, plan_id),
             current_period_start = $10,

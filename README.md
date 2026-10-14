@@ -51,6 +51,7 @@ pnpm dev               # API :8000, worker :8001, web :3000
 |---|---|
 | http://localhost:3000 | Landing site |
 | http://localhost:3000/app | Admin app |
+| http://localhost:3000/admin | Platform admin console, for Docent's own operators (see below) |
 | http://localhost:5173 | Live showcase: Lumen Notes and Parcelwise with the widget (`pnpm demo-host`, after the seed) |
 | http://localhost:8000/docs | API reference (local only) |
 | http://localhost:8025 | Mailpit, catches every email sent locally |
@@ -90,7 +91,8 @@ off-topic questions, handoffs with summaries, signed-in customers and anonymous
 visitors. Those are spread over the past month, handoffs are mostly resolved,
 earlier months get usage history, and signed-in customers get their memory.
 This takes a few minutes; `--no-conversations` skips it. `--reset` rebuilds
-from scratch. Local and test environments only.
+from scratch. Local and test environments only. Your account is also made a
+platform admin, so http://localhost:3000/admin opens for it.
 
 Each widget's private signing key is saved to `.data/demo-host/` (git-ignored,
 owner-only). Parcelwise's widget has anonymous chat turned off; the others allow
@@ -144,6 +146,28 @@ paid. The rules are in `docs/ARCHITECTURE.md`, section 10.
 
 No `.env` file is needed locally. Copy `.env.example` to `.env` to change
 anything; every variable is documented there.
+
+### Platform admin console
+
+`/admin` is Docent's own console across every workspace: revenue, model cost
+and margin, cost-per-reply anomalies, each workspace's plan and usage, people,
+the job queue, and Stripe events. It shows counts and metadata only, never
+conversations, knowledge content, or customer memory. To open it, make your
+account a platform admin from the command line (no screen can do this), then
+sign in with a verified email and choose "Platform admin" in the account menu:
+
+```bash
+pnpm admin grant you@example.com    # uses DATABASE_URL, like the API
+pnpm admin revoke you@example.com   # takes effect on the next request
+```
+
+Anyone else, signed in or not, gets the ordinary "page does not exist" answer
+from both `/admin` and the API under `/v1/admin`. From a workspace's page you
+can extend a trial by 1 to 30 days, give a paid plan at no charge until a date
+(a comp), or end a comp. Each one asks for a reason and is written to that
+workspace's audit log, as is every opening of the page. Workspaces that pay
+through Stripe are changed only through Stripe. The access model is in
+`docs/ARCHITECTURE.md`, section 12.
 
 ## Checks
 

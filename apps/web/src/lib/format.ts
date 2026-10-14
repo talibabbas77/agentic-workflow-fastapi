@@ -34,6 +34,61 @@ export function formatMoney(cents: number) {
   return `${cents < 0 ? "-" : ""}$${moneyFormat.format(Math.abs(cents) / 100)}`;
 }
 
+const smallMoneyFormat = new Intl.NumberFormat("en-US", { maximumSignificantDigits: 2 });
+
+/** "$0.0007": two significant digits under a dollar, so a tiny amount never shows as "$0.00". */
+function smallMoney(sign: string, usd: number) {
+  const small = smallMoneyFormat.format(usd);
+  return `${sign}$${/^0\.\d$/.test(small) ? `${small}0` : small}`;
+}
+
+/**
+ * "$128.00" from micro dollars (1 USD = 1,000,000), as model costs are kept.
+ * Whole cents from one cent up; below that, two significant digits, so a
+ * cost of a fraction of a cent does not show as nothing.
+ */
+export function formatMicros(micros: number) {
+  const usd = Math.abs(micros) / 1_000_000;
+  const sign = micros < 0 ? "-" : "";
+  if (usd === 0 || usd >= 0.01) return `${sign}$${moneyFormat.format(usd)}`;
+  return smallMoney(sign, usd);
+}
+
+/** "$0.00072": a cost per reply, with two significant digits under a dollar. */
+export function formatPerReply(micros: number) {
+  const usd = Math.abs(micros) / 1_000_000;
+  const sign = micros < 0 ? "-" : "";
+  if (usd === 0 || usd >= 1) return `${sign}$${moneyFormat.format(usd)}`;
+  return smallMoney(sign, usd);
+}
+
+const percentFormat = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 });
+
+/** "98.7%" from a fraction. */
+export function formatPercent(fraction: number) {
+  return percentFormat.format(fraction);
+}
+
+const dateTimeFormat = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  hourCycle: "h23",
+  timeZone: "UTC",
+});
+
+/** "Oct 14, 2026, 14:05 UTC". */
+export function formatDateTime(iso: string) {
+  return `${dateTimeFormat.format(new Date(iso))} UTC`;
+}
+
+/** "45 s", "12 min", "3 h", "2 d": how long something has waited. */
+export function formatDuration(seconds: number) {
+  if (seconds < 60) return `${Math.max(0, Math.round(seconds))} s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+  if (seconds < 86_400) return `${Math.round(seconds / 3600)} h`;
+  return `${Math.round(seconds / 86_400)} d`;
+}
+
 /** "document" or "documents" for a count. */
 export function plural(n: number, singular: string, pluralForm = `${singular}s`) {
   return n === 1 ? singular : pluralForm;

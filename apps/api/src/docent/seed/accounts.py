@@ -26,6 +26,12 @@ async def ensure_user(conn: Connection, person: Person, password_hash: str) -> u
     )
 
 
+async def make_platform_admin(conn: Connection, email: str) -> None:
+    """The founder's own login opens the platform admin console. Local and test only, like the
+    rest of the seed; anywhere else the flag comes only from `docent admin grant`."""
+    await accounts.set_platform_admin(conn, email, True)
+
+
 async def seeded_tenant(conn: Connection, slug: str, user_ids: list[uuid.UUID]) -> uuid.UUID | None:
     """Find a tenant this seed created, through any of its members (RLS hides others)."""
     for user_id in user_ids:

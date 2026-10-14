@@ -1,15 +1,20 @@
-"""Request id, security headers, and origin-based CSRF protection (pure ASGI)."""
+"""Request id, security headers, origin-based CSRF protection, and the platform admin gate
+(pure ASGI)."""
 
 import uuid
+from collections.abc import Awaitable, Callable
 from urllib.parse import urlsplit
 
 from starlette.datastructures import Headers, MutableHeaders
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from docent.api.errors import error_body
 from docent.log import request_id_var
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+PLATFORM_ADMIN_PREFIX = "/v1/admin"
 # Prefixes that authenticate without the admin cookie and so skip the origin check.
 CSRF_EXEMPT_PREFIXES = ("/v1/widget/", "/v1/webhooks/")
 
@@ -134,3 +139,28 @@ class OriginCheckMiddleware:
             parts = urlsplit(referer)
             return f"{parts.scheme}://{parts.netloc}" in self.allowed
         return False
+
+
+class PlatformAdminGate:
+    """Answer /v1/admin for anyone but a platform admin exactly as an unknown path is answered.
+
+    It runs before routing and request parsing, so not even a 405 for the wrong
+    method or a 422 for a bad body tells a visitor the console exists. Every
+    route also requires deps.PlatformAdmin on its own.
+    """
+
+    def __init__(self, app: ASGIApp, allowed: Callable[[Request], Awaitable[bool]]) -> None:
+        self.app = app
+        self.allowed = allowed
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path: str = scope.get("path", "")
+        if (
+            scope["type"] == "http"
+            and (path == PLATFORM_ADMIN_PREFIX or path.startswith(f"{PLATFORM_ADMIN_PREFIX}/"))
+            and not await self.allowed(Request(scope))
+        ):
+            response = JSONResponse(error_body("not_found", "Not Found"), status_code=404)
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)

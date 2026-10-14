@@ -11,7 +11,14 @@ from jwt.algorithms import ECAlgorithm
 
 from docent.db.pool import Pool, transaction
 from docent.ids import new_id
-from tests.conftest import TENANT_TABLES, ClientFactory, Drain, signup, verified_owner
+from tests.conftest import (
+    CONSOLE_TABLES,
+    TENANT_TABLES,
+    ClientFactory,
+    Drain,
+    signup,
+    verified_owner,
+)
 
 # Tables with tenant_id that are deliberately outside RLS, with the reason.
 RLS_EXEMPT = {
@@ -227,3 +234,75 @@ async def test_user_context_sees_only_own_memberships(
         tenants = await conn.fetch("select id from tenants")
         assert [r["id"] for r in tenants] == [uuid.UUID(me["active_tenant"]["id"])]
         assert other["active_tenant"]["id"] not in {str(r["id"]) for r in tenants}
+
+
+# The platform admin console's capability (migration 0011).
+
+
+async def test_console_policies_are_select_only_on_exactly_the_console_tables(
+    owner_pool: Pool,
+) -> None:
+    async with owner_pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            select tablename, policyname, cmd, permissive
+            from pg_policies
+            where schemaname = 'public'
+              and (policyname = 'platform_admin_read' or qual like '%app_platform_admin%'
+                   or with_check like '%app_platform_admin%')
+            """
+        )
+    assert sorted(r["tablename"] for r in rows) == sorted(CONSOLE_TABLES)
+    for row in rows:
+        assert (row["policyname"], row["cmd"], row["permissive"]) == (
+            "platform_admin_read",
+            "SELECT",
+            "PERMISSIVE",
+        ), dict(row)
+
+
+async def test_console_capability_reads_console_tables_and_nothing_else(
+    app_pool: Pool, two_tenants: tuple[dict[str, object], dict[str, object]]
+) -> None:
+    a, b = two_tenants
+    both = {_tid(a), _tid(b)}
+    async with transaction(app_pool, platform_admin=True) as conn:
+        assert set(await conn.fetchval("select array_agg(id) from tenants")) == both
+        for table in CONSOLE_TABLES[1:]:
+            ids = await conn.fetchval(f"select array_agg(distinct tenant_id) from {table}")  # noqa: S608
+            assert set(ids or []) == both, table
+        for table in set(TENANT_TABLES) - set(CONSOLE_TABLES):
+            assert await conn.fetchval(f"select count(*) from {table}") == 0, table  # noqa: S608
+    # Without the setting, the same reads see nothing at all.
+    async with transaction(app_pool) as conn:
+        for table in CONSOLE_TABLES:
+            assert await conn.fetchval(f"select count(*) from {table}") == 0, table  # noqa: S608
+
+
+async def test_console_capability_grants_no_writes(
+    app_pool: Pool, two_tenants: tuple[dict[str, object], dict[str, object]]
+) -> None:
+    a, b = two_tenants
+    ta, tb = _tid(a), _tid(b)
+    user_a = uuid.UUID(str(a["user"]["id"]))  # type: ignore[index]
+    async with transaction(app_pool, platform_admin=True) as conn:
+        assert await conn.execute("update tenants set name = 'pwned'") == "UPDATE 0"
+        assert await conn.execute("update subscriptions set plan_id = 'scale'") == "UPDATE 0"
+        assert await conn.execute("delete from widgets") == "DELETE 0"
+        assert await conn.execute("delete from memberships") == "DELETE 0"
+    # Even beside a tenant context, it writes only into that tenant.
+    async with transaction(app_pool, tenant_id=ta, platform_admin=True) as conn:
+        updated = await conn.execute("update tenants set name = 'pwned' where id = $1", tb)
+        assert updated == "UPDATE 0"
+    for tenant_id in (None, ta):
+        with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
+            async with transaction(app_pool, tenant_id=tenant_id, platform_admin=True) as conn:
+                await conn.execute(
+                    "insert into audit_log (id, tenant_id, actor_user_id, action)"
+                    " values (gen_random_uuid(), $1, $2, 'x')",
+                    tb,
+                    user_a,
+                )
+    async with transaction(app_pool, platform_admin=True) as conn:
+        names = await conn.fetchval("select array_agg(name order by name) from tenants")
+    assert names == ["Tenant A", "Tenant B"]

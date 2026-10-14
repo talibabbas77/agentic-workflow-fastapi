@@ -1,4 +1,4 @@
-"""Command line entry point: `docent api | worker | db migrate | openapi`."""
+"""Command line entry point: `docent api | worker | db migrate | openapi | admin grant <email>`."""
 
 import argparse
 import json
@@ -63,6 +63,13 @@ def main(argv: list[str] | None = None) -> None:
         "sync-stripe", help="Create the Stripe products and monthly prices for every paid plan"
     )
 
+    admin = sub.add_parser("admin", help="Platform admin console access")
+    admin_sub = admin.add_subparsers(dest="admin_command", required=True)
+    grant = admin_sub.add_parser("grant", help="Let this account open the console at /admin")
+    grant.add_argument("email")
+    revoke = admin_sub.add_parser("revoke", help="Close the console to this account")
+    revoke.add_argument("email")
+
     seed = sub.add_parser("seed", help="Load demo data (local and test only)")
     seed.add_argument("--owner-email", required=True)
     seed.add_argument("--owner-name", default="Talib Abbas")
@@ -108,6 +115,13 @@ def main(argv: list[str] | None = None) -> None:
             command.current(cfg)  # type: ignore[arg-type]
         else:
             command.downgrade(cfg, args.revision)  # type: ignore[arg-type]
+    elif args.command == "admin":
+        import asyncio
+
+        from docent.console.access import set_access
+
+        grant_access = args.admin_command == "grant"
+        print(asyncio.run(set_access(get_settings(), args.email, grant=grant_access)))
     elif args.command == "seed":
         import asyncio
 

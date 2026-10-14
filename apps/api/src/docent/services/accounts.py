@@ -24,6 +24,12 @@ class SessionUser:
     email_verified: bool
     token_hash: bytes
     active_tenant_id: uuid.UUID | None
+    is_platform_admin: bool = False
+
+    @property
+    def platform_admin(self) -> bool:
+        """May open the platform admin console: the flag and a verified email, both."""
+        return self.is_platform_admin and self.email_verified
 
 
 def normalize_email(email: str) -> str:
@@ -63,7 +69,22 @@ async def find_user_by_email(conn: Connection, email: str) -> asyncpg.Record | N
 
 async def get_user(conn: Connection, user_id: uuid.UUID) -> asyncpg.Record | None:
     return await conn.fetchrow(
-        "select id, email, name, email_verified_at from users where id = $1", user_id
+        "select id, email, name, email_verified_at, is_platform_admin from users where id = $1",
+        user_id,
+    )
+
+
+async def set_platform_admin(conn: Connection, email: str, value: bool) -> asyncpg.Record | None:
+    """Grant or revoke the platform admin flag. Only the command line and the demo seed call
+    this; no API route does. Returns the user, or None when no account has that email."""
+    return await conn.fetchrow(
+        """
+        update users set is_platform_admin = $2, updated_at = now()
+        where lower(email) = $1
+        returning id, email, email_verified_at is not null as verified
+        """,
+        normalize_email(email),
+        value,
     )
 
 
@@ -114,7 +135,7 @@ async def load_session(conn: Connection, token: str, ttl: timedelta) -> SessionU
     row = await conn.fetchrow(
         """
         select s.user_id, s.active_tenant_id, s.last_seen_at, u.email, u.name,
-               u.email_verified_at is not null as verified
+               u.email_verified_at is not null as verified, u.is_platform_admin
         from user_sessions s join users u on u.id = s.user_id
         where s.token_hash = $1 and s.revoked_at is null and s.expires_at > now()
         """,
@@ -138,6 +159,7 @@ async def load_session(conn: Connection, token: str, ttl: timedelta) -> SessionU
         email_verified=row["verified"],
         token_hash=token_hash,
         active_tenant_id=row["active_tenant_id"],
+        is_platform_admin=row["is_platform_admin"],
     )
 
 
