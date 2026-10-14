@@ -71,6 +71,7 @@ class OpenAICompatibleChat:
         reasoning_effort: str | None,
         timeout: float,
         max_concurrency: int,
+        temperature: float = 0.1,
     ) -> None:
         self._client = client
         self._url = f"{base_url.rstrip('/')}/chat/completions"
@@ -79,6 +80,7 @@ class OpenAICompatibleChat:
         self._strategy = strategy
         self._reasoning_effort = reasoning_effort
         self._timeout = timeout
+        self._temperature = temperature
         self._slots = asyncio.Semaphore(max_concurrency)
 
     async def structured[T: BaseModel](
@@ -123,7 +125,7 @@ class OpenAICompatibleChat:
         body: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
-            "temperature": 0.1,
+            "temperature": self._temperature,
             "max_tokens": max_tokens,
         }
         if self._reasoning_effort:
@@ -186,7 +188,10 @@ def _brief(exc: ValidationError) -> str:
     )
 
 
-def chat_model(settings: Settings, http: httpx.AsyncClient, model: str) -> OpenAICompatibleChat:
+def chat_model(
+    settings: Settings, http: httpx.AsyncClient, model: str, *, temperature: float = 0.1
+) -> OpenAICompatibleChat:
+    """A client for one model. The eval judge passes temperature 0."""
     return OpenAICompatibleChat(
         http,
         base_url=settings.llm_base_url,
@@ -196,4 +201,5 @@ def chat_model(settings: Settings, http: httpx.AsyncClient, model: str) -> OpenA
         reasoning_effort=settings.llm_reasoning_effort,
         timeout=settings.llm_timeout_seconds,
         max_concurrency=settings.llm_max_concurrency,
+        temperature=temperature,
     )

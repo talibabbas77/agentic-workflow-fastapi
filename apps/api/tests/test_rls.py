@@ -66,11 +66,21 @@ async def test_app_roles_cannot_bypass_rls_or_change_schema(owner_pool: Pool) ->
         assert not await conn.fetchval(
             "select has_table_privilege('docent_worker', 'tenants', 'SELECT')"
         )
+        # The worker writes eval results; the app may only label them.
+        assert not await conn.fetchval(
+            "select has_column_privilege('docent_app', 'eval_results', 'verdict', 'UPDATE')"
+        )
+        assert await conn.fetchval(
+            "select has_column_privilege('docent_app', 'eval_results', 'label', 'UPDATE')"
+        )
+        assert not await conn.fetchval(
+            "select has_table_privilege('docent_worker', 'eval_results', 'DELETE')"
+        )
 
 
 @pytest.fixture
 async def two_tenants(
-    client_factory: ClientFactory, drain: Drain
+    client_factory: ClientFactory, drain: Drain, admin_pool: Pool
 ) -> tuple[dict[str, object], dict[str, object]]:
     a_client = client_factory()
     b_client = client_factory()
@@ -146,7 +156,22 @@ async def two_tenants(
         assert rule.status_code == 201, rule.text
         test = await c.post(f"/v1/automation/webhooks/{webhook.json()['webhook']['id']}/test")
         assert test.status_code == 202, test.text
+        # Evals: a set with a case, and a run (the worker writes its result below).
+        eval_set = await c.post("/v1/evals/sets", json={"name": "Smoke"})
+        assert eval_set.status_code == 201, eval_set.text
+        case = await c.post(
+            f"/v1/evals/sets/{eval_set.json()['id']}/cases",
+            json={"question": "shared text in both tenants", "expected": "answer"},
+        )
+        assert case.status_code == 201, case.text
+        run = await c.post(f"/v1/evals/sets/{eval_set.json()['id']}/runs")
+        assert run.status_code == 202, run.text
     await drain()  # summaries and routing: notifications, email deliveries, webhook events
+    # The weekly review samples answered widget conversations: make the previews count.
+    async with admin_pool.acquire() as conn:
+        await conn.execute("update conversations set channel = 'widget'")
+    for c in (a_client, b_client):
+        assert (await c.get("/v1/evals/review")).json()["items"]
     return a, b
 
 

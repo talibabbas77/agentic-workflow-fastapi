@@ -1107,6 +1107,379 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/evals/sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sets */
+        get: operations["list_sets"];
+        put?: never;
+        /** Create Set */
+        post: operations["create_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/sets/{set_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Set */
+        get: operations["get_set"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Set
+         * @description Deletes its cases and runs too. A run in progress stops at its next case.
+         */
+        delete: operations["delete_set"];
+        options?: never;
+        head?: never;
+        /** Update Set */
+        patch: operations["update_set"];
+        trace?: never;
+    };
+    "/v1/evals/sets/{set_id}/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Case */
+        post: operations["create_case"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Case
+         * @description Past results keep their copy of the case.
+         */
+        delete: operations["delete_case"];
+        options?: never;
+        head?: never;
+        /** Update Case */
+        patch: operations["update_case"];
+        trace?: never;
+    };
+    "/v1/evals/sets/{set_id}/cases/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Drafts
+         * @description Approve drafts, so runs use them.
+         */
+        post: operations["approve_drafts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/sets/{set_id}/cases/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard Drafts
+         * @description Delete drafts. Approved cases are never touched here.
+         */
+        post: operations["discard_drafts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/sets/{set_id}/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write Drafts
+         * @description Ask the model for draft cases from your own help articles. They arrive as drafts.
+         */
+        post: operations["write_drafts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documents
+         * @description Documents a case can name as gold.
+         */
+        get: operations["list_documents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/prefill": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Prefill Case
+         * @description A case filled in from a conversation or one of its messages, for the case editor.
+         */
+        get: operations["prefill_case"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/sets/{set_id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Run
+         * @description Queue a run of every approved case. One run at a time per workspace.
+         */
+        post: operations["start_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Run
+         * @description Stop a run. Cases already done keep their results.
+         */
+        post: operations["cancel_run"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Runs
+         * @description Two runs of one set: metric changes, settings that differ, and every case that changed.
+         */
+        get: operations["compare_runs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/results/{result_id}/label": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Label Result
+         * @description Your call on a judged result: was the answer right or wrong?
+         */
+        put: operations["label_result"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/calibration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Calibration
+         * @description How often the judge agrees with your labels, and judged results waiting for one.
+         */
+        get: operations["calibration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Production Metrics
+         * @description Real widget traffic over the last `days` days.
+         */
+        get: operations["production_metrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Review Queue
+         * @description A week's sample of answered conversations to grade. This week's fills itself.
+         */
+        get: operations["review_queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/evals/review/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review Item */
+        get: operations["get_review_item"];
+        /**
+         * Grade Review Item
+         * @description Grade a conversation right or wrong. Wrong also marks its answer as wrong.
+         */
+        put: operations["grade_review_item"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/widgets": {
         parameters: {
             query?: never;
@@ -1594,6 +1967,135 @@ export interface components {
              */
             audience: "public" | "identified";
         };
+        /** CalibrationOut */
+        CalibrationOut: {
+            /**
+             * Target
+             * @description Labels needed before the judge's numbers are trusted
+             */
+            target: number;
+            /**
+             * Threshold
+             * @description The agreement the judge needs, 0 to 1
+             */
+            threshold: number;
+            /** Labeled */
+            labeled: number;
+            /** Agreed */
+            agreed: number;
+            /** Agreement */
+            agreement: number | null;
+            /** Trusted */
+            trusted: boolean;
+            confusion: components["schemas"]["ConfusionOut"];
+            /**
+             * To Label
+             * @description Judged results nobody has labeled yet
+             */
+            to_label: components["schemas"]["EvalResultOut"][];
+            /**
+             * Recent
+             * @description The latest labeled results
+             */
+            recent: components["schemas"]["EvalResultOut"][];
+        };
+        /** CaseChangeOut */
+        CaseChangeOut: {
+            /** Case Id */
+            case_id: string | null;
+            /** Question */
+            question: string;
+            /**
+             * Change
+             * @enum {string}
+             */
+            change: "fixed" | "broke" | "unchanged" | "added" | "removed";
+            a: components["schemas"]["EvalResultOut"] | null;
+            b: components["schemas"]["EvalResultOut"] | null;
+            /** Why */
+            why: string[];
+        };
+        /** CaseIdsIn */
+        CaseIdsIn: {
+            /** Case Ids */
+            case_ids: string[];
+        };
+        /**
+         * CasePrefillOut
+         * @description A new case filled in from a conversation, for a person to check and save.
+         */
+        CasePrefillOut: {
+            /** Question */
+            question: string;
+            /** History */
+            history: components["schemas"]["HistoryTurn"][];
+            /** Identity */
+            identity: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Expected
+             * @enum {string}
+             */
+            expected: "answer" | "escalate" | "clarify";
+            /** Reference Answer */
+            reference_answer: string;
+            /** Tags */
+            tags: string[];
+            /**
+             * Source Conversation Id
+             * Format: uuid
+             */
+            source_conversation_id: string;
+            /** Source Message Id */
+            source_message_id: string | null;
+        };
+        /** CaseSnapshotOut */
+        CaseSnapshotOut: {
+            /** History */
+            history?: components["schemas"]["HistoryTurn"][];
+            /** Identity */
+            identity?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Reference Answer
+             * @default
+             */
+            reference_answer: string;
+            /** Must Include */
+            must_include?: string[];
+            /** Must Not Include */
+            must_not_include?: string[];
+            /** Gold Documents */
+            gold_documents?: components["schemas"]["GoldDocumentOut"][];
+            /** Tags */
+            tags?: string[];
+            /**
+             * Origin
+             * @default manual
+             * @enum {string}
+             */
+            origin: "manual" | "generated" | "conversation";
+        };
+        /** CasesChangedOut */
+        CasesChangedOut: {
+            /** Changed */
+            changed: number;
+        };
+        /** ChangeCountsOut */
+        ChangeCountsOut: {
+            /** Fixed */
+            fixed: number;
+            /** Broke */
+            broke: number;
+            /** Unchanged */
+            unchanged: number;
+            /** Added */
+            added: number;
+            /** Removed */
+            removed: number;
+        };
         /** ChargeLine */
         ChargeLine: {
             /** Label */
@@ -1603,6 +2105,18 @@ export interface components {
              * @description Positive is charged, negative is credited
              */
             amount_cents: number;
+        };
+        /** CheckOut */
+        CheckOut: {
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "expected_outcome" | "must_include" | "must_not_include" | "citations" | "gold_retrieved";
+            /** Passed */
+            passed: boolean;
+            /** Detail */
+            detail: string;
         };
         /** CheckoutIn */
         CheckoutIn: {
@@ -1649,6 +2163,43 @@ export interface components {
              * @default
              */
             value: string;
+        };
+        /** CompareOut */
+        CompareOut: {
+            a: components["schemas"]["EvalRunOut"];
+            b: components["schemas"]["EvalRunOut"];
+            /** Metrics */
+            metrics: components["schemas"]["MetricDeltaOut"][];
+            /**
+             * Config
+             * @description Settings that differ between the runs
+             */
+            config: components["schemas"]["ConfigChangeOut"][];
+            counts: components["schemas"]["ChangeCountsOut"];
+            /** Cases */
+            cases: components["schemas"]["CaseChangeOut"][];
+        };
+        /** ConfigChangeOut */
+        ConfigChangeOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** A */
+            a: string | null;
+            /** B */
+            b: string | null;
+        };
+        /** ConfusionOut */
+        ConfusionOut: {
+            /** Judge Correct Person Right */
+            judge_correct_person_right: number;
+            /** Judge Correct Person Wrong */
+            judge_correct_person_wrong: number;
+            /** Judge Faulted Person Right */
+            judge_faulted_person_right: number;
+            /** Judge Faulted Person Wrong */
+            judge_faulted_person_wrong: number;
         };
         /** ContactIn */
         ContactIn: {
@@ -1749,6 +2300,18 @@ export interface components {
              */
             last_seen_at: string;
         };
+        /** DayOut */
+        DayOut: {
+            /**
+             * Day
+             * Format: date
+             */
+            day: string;
+            /** Conversations */
+            conversations: number;
+            /** Escalated */
+            escalated: number;
+        };
         /** DecisionOut */
         DecisionOut: {
             /**
@@ -1802,6 +2365,34 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** DraftingOut */
+        DraftingOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "running" | "failed";
+            /** Requested */
+            requested: number;
+            /** Written */
+            written: number;
+            /**
+             * Skipped
+             * @description Passages the model could not turn into a trustworthy case
+             */
+            skipped: number;
+            /** Error */
+            error: string | null;
+        };
+        /** DraftsIn */
+        DraftsIn: {
+            /**
+             * Count
+             * @description How many drafts to write
+             * @default 20
+             */
+            count: number;
         };
         /** EmailDeliveryOut */
         EmailDeliveryOut: {
@@ -1904,6 +2495,306 @@ export interface components {
             /** Suggested Next Step */
             suggested_next_step: string;
         };
+        /** EvalCaseIn */
+        EvalCaseIn: {
+            /** Question */
+            question: string;
+            /** History */
+            history?: components["schemas"]["HistoryTurn"][];
+            /**
+             * Identity
+             * @description None for an anonymous visitor; the claims of a signed-in customer
+             */
+            identity?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Expected
+             * @enum {string}
+             */
+            expected: "answer" | "escalate" | "clarify";
+            /**
+             * Reference Answer
+             * @default
+             */
+            reference_answer: string;
+            /** Must Include */
+            must_include?: string[];
+            /** Must Not Include */
+            must_not_include?: string[];
+            /** Gold Document Ids */
+            gold_document_ids?: string[];
+            /** Tags */
+            tags?: string[];
+            /** Source Conversation Id */
+            source_conversation_id?: string | null;
+            /** Source Message Id */
+            source_message_id?: string | null;
+        };
+        /** EvalCaseOut */
+        EvalCaseOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Set Id
+             * Format: uuid
+             */
+            set_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "active";
+            /** Question */
+            question: string;
+            /** History */
+            history: components["schemas"]["HistoryTurn"][];
+            /** Identity */
+            identity: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Expected
+             * @enum {string}
+             */
+            expected: "answer" | "escalate" | "clarify";
+            /** Reference Answer */
+            reference_answer: string;
+            /** Must Include */
+            must_include: string[];
+            /** Must Not Include */
+            must_not_include: string[];
+            /** Gold Documents */
+            gold_documents: components["schemas"]["GoldDocumentOut"][];
+            /** Tags */
+            tags: string[];
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "manual" | "generated" | "conversation";
+            /** Source Conversation Id */
+            source_conversation_id: string | null;
+            /** Source Message Id */
+            source_message_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * EvalCaseUpdateIn
+         * @description Only the fields sent change. Send identity as null to make the case anonymous.
+         */
+        EvalCaseUpdateIn: {
+            /** Status */
+            status?: ("draft" | "active") | null;
+            /** Question */
+            question?: string | null;
+            /** History */
+            history?: components["schemas"]["HistoryTurn"][] | null;
+            /** Identity */
+            identity?: {
+                [key: string]: string;
+            } | null;
+            /** Expected */
+            expected?: ("answer" | "escalate" | "clarify") | null;
+            /** Reference Answer */
+            reference_answer?: string | null;
+            /** Must Include */
+            must_include?: string[] | null;
+            /** Must Not Include */
+            must_not_include?: string[] | null;
+            /** Gold Document Ids */
+            gold_document_ids?: string[] | null;
+            /** Tags */
+            tags?: string[] | null;
+        };
+        /** EvalDocumentOut */
+        EvalDocumentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Source */
+            source: string;
+        };
+        /** EvalResultOut */
+        EvalResultOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Case Id
+             * @description None once the case is deleted
+             */
+            case_id: string | null;
+            /** Position */
+            position: number;
+            /** Question */
+            question: string;
+            /**
+             * Expected
+             * @enum {string}
+             */
+            expected: "answer" | "escalate" | "clarify";
+            /** @description The case as it ran */
+            case: components["schemas"]["CaseSnapshotOut"];
+            output: components["schemas"]["ResultOutputOut"];
+            /** Retrieved */
+            retrieved: components["schemas"]["RetrievedOut"][];
+            /** Checks */
+            checks: components["schemas"]["CheckOut"][];
+            /**
+             * Verdict
+             * @enum {string}
+             */
+            verdict: "correct" | "wrong" | "unsupported" | "escalated_correctly" | "escalated_wrongly" | "missed" | "error";
+            /** Judge Verdict */
+            judge_verdict: ("correct" | "wrong" | "unsupported") | null;
+            /** Judge Notes */
+            judge_notes: string | null;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Latency Ms */
+            latency_ms: number;
+            /**
+             * Label
+             * @description A person's call on this result, for calibration
+             */
+            label: ("right" | "wrong") | null;
+            /** Labeled At */
+            labeled_at: string | null;
+        };
+        /** EvalRunDetailOut */
+        EvalRunDetailOut: {
+            run: components["schemas"]["EvalRunOut"];
+            /** Results */
+            results: components["schemas"]["EvalResultOut"][];
+        };
+        /** EvalRunOut */
+        EvalRunOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Set Id
+             * Format: uuid
+             */
+            set_id: string;
+            /** Set Name */
+            set_name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "canceled";
+            config: components["schemas"]["RunConfigOut"];
+            metrics: components["schemas"]["RunMetricsOut"] | null;
+            /** Case Count */
+            case_count: number;
+            /** Done Count */
+            done_count: number;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Error */
+            error: string | null;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** EvalSetDetailOut */
+        EvalSetDetailOut: {
+            set: components["schemas"]["EvalSetOut"];
+            /** Cases */
+            cases: components["schemas"]["EvalCaseOut"][];
+            /** Runs */
+            runs: components["schemas"]["EvalRunOut"][];
+        };
+        /** EvalSetIn */
+        EvalSetIn: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** EvalSetOut */
+        EvalSetOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Cases
+             * @description Approved cases, the ones a run uses
+             */
+            cases: number;
+            /**
+             * Drafts
+             * @description Generated cases waiting for approval
+             */
+            drafts: number;
+            drafting: components["schemas"]["DraftingOut"];
+            last_run: components["schemas"]["RunSummaryOut"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** EvalSetUpdateIn */
+        EvalSetUpdateIn: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+        };
         /** FlagIn */
         FlagIn: {
             /** Reason */
@@ -1943,6 +2834,19 @@ export interface components {
              * Format: date-time
              */
             last_asked_at: string;
+        };
+        /** GoldDocumentOut */
+        GoldDocumentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Title
+             * @description The document's title, or 'Removed document'
+             */
+            title: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1993,6 +2897,16 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** HistoryTurn */
+        HistoryTurn: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "visitor" | "agent";
+            /** Content */
+            content: string;
         };
         /** InboxBoardOut */
         InboxBoardOut: {
@@ -2305,6 +3219,14 @@ export interface components {
              */
             role: "admin" | "agent";
         };
+        /** LabelIn */
+        LabelIn: {
+            /**
+             * Label
+             * @description None clears the label
+             */
+            label: ("right" | "wrong") | null;
+        };
         /** LoginIn */
         LoginIn: {
             /**
@@ -2445,6 +3367,24 @@ export interface components {
             citations: components["schemas"]["CitationOut"][];
             /** Created At */
             created_at?: string | null;
+        };
+        /** MetricDeltaOut */
+        MetricDeltaOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** A */
+            a: number | null;
+            /** B */
+            b: number | null;
+            /** Delta */
+            delta: number | null;
+            /**
+             * Better
+             * @description None when unchanged or not measured in both
+             */
+            better: boolean | null;
         };
         /** NoteIn */
         NoteIn: {
@@ -2617,6 +3557,59 @@ export interface components {
              */
             stripe_due_now_cents: number | null;
         };
+        /** ProductionMetricsOut */
+        ProductionMetricsOut: {
+            /** Days */
+            days: number;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /** Conversations */
+            conversations: number;
+            /** Auto Resolved */
+            auto_resolved: number;
+            /** Confirmed Resolved */
+            confirmed_resolved: number;
+            /** Escalated */
+            escalated: number;
+            /** Answers */
+            answers: number;
+            /** Marked Wrong */
+            marked_wrong: number;
+            /** Reviewed */
+            reviewed: number;
+            /** Reviewed Wrong */
+            reviewed_wrong: number;
+            /** Auto Resolution Rate */
+            auto_resolution_rate: number | null;
+            /** Confirmed Resolution Rate */
+            confirmed_resolution_rate: number | null;
+            /** Escalation Rate */
+            escalation_rate: number | null;
+            /** Wrong Answer Rate */
+            wrong_answer_rate: number | null;
+            /** Review Wrong Rate */
+            review_wrong_rate: number | null;
+            /** Latency P50 Ms */
+            latency_p50_ms: number | null;
+            /** Latency P95 Ms */
+            latency_p95_ms: number | null;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Cost Per Conversation Micros */
+            cost_per_conversation_micros: number | null;
+            /** Reasons */
+            reasons: components["schemas"]["ReasonRateOut"][];
+            /** Daily */
+            daily: components["schemas"]["DayOut"][];
+        };
         /** QueuedOut */
         QueuedOut: {
             /**
@@ -2630,6 +3623,18 @@ export interface components {
              * @constant
              */
             status: "queued";
+        };
+        /** ReasonRateOut */
+        ReasonRateOut: {
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "no_source" | "low_confidence" | "user_requested" | "restricted_topic" | "repeated_failure" | "cap_reached";
+            /** Conversations */
+            conversations: number;
+            /** Rate */
+            rate: number | null;
         };
         /** RedirectOut */
         RedirectOut: {
@@ -2697,6 +3702,179 @@ export interface components {
             token: string;
             /** Password */
             password: string;
+        };
+        /** ResultCitationOut */
+        ResultCitationOut: {
+            /** Marker */
+            marker: number;
+            /** Document Id */
+            document_id: string | null;
+            /** Document Title */
+            document_title: string;
+            /** Heading Path */
+            heading_path: string;
+            /** Excerpt */
+            excerpt: string;
+        };
+        /** ResultOutputOut */
+        ResultOutputOut: {
+            /**
+             * Type
+             * @description None when the case could not run
+             */
+            type: ("answer" | "clarify" | "escalate" | "reply") | null;
+            /** Content */
+            content: string;
+            /** Reason */
+            reason?: string | null;
+            /** Confidence */
+            confidence?: ("high" | "medium" | "low") | null;
+            /** Account Facts */
+            account_facts?: string[];
+            /** Citations */
+            citations?: components["schemas"]["ResultCitationOut"][];
+        };
+        /** RetrievedOut */
+        RetrievedOut: {
+            /** Rank */
+            rank: number;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Document Title */
+            document_title: string;
+            /** Heading Path */
+            heading_path: string;
+            /** Similarity */
+            similarity: number | null;
+            /** Gold */
+            gold: boolean;
+        };
+        /** ReviewCountsOut */
+        ReviewCountsOut: {
+            /** Sampled */
+            sampled: number;
+            /** Graded */
+            graded: number;
+            /** Right */
+            right: number;
+            /** Wrong */
+            wrong: number;
+        };
+        /** ReviewDetailOut */
+        ReviewDetailOut: {
+            item: components["schemas"]["ReviewItemOut"];
+            /** Messages */
+            messages: components["schemas"]["InboxMessageOut"][];
+            /**
+             * Next Id
+             * @description The next ungraded item of the same week
+             */
+            next_id: string | null;
+        };
+        /** ReviewGradeIn */
+        ReviewGradeIn: {
+            /**
+             * Grade
+             * @description None clears the grade
+             */
+            grade: ("right" | "wrong") | null;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** ReviewItemOut */
+        ReviewItemOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /**
+             * Conversation Id
+             * Format: uuid
+             */
+            conversation_id: string;
+            /**
+             * Message Id
+             * Format: uuid
+             * @description The answer being graded
+             */
+            message_id: string;
+            /** Question */
+            question: string | null;
+            /** Answer */
+            answer: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "anonymous" | "identified";
+            /** Claims */
+            claims: {
+                [key: string]: string;
+            };
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Escalated */
+            escalated: boolean;
+            /** Grade */
+            grade: ("right" | "wrong") | null;
+            /** Note */
+            note: string;
+            /** Graded By */
+            graded_by: string | null;
+            /** Graded At */
+            graded_at: string | null;
+            /**
+             * Sampled At
+             * Format: date-time
+             */
+            sampled_at: string;
+        };
+        /** ReviewQueueOut */
+        ReviewQueueOut: {
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /**
+             * Current
+             * @description This is this week's queue, which tops itself up
+             */
+            current: boolean;
+            /** Sample Size */
+            sample_size: number;
+            counts: components["schemas"]["ReviewCountsOut"];
+            /** Items */
+            items: components["schemas"]["ReviewItemOut"][];
+            /** Weeks */
+            weeks: components["schemas"]["ReviewWeekOut"][];
+        };
+        /** ReviewWeekOut */
+        ReviewWeekOut: {
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /** Sampled */
+            sampled: number;
+            /** Graded */
+            graded: number;
         };
         /** RoleUpdateIn */
         RoleUpdateIn: {
@@ -2785,6 +3963,102 @@ export interface components {
         RuleOrderIn: {
             /** Ids */
             ids: string[];
+        };
+        /** RunConfigOut */
+        RunConfigOut: {
+            /** Model */
+            model?: string | null;
+            /** Judge Model */
+            judge_model?: string | null;
+            /** Answer Prompt */
+            answer_prompt?: string | null;
+            /** Triage Prompt */
+            triage_prompt?: string | null;
+            /** Judge Prompt */
+            judge_prompt?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
+            /** Sources */
+            sources?: number | null;
+            /** Min Similarity */
+            min_similarity?: number | null;
+            /**
+             * Knowledge Version
+             * @description Changes whenever sources, team answers, or settings change
+             */
+            knowledge_version?: number | null;
+        };
+        /** RunMetricsOut */
+        RunMetricsOut: {
+            /** Cases */
+            cases: number;
+            /**
+             * Scored
+             * @description Cases that ran and were scored (not errors)
+             */
+            scored: number;
+            /** Correct */
+            correct: number;
+            /** Wrong */
+            wrong: number;
+            /** Unsupported */
+            unsupported: number;
+            /** Escalated Correctly */
+            escalated_correctly: number;
+            /** Escalated Wrongly */
+            escalated_wrongly: number;
+            /** Missed */
+            missed: number;
+            /** Error */
+            error: number;
+            /** Pass Rate */
+            pass_rate: number | null;
+            /** Wrong Answer Rate */
+            wrong_answer_rate: number | null;
+            /** Escalation Recall */
+            escalation_recall: number | null;
+            /** Answer Rate */
+            answer_rate: number | null;
+            /** Retrieval Recall At 8 */
+            retrieval_recall_at_8: number | null;
+            /** Judged */
+            judged: number;
+            /** Latency P50 Ms */
+            latency_p50_ms: number;
+            /** Latency P95 Ms */
+            latency_p95_ms: number;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Cost Per Case Micros */
+            cost_per_case_micros: number;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+        };
+        /** RunSummaryOut */
+        RunSummaryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "canceled";
+            /** Pass Rate */
+            pass_rate: number | null;
+            /** Wrong Answer Rate */
+            wrong_answer_rate: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
         };
         /** SearchHitOut */
         SearchHitOut: {
@@ -7671,6 +8945,1424 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    list_sets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalSetOut"][];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    create_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalSetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalSetOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    get_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalSetDetailOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    delete_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    update_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalSetUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalSetOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    create_case: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalCaseIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalCaseOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    delete_case: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    update_case: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalCaseUpdateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalCaseOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    approve_drafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseIdsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CasesChangedOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    discard_drafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseIdsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CasesChangedOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    write_drafts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalSetOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    list_documents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalDocumentOut"][];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    prefill_case: {
+        parameters: {
+            query: {
+                conversation_id: string;
+                message_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CasePrefillOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    start_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalRunOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    list_runs: {
+        parameters: {
+            query?: {
+                set_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalRunOut"][];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    get_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalRunDetailOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    cancel_run: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalRunOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    compare_runs: {
+        parameters: {
+            query: {
+                a: string;
+                b: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompareOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    label_result: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabelIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalResultOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    calibration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalibrationOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    production_metrics: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductionMetricsOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    review_queue: {
+        parameters: {
+            query?: {
+                week?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewQueueOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    get_review_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDetailOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    grade_review_item: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewGradeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewDetailOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

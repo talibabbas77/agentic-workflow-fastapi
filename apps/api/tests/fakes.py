@@ -1,6 +1,7 @@
 """Test doubles."""
 
 import hashlib
+import html
 import math
 import re
 import uuid
@@ -69,9 +70,31 @@ class FakeChat:
         return Structured(value, self.model, 120, 30, 7, 1)
 
 
+_PASSAGE = re.compile(r'<passage heading="([^"]*)">(.*)</passage>', re.S)
+
+
+def _draft(messages: list[dict[str, str]]) -> dict[str, object]:
+    """A draft whose answer is the passage's own first words, so it is grounded."""
+    found = _PASSAGE.search(messages[-1]["content"])
+    heading = html.unescape(found.group(1)) if found else ""
+    passage = html.unescape(found.group(2)) if found else ""
+    words = passage.split()
+    topic = heading.split(" > ")[-1] if heading else "this"
+    return {
+        "usable": bool(words),
+        "question": f"What should I know about {topic}?",
+        "answer": " ".join(words[:20]),
+        "must_include": [" ".join(words[:2])] if len(words) >= 2 else [],
+    }
+
+
 def _default(messages: list[dict[str, str]], name: str) -> dict[str, object]:
     if name == "customer_memory":
         return {"facts": []}
+    if name == "eval_judgment":
+        return {"verdict": "correct", "reason": "Matches the gold passage."}
+    if name == "eval_draft":
+        return _draft(messages)
     if name == "triage":
         return {"intent": "product_question", "language": "en", "clarifying_question": None}
     if name == "agent_decision":

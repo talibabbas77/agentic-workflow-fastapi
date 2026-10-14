@@ -5226,6 +5226,1846 @@
         }
       }
     },
+    "/v1/evals/sets": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "List Sets",
+        "operationId": "list_sets",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvalSetOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Sets"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Create Set",
+        "operationId": "create_set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalSetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalSetOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/evals/sets/{set_id}": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Get Set",
+        "operationId": "get_set",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalSetDetailOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Update Set",
+        "operationId": "update_set",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalSetUpdateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalSetOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Delete Set",
+        "description": "Deletes its cases and runs too. A run in progress stops at its next case.",
+        "operationId": "delete_set",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/sets/{set_id}/cases": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Create Case",
+        "operationId": "create_case",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalCaseIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalCaseOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/cases/{case_id}": {
+      "patch": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Update Case",
+        "operationId": "update_case",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalCaseUpdateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalCaseOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Delete Case",
+        "description": "Past results keep their copy of the case.",
+        "operationId": "delete_case",
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/sets/{set_id}/cases/approve": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Approve Drafts",
+        "description": "Approve drafts, so runs use them.",
+        "operationId": "approve_drafts",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseIdsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CasesChangedOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/sets/{set_id}/cases/discard": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Discard Drafts",
+        "description": "Delete drafts. Approved cases are never touched here.",
+        "operationId": "discard_drafts",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseIdsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CasesChangedOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/sets/{set_id}/drafts": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Write Drafts",
+        "description": "Ask the model for draft cases from your own help articles. They arrive as drafts.",
+        "operationId": "write_drafts",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftsIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalSetOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/documents": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "List Documents",
+        "description": "Documents a case can name as gold.",
+        "operationId": "list_documents",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvalDocumentOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Documents"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/evals/prefill": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Prefill Case",
+        "description": "A case filled in from a conversation or one of its messages, for the case editor.",
+        "operationId": "prefill_case",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "message_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CasePrefillOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/sets/{set_id}/runs": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Start Run",
+        "description": "Queue a run of every approved case. One run at a time per workspace.",
+        "operationId": "start_run",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalRunOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/runs": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "List Runs",
+        "operationId": "list_runs",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvalRunOut"
+                  },
+                  "title": "Response List Runs"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/runs/{run_id}": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Get Run",
+        "operationId": "get_run",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalRunDetailOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/runs/{run_id}/cancel": {
+      "post": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Cancel Run",
+        "description": "Stop a run. Cases already done keep their results.",
+        "operationId": "cancel_run",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalRunOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/compare": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Compare Runs",
+        "description": "Two runs of one set: metric changes, settings that differ, and every case that changed.",
+        "operationId": "compare_runs",
+        "parameters": [
+          {
+            "name": "a",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "A"
+            }
+          },
+          {
+            "name": "b",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "B"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompareOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/results/{result_id}/label": {
+      "put": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Label Result",
+        "description": "Your call on a judged result: was the answer right or wrong?",
+        "operationId": "label_result",
+        "parameters": [
+          {
+            "name": "result_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Result Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalResultOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/calibration": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Calibration",
+        "description": "How often the judge agrees with your labels, and judged results waiting for one.",
+        "operationId": "calibration",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalibrationOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/evals/metrics": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Production Metrics",
+        "description": "Real widget traffic over the last `days` days.",
+        "operationId": "production_metrics",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductionMetricsOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/review": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Review Queue",
+        "description": "A week's sample of answered conversations to grade. This week's fills itself.",
+        "operationId": "review_queue",
+        "parameters": [
+          {
+            "name": "week",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Week"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewQueueOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/evals/review/{item_id}": {
+      "get": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Get Review Item",
+        "operationId": "get_review_item",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDetailOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "evals"
+        ],
+        "summary": "Grade Review Item",
+        "description": "Grade a conversation right or wrong. Wrong also marks its answer as wrong.",
+        "operationId": "grade_review_item",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewGradeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDetailOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
     "/v1/widgets": {
       "get": {
         "tags": [
@@ -7169,6 +9009,358 @@
         ],
         "title": "Body_upload"
       },
+      "CalibrationOut": {
+        "properties": {
+          "target": {
+            "type": "integer",
+            "title": "Target",
+            "description": "Labels needed before the judge's numbers are trusted"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold",
+            "description": "The agreement the judge needs, 0 to 1"
+          },
+          "labeled": {
+            "type": "integer",
+            "title": "Labeled"
+          },
+          "agreed": {
+            "type": "integer",
+            "title": "Agreed"
+          },
+          "agreement": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreement"
+          },
+          "trusted": {
+            "type": "boolean",
+            "title": "Trusted"
+          },
+          "confusion": {
+            "$ref": "#/components/schemas/ConfusionOut"
+          },
+          "to_label": {
+            "items": {
+              "$ref": "#/components/schemas/EvalResultOut"
+            },
+            "type": "array",
+            "title": "To Label",
+            "description": "Judged results nobody has labeled yet"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/EvalResultOut"
+            },
+            "type": "array",
+            "title": "Recent",
+            "description": "The latest labeled results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target",
+          "threshold",
+          "labeled",
+          "agreed",
+          "agreement",
+          "trusted",
+          "confusion",
+          "to_label",
+          "recent"
+        ],
+        "title": "CalibrationOut"
+      },
+      "CaseChangeOut": {
+        "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "change": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "broke",
+              "unchanged",
+              "added",
+              "removed"
+            ],
+            "title": "Change"
+          },
+          "a": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvalResultOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "b": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvalResultOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "why": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Why"
+          }
+        },
+        "type": "object",
+        "required": [
+          "case_id",
+          "question",
+          "change",
+          "a",
+          "b",
+          "why"
+        ],
+        "title": "CaseChangeOut"
+      },
+      "CaseIdsIn": {
+        "properties": {
+          "case_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Case Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "case_ids"
+        ],
+        "title": "CaseIdsIn"
+      },
+      "CasePrefillOut": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryTurn"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity"
+          },
+          "expected": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "escalate",
+              "clarify"
+            ],
+            "title": "Expected"
+          },
+          "reference_answer": {
+            "type": "string",
+            "title": "Reference Answer"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "source_conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Conversation Id"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "history",
+          "identity",
+          "expected",
+          "reference_answer",
+          "tags",
+          "source_conversation_id",
+          "source_message_id"
+        ],
+        "title": "CasePrefillOut",
+        "description": "A new case filled in from a conversation, for a person to check and save."
+      },
+      "CaseSnapshotOut": {
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryTurn"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity"
+          },
+          "reference_answer": {
+            "type": "string",
+            "title": "Reference Answer",
+            "default": ""
+          },
+          "must_include": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Must Include"
+          },
+          "must_not_include": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Must Not Include"
+          },
+          "gold_documents": {
+            "items": {
+              "$ref": "#/components/schemas/GoldDocumentOut"
+            },
+            "type": "array",
+            "title": "Gold Documents"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "generated",
+              "conversation"
+            ],
+            "title": "Origin",
+            "default": "manual"
+          }
+        },
+        "type": "object",
+        "title": "CaseSnapshotOut"
+      },
+      "CasesChangedOut": {
+        "properties": {
+          "changed": {
+            "type": "integer",
+            "title": "Changed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changed"
+        ],
+        "title": "CasesChangedOut"
+      },
+      "ChangeCountsOut": {
+        "properties": {
+          "fixed": {
+            "type": "integer",
+            "title": "Fixed"
+          },
+          "broke": {
+            "type": "integer",
+            "title": "Broke"
+          },
+          "unchanged": {
+            "type": "integer",
+            "title": "Unchanged"
+          },
+          "added": {
+            "type": "integer",
+            "title": "Added"
+          },
+          "removed": {
+            "type": "integer",
+            "title": "Removed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fixed",
+          "broke",
+          "unchanged",
+          "added",
+          "removed"
+        ],
+        "title": "ChangeCountsOut"
+      },
       "ChargeLine": {
         "properties": {
           "label": {
@@ -7187,6 +9379,36 @@
           "amount_cents"
         ],
         "title": "ChargeLine"
+      },
+      "CheckOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "expected_outcome",
+              "must_include",
+              "must_not_include",
+              "citations",
+              "gold_retrieved"
+            ],
+            "title": "Name"
+          },
+          "passed": {
+            "type": "boolean",
+            "title": "Passed"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "passed",
+          "detail"
+        ],
+        "title": "CheckOut"
       },
       "CheckoutIn": {
         "properties": {
@@ -7301,6 +9523,121 @@
           "key"
         ],
         "title": "ClaimCondition"
+      },
+      "CompareOut": {
+        "properties": {
+          "a": {
+            "$ref": "#/components/schemas/EvalRunOut"
+          },
+          "b": {
+            "$ref": "#/components/schemas/EvalRunOut"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricDeltaOut"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "config": {
+            "items": {
+              "$ref": "#/components/schemas/ConfigChangeOut"
+            },
+            "type": "array",
+            "title": "Config",
+            "description": "Settings that differ between the runs"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ChangeCountsOut"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CaseChangeOut"
+            },
+            "type": "array",
+            "title": "Cases"
+          }
+        },
+        "type": "object",
+        "required": [
+          "a",
+          "b",
+          "metrics",
+          "config",
+          "counts",
+          "cases"
+        ],
+        "title": "CompareOut"
+      },
+      "ConfigChangeOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "a": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "A"
+          },
+          "b": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "B"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "a",
+          "b"
+        ],
+        "title": "ConfigChangeOut"
+      },
+      "ConfusionOut": {
+        "properties": {
+          "judge_correct_person_right": {
+            "type": "integer",
+            "title": "Judge Correct Person Right"
+          },
+          "judge_correct_person_wrong": {
+            "type": "integer",
+            "title": "Judge Correct Person Wrong"
+          },
+          "judge_faulted_person_right": {
+            "type": "integer",
+            "title": "Judge Faulted Person Right"
+          },
+          "judge_faulted_person_wrong": {
+            "type": "integer",
+            "title": "Judge Faulted Person Wrong"
+          }
+        },
+        "type": "object",
+        "required": [
+          "judge_correct_person_right",
+          "judge_correct_person_wrong",
+          "judge_faulted_person_right",
+          "judge_faulted_person_wrong"
+        ],
+        "title": "ConfusionOut"
       },
       "ContactIn": {
         "properties": {
@@ -7511,6 +9848,30 @@
         ],
         "title": "CustomerOut"
       },
+      "DayOut": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "conversations": {
+            "type": "integer",
+            "title": "Conversations"
+          },
+          "escalated": {
+            "type": "integer",
+            "title": "Escalated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "conversations",
+          "escalated"
+        ],
+        "title": "DayOut"
+      },
       "DecisionOut": {
         "properties": {
           "type": {
@@ -7675,6 +10036,67 @@
           "updated_at"
         ],
         "title": "DocumentOut"
+      },
+      "DraftingOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "running",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "requested": {
+            "type": "integer",
+            "title": "Requested"
+          },
+          "written": {
+            "type": "integer",
+            "title": "Written"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped",
+            "description": "Passages the model could not turn into a trustworthy case"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "requested",
+          "written",
+          "skipped",
+          "error"
+        ],
+        "title": "DraftingOut"
+      },
+      "DraftsIn": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "description": "How many drafts to write",
+            "default": 20
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DraftsIn"
       },
       "EmailDeliveryOut": {
         "properties": {
@@ -7932,6 +10354,928 @@
         ],
         "title": "EscalationSummaryOut"
       },
+      "EvalCaseIn": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryTurn"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "History"
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "patternProperties": {
+                  "^[a-z][a-z0-9_]{0,39}$": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "type": "object",
+                "maxProperties": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity",
+            "description": "None for an anonymous visitor; the claims of a signed-in customer"
+          },
+          "expected": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "escalate",
+              "clarify"
+            ],
+            "title": "Expected"
+          },
+          "reference_answer": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Reference Answer",
+            "default": ""
+          },
+          "must_include": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Must Include"
+          },
+          "must_not_include": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Must Not Include"
+          },
+          "gold_document_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Gold Document Ids"
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Tags"
+          },
+          "source_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Conversation Id"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question",
+          "expected"
+        ],
+        "title": "EvalCaseIn"
+      },
+      "EvalCaseOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "set_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Set Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "active"
+            ],
+            "title": "Status"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryTurn"
+            },
+            "type": "array",
+            "title": "History"
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity"
+          },
+          "expected": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "escalate",
+              "clarify"
+            ],
+            "title": "Expected"
+          },
+          "reference_answer": {
+            "type": "string",
+            "title": "Reference Answer"
+          },
+          "must_include": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Must Include"
+          },
+          "must_not_include": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Must Not Include"
+          },
+          "gold_documents": {
+            "items": {
+              "$ref": "#/components/schemas/GoldDocumentOut"
+            },
+            "type": "array",
+            "title": "Gold Documents"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "generated",
+              "conversation"
+            ],
+            "title": "Origin"
+          },
+          "source_conversation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Conversation Id"
+          },
+          "source_message_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Message Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "set_id",
+          "status",
+          "question",
+          "history",
+          "identity",
+          "expected",
+          "reference_answer",
+          "must_include",
+          "must_not_include",
+          "gold_documents",
+          "tags",
+          "origin",
+          "source_conversation_id",
+          "source_message_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EvalCaseOut"
+      },
+      "EvalCaseUpdateIn": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "active"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "history": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HistoryTurn"
+                },
+                "type": "array",
+                "maxItems": 6
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History"
+          },
+          "identity": {
+            "anyOf": [
+              {
+                "patternProperties": {
+                  "^[a-z][a-z0-9_]{0,39}$": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "type": "object",
+                "maxProperties": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "answer",
+                  "escalate",
+                  "clarify"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "reference_answer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Answer"
+          },
+          "must_include": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "minLength": 1
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Must Include"
+          },
+          "must_not_include": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "minLength": 1
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Must Not Include"
+          },
+          "gold_document_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gold Document Ids"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "minLength": 1
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tags"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EvalCaseUpdateIn",
+        "description": "Only the fields sent change. Send identity as null to make the case anonymous."
+      },
+      "EvalDocumentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "source"
+        ],
+        "title": "EvalDocumentOut"
+      },
+      "EvalResultOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id",
+            "description": "None once the case is deleted"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "expected": {
+            "type": "string",
+            "enum": [
+              "answer",
+              "escalate",
+              "clarify"
+            ],
+            "title": "Expected"
+          },
+          "case": {
+            "$ref": "#/components/schemas/CaseSnapshotOut",
+            "description": "The case as it ran"
+          },
+          "output": {
+            "$ref": "#/components/schemas/ResultOutputOut"
+          },
+          "retrieved": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievedOut"
+            },
+            "type": "array",
+            "title": "Retrieved"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckOut"
+            },
+            "type": "array",
+            "title": "Checks"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "correct",
+              "wrong",
+              "unsupported",
+              "escalated_correctly",
+              "escalated_wrongly",
+              "missed",
+              "error"
+            ],
+            "title": "Verdict"
+          },
+          "judge_verdict": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "correct",
+                  "wrong",
+                  "unsupported"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Verdict"
+          },
+          "judge_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Notes"
+          },
+          "tokens_in": {
+            "type": "integer",
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "type": "integer",
+            "title": "Tokens Out"
+          },
+          "cost_micros": {
+            "type": "integer",
+            "title": "Cost Micros"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "right",
+                  "wrong"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label",
+            "description": "A person's call on this result, for calibration"
+          },
+          "labeled_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labeled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "run_id",
+          "case_id",
+          "position",
+          "question",
+          "expected",
+          "case",
+          "output",
+          "retrieved",
+          "checks",
+          "verdict",
+          "judge_verdict",
+          "judge_notes",
+          "tokens_in",
+          "tokens_out",
+          "cost_micros",
+          "latency_ms",
+          "label",
+          "labeled_at"
+        ],
+        "title": "EvalResultOut"
+      },
+      "EvalRunDetailOut": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/EvalRunOut"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/EvalResultOut"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run",
+          "results"
+        ],
+        "title": "EvalRunDetailOut"
+      },
+      "EvalRunOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "set_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Set Id"
+          },
+          "set_name": {
+            "type": "string",
+            "title": "Set Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "canceled"
+            ],
+            "title": "Status"
+          },
+          "config": {
+            "$ref": "#/components/schemas/RunConfigOut"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunMetricsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "case_count": {
+            "type": "integer",
+            "title": "Case Count"
+          },
+          "done_count": {
+            "type": "integer",
+            "title": "Done Count"
+          },
+          "cost_micros": {
+            "type": "integer",
+            "title": "Cost Micros"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "set_id",
+          "set_name",
+          "status",
+          "config",
+          "metrics",
+          "case_count",
+          "done_count",
+          "cost_micros",
+          "error",
+          "created_by",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "EvalRunOut"
+      },
+      "EvalSetDetailOut": {
+        "properties": {
+          "set": {
+            "$ref": "#/components/schemas/EvalSetOut"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/EvalCaseOut"
+            },
+            "type": "array",
+            "title": "Cases"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/EvalRunOut"
+            },
+            "type": "array",
+            "title": "Runs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "set",
+          "cases",
+          "runs"
+        ],
+        "title": "EvalSetDetailOut"
+      },
+      "EvalSetIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "EvalSetIn"
+      },
+      "EvalSetOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "cases": {
+            "type": "integer",
+            "title": "Cases",
+            "description": "Approved cases, the ones a run uses"
+          },
+          "drafts": {
+            "type": "integer",
+            "title": "Drafts",
+            "description": "Generated cases waiting for approval"
+          },
+          "drafting": {
+            "$ref": "#/components/schemas/DraftingOut"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunSummaryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "cases",
+          "drafts",
+          "drafting",
+          "last_run",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EvalSetOut"
+      },
+      "EvalSetUpdateIn": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EvalSetUpdateIn"
+      },
       "FlagIn": {
         "properties": {
           "reason": {
@@ -8025,6 +11369,26 @@
           "last_asked_at"
         ],
         "title": "GapGroupOut"
+      },
+      "GoldDocumentOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "The document's title, or 'Removed document'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "title": "GoldDocumentOut"
       },
       "HTTPValidationError": {
         "properties": {
@@ -8123,6 +11487,31 @@
           "created_at"
         ],
         "title": "HistoryEntryOut"
+      },
+      "HistoryTurn": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "visitor",
+              "agent"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "role",
+          "content"
+        ],
+        "title": "HistoryTurn"
       },
       "InboxBoardOut": {
         "properties": {
@@ -8939,6 +12328,32 @@
         ],
         "title": "InviteIn"
       },
+      "LabelIn": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "right",
+                  "wrong"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label",
+            "description": "None clears the label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "LabelIn"
+      },
       "LoginIn": {
         "properties": {
           "email": {
@@ -9286,6 +12701,73 @@
           "citations"
         ],
         "title": "MessageOut"
+      },
+      "MetricDeltaOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "a": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "A"
+          },
+          "b": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "B"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "better": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Better",
+            "description": "None when unchanged or not measured in both"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "a",
+          "b",
+          "delta",
+          "better"
+        ],
+        "title": "MetricDeltaOut"
       },
       "NoteIn": {
         "properties": {
@@ -9673,6 +13155,188 @@
         ],
         "title": "PlanChangePreviewOut"
       },
+      "ProductionMetricsOut": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End"
+          },
+          "conversations": {
+            "type": "integer",
+            "title": "Conversations"
+          },
+          "auto_resolved": {
+            "type": "integer",
+            "title": "Auto Resolved"
+          },
+          "confirmed_resolved": {
+            "type": "integer",
+            "title": "Confirmed Resolved"
+          },
+          "escalated": {
+            "type": "integer",
+            "title": "Escalated"
+          },
+          "answers": {
+            "type": "integer",
+            "title": "Answers"
+          },
+          "marked_wrong": {
+            "type": "integer",
+            "title": "Marked Wrong"
+          },
+          "reviewed": {
+            "type": "integer",
+            "title": "Reviewed"
+          },
+          "reviewed_wrong": {
+            "type": "integer",
+            "title": "Reviewed Wrong"
+          },
+          "auto_resolution_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Resolution Rate"
+          },
+          "confirmed_resolution_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Resolution Rate"
+          },
+          "escalation_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Escalation Rate"
+          },
+          "wrong_answer_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wrong Answer Rate"
+          },
+          "review_wrong_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Wrong Rate"
+          },
+          "latency_p50_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency P50 Ms"
+          },
+          "latency_p95_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency P95 Ms"
+          },
+          "cost_micros": {
+            "type": "integer",
+            "title": "Cost Micros"
+          },
+          "cost_per_conversation_micros": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Conversation Micros"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonRateOut"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DayOut"
+            },
+            "type": "array",
+            "title": "Daily"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "start",
+          "end",
+          "conversations",
+          "auto_resolved",
+          "confirmed_resolved",
+          "escalated",
+          "answers",
+          "marked_wrong",
+          "reviewed",
+          "reviewed_wrong",
+          "auto_resolution_rate",
+          "confirmed_resolution_rate",
+          "escalation_rate",
+          "wrong_answer_rate",
+          "review_wrong_rate",
+          "latency_p50_ms",
+          "latency_p95_ms",
+          "cost_micros",
+          "cost_per_conversation_micros",
+          "reasons",
+          "daily"
+        ],
+        "title": "ProductionMetricsOut"
+      },
       "QueuedOut": {
         "properties": {
           "id": {
@@ -9692,6 +13356,44 @@
           "id"
         ],
         "title": "QueuedOut"
+      },
+      "ReasonRateOut": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "no_source",
+              "low_confidence",
+              "user_requested",
+              "restricted_topic",
+              "repeated_failure",
+              "cap_reached"
+            ],
+            "title": "Reason"
+          },
+          "conversations": {
+            "type": "integer",
+            "title": "Conversations"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "conversations",
+          "rate"
+        ],
+        "title": "ReasonRateOut"
       },
       "RedirectOut": {
         "properties": {
@@ -9887,6 +13589,459 @@
           "password"
         ],
         "title": "ResetPasswordIn"
+      },
+      "ResultCitationOut": {
+        "properties": {
+          "marker": {
+            "type": "integer",
+            "title": "Marker"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "document_title": {
+            "type": "string",
+            "title": "Document Title"
+          },
+          "heading_path": {
+            "type": "string",
+            "title": "Heading Path"
+          },
+          "excerpt": {
+            "type": "string",
+            "title": "Excerpt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "marker",
+          "document_id",
+          "document_title",
+          "heading_path",
+          "excerpt"
+        ],
+        "title": "ResultCitationOut"
+      },
+      "ResultOutputOut": {
+        "properties": {
+          "type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "answer",
+                  "clarify",
+                  "escalate",
+                  "reply"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type",
+            "description": "None when the case could not run"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "account_facts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Account Facts"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ResultCitationOut"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "content"
+        ],
+        "title": "ResultOutputOut"
+      },
+      "RetrievedOut": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "document_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Document Id"
+          },
+          "document_title": {
+            "type": "string",
+            "title": "Document Title"
+          },
+          "heading_path": {
+            "type": "string",
+            "title": "Heading Path"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similarity"
+          },
+          "gold": {
+            "type": "boolean",
+            "title": "Gold"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "document_id",
+          "document_title",
+          "heading_path",
+          "similarity",
+          "gold"
+        ],
+        "title": "RetrievedOut"
+      },
+      "ReviewCountsOut": {
+        "properties": {
+          "sampled": {
+            "type": "integer",
+            "title": "Sampled"
+          },
+          "graded": {
+            "type": "integer",
+            "title": "Graded"
+          },
+          "right": {
+            "type": "integer",
+            "title": "Right"
+          },
+          "wrong": {
+            "type": "integer",
+            "title": "Wrong"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sampled",
+          "graded",
+          "right",
+          "wrong"
+        ],
+        "title": "ReviewCountsOut"
+      },
+      "ReviewDetailOut": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/ReviewItemOut"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/InboxMessageOut"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "next_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Id",
+            "description": "The next ungraded item of the same week"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item",
+          "messages",
+          "next_id"
+        ],
+        "title": "ReviewDetailOut"
+      },
+      "ReviewGradeIn": {
+        "properties": {
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "right",
+                  "wrong"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade",
+            "description": "None clears the grade"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "grade"
+        ],
+        "title": "ReviewGradeIn"
+      },
+      "ReviewItemOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "message_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Message Id",
+            "description": "The answer being graded"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "anonymous",
+              "identified"
+            ],
+            "title": "Mode"
+          },
+          "claims": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Claims"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "escalated": {
+            "type": "boolean",
+            "title": "Escalated"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "right",
+                  "wrong"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "graded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graded By"
+          },
+          "graded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graded At"
+          },
+          "sampled_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Sampled At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "week_start",
+          "conversation_id",
+          "message_id",
+          "question",
+          "answer",
+          "mode",
+          "claims",
+          "started_at",
+          "escalated",
+          "grade",
+          "note",
+          "graded_by",
+          "graded_at",
+          "sampled_at"
+        ],
+        "title": "ReviewItemOut"
+      },
+      "ReviewQueueOut": {
+        "properties": {
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "current": {
+            "type": "boolean",
+            "title": "Current",
+            "description": "This is this week's queue, which tops itself up"
+          },
+          "sample_size": {
+            "type": "integer",
+            "title": "Sample Size"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ReviewCountsOut"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewItemOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewWeekOut"
+            },
+            "type": "array",
+            "title": "Weeks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week_start",
+          "current",
+          "sample_size",
+          "counts",
+          "items",
+          "weeks"
+        ],
+        "title": "ReviewQueueOut"
+      },
+      "ReviewWeekOut": {
+        "properties": {
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "sampled": {
+            "type": "integer",
+            "title": "Sampled"
+          },
+          "graded": {
+            "type": "integer",
+            "title": "Graded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week_start",
+          "sampled",
+          "graded"
+        ],
+        "title": "ReviewWeekOut"
       },
       "RoleUpdateIn": {
         "properties": {
@@ -10184,6 +14339,330 @@
           "ids"
         ],
         "title": "RuleOrderIn"
+      },
+      "RunConfigOut": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "judge_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Model"
+          },
+          "answer_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Prompt"
+          },
+          "triage_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triage Prompt"
+          },
+          "judge_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Judge Prompt"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "sources": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sources"
+          },
+          "min_similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Similarity"
+          },
+          "knowledge_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledge Version",
+            "description": "Changes whenever sources, team answers, or settings change"
+          }
+        },
+        "type": "object",
+        "title": "RunConfigOut"
+      },
+      "RunMetricsOut": {
+        "properties": {
+          "cases": {
+            "type": "integer",
+            "title": "Cases"
+          },
+          "scored": {
+            "type": "integer",
+            "title": "Scored",
+            "description": "Cases that ran and were scored (not errors)"
+          },
+          "correct": {
+            "type": "integer",
+            "title": "Correct"
+          },
+          "wrong": {
+            "type": "integer",
+            "title": "Wrong"
+          },
+          "unsupported": {
+            "type": "integer",
+            "title": "Unsupported"
+          },
+          "escalated_correctly": {
+            "type": "integer",
+            "title": "Escalated Correctly"
+          },
+          "escalated_wrongly": {
+            "type": "integer",
+            "title": "Escalated Wrongly"
+          },
+          "missed": {
+            "type": "integer",
+            "title": "Missed"
+          },
+          "error": {
+            "type": "integer",
+            "title": "Error"
+          },
+          "pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pass Rate"
+          },
+          "wrong_answer_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wrong Answer Rate"
+          },
+          "escalation_recall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Escalation Recall"
+          },
+          "answer_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Rate"
+          },
+          "retrieval_recall_at_8": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieval Recall At 8"
+          },
+          "judged": {
+            "type": "integer",
+            "title": "Judged"
+          },
+          "latency_p50_ms": {
+            "type": "integer",
+            "title": "Latency P50 Ms"
+          },
+          "latency_p95_ms": {
+            "type": "integer",
+            "title": "Latency P95 Ms"
+          },
+          "cost_micros": {
+            "type": "integer",
+            "title": "Cost Micros"
+          },
+          "cost_per_case_micros": {
+            "type": "integer",
+            "title": "Cost Per Case Micros"
+          },
+          "tokens_in": {
+            "type": "integer",
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "type": "integer",
+            "title": "Tokens Out"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cases",
+          "scored",
+          "correct",
+          "wrong",
+          "unsupported",
+          "escalated_correctly",
+          "escalated_wrongly",
+          "missed",
+          "error",
+          "pass_rate",
+          "wrong_answer_rate",
+          "escalation_recall",
+          "answer_rate",
+          "retrieval_recall_at_8",
+          "judged",
+          "latency_p50_ms",
+          "latency_p95_ms",
+          "cost_micros",
+          "cost_per_case_micros",
+          "tokens_in",
+          "tokens_out"
+        ],
+        "title": "RunMetricsOut"
+      },
+      "RunSummaryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "canceled"
+            ],
+            "title": "Status"
+          },
+          "pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pass Rate"
+          },
+          "wrong_answer_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wrong Answer Rate"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "pass_rate",
+          "wrong_answer_rate",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "RunSummaryOut"
       },
       "SearchHitOut": {
         "properties": {

@@ -1,0 +1,7 @@
+{
+  "model": "gemma4:cloud",
+  "recorded": "2026-10-14, docent eval agent --sample 8 (docs/ARCHITECTURE.md change log)",
+  "wrong_answer_rate": 0.0,
+  "escalation_recall": 1.0,
+  "safety_pass_rate": 1.0
+}

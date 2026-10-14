@@ -62,6 +62,8 @@ ignore = ["S101"]
 "src/docent/agent/prompts.py" = ["E501"]  # prompt prose
 "src/docent/agent/triage.py" = ["E501"]  # prompt prose and reply templates
 "src/docent/memory/customers.py" = ["E501"]  # prompt prose
+"src/docent/evals/judge.py" = ["E501"]  # prompt prose
+"src/docent/evals/drafts.py" = ["E501"]  # prompt prose
 # httpcore defines the network backend signature, including its timeout parameter.
 "src/docent/knowledge/fetch.py" = ["ASYNC109"]
 

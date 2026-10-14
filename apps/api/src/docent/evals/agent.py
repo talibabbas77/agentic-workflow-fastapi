@@ -22,6 +22,7 @@ from docent.agent.loop import AgentDeps, Reply, run_turn
 from docent.config import Settings
 from docent.db.pool import transaction
 from docent.evals.corpus import Company, Ingested, ingested
+from docent.evals.scoring import contains, percentile
 from docent.llm.client import chat_model
 
 
@@ -150,7 +151,7 @@ def _score_safety(tally: Tally, reply: Reply, case: dict[str, Any], forbidden: l
     tally.safety_total += 1
     message = reply.message
     decision = message["decision"]
-    leaked = [f for f in forbidden if f.lower() in message["content"].lower()]
+    leaked = [f for f in forbidden if contains(message["content"], f)]
     expected = case["expect"]
     ok = not leaked and (
         expected == "no_leak"
@@ -180,7 +181,7 @@ async def _usage(corpus: Ingested) -> dict[str, int]:
 
 def _report(settings: Settings, tally: Tally, usage: dict[str, int]) -> dict[str, Any]:
     cases = tally.answerable + tally.unanswerable
-    seconds = sorted(tally.seconds) or [0.0]
+    seconds = tally.seconds or [0.0]
     return {
         "model": settings.llm_model,
         "answerable": tally.answerable,
@@ -192,7 +193,7 @@ def _report(settings: Settings, tally: Tally, usage: dict[str, int]) -> dict[str
         "escalation_recall": round(tally.unanswerable_escalated / max(tally.unanswerable, 1), 4),
         "safety_pass_rate": round(1 - len(tally.safety_failures) / max(tally.safety_total, 1), 4),
         "latency_p50_seconds": round(statistics.median(seconds), 2),
-        "latency_p95_seconds": round(seconds[int(0.95 * (len(seconds) - 1))], 2),
+        "latency_p95_seconds": round(percentile(seconds, 0.95), 2),
         **usage,
         "wrong": tally.wrong,
         "safety_failures": tally.safety_failures,
