@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { titleFor } from "./nav";
+import { NotificationsBell, NotificationsProvider } from "./notifications";
 import { SidebarContent } from "./sidebar";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
@@ -17,73 +18,76 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
   const closeDrawer = () => drawer.current?.close();
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)]">
-      <a
-        href="#main"
-        className="sr-only z-50 rounded-md border border-line-strong bg-surface px-3 py-2 text-base font-medium text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
-      >
-        Skip to content
-      </a>
-      <aside className="sticky top-0 hidden h-dvh border-r border-line lg:block">
-        <SidebarContent me={me} />
-      </aside>
-
-      <dialog
-        ref={drawer}
-        aria-label="Navigation"
-        className="drawer fixed inset-y-0 right-auto left-0 m-0 h-dvh max-h-none w-72 max-w-[85vw] border-r border-line bg-paper p-0 text-ink"
-        onClick={(event) => {
-          if (event.target === event.currentTarget) closeDrawer();
-        }}
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={closeDrawer}
-          aria-label="Close navigation"
-          className="absolute top-2.5 right-2.5 z-10"
+    <NotificationsProvider>
+      <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_minmax(0,1fr)]">
+        <a
+          href="#main"
+          className="sr-only z-50 rounded-md border border-line-strong bg-surface px-3 py-2 text-base font-medium text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
         >
-          <XIcon aria-hidden="true" className="size-4.5" />
-        </Button>
-        <SidebarContent me={me} onNavigate={closeDrawer} />
-      </dialog>
+          Skip to content
+        </a>
+        <aside className="sticky top-0 hidden h-dvh border-r border-line lg:block">
+          <SidebarContent me={me} />
+        </aside>
 
-      <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-20 shrink-0 border-b border-line bg-paper">
-          <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-4 sm:px-8 lg:px-10">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => drawer.current?.showModal()}
-              aria-label="Open navigation"
-              className="-ml-2 lg:hidden"
-            >
-              <ListIcon aria-hidden="true" className="size-4.5" />
-            </Button>
-            <p className="flex min-w-0 items-center gap-2 text-md">
-              {trail.map((part, index) => (
-                <span key={part} className="flex min-w-0 items-center gap-2">
-                  {index > 0 ? (
-                    <span aria-hidden="true" className="text-ink-subtle">
-                      /
+        <dialog
+          ref={drawer}
+          aria-label="Navigation"
+          className="drawer fixed inset-y-0 right-auto left-0 m-0 h-dvh max-h-none w-72 max-w-[85vw] border-r border-line bg-paper p-0 text-ink"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeDrawer();
+          }}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={closeDrawer}
+            aria-label="Close navigation"
+            className="absolute top-2.5 right-2.5 z-10"
+          >
+            <XIcon aria-hidden="true" className="size-4.5" />
+          </Button>
+          <SidebarContent me={me} onNavigate={closeDrawer} />
+        </dialog>
+
+        <div className="flex min-w-0 flex-col">
+          <header className="sticky top-0 z-20 shrink-0 border-b border-line bg-paper">
+            <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-2 px-4 sm:px-8 lg:px-10">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => drawer.current?.showModal()}
+                aria-label="Open navigation"
+                className="-ml-2 lg:hidden"
+              >
+                <ListIcon aria-hidden="true" className="size-4.5" />
+              </Button>
+              <p className="flex min-w-0 items-center gap-2 text-md">
+                {trail.map((part, index) => (
+                  <span key={part} className="flex min-w-0 items-center gap-2">
+                    {index > 0 ? (
+                      <span aria-hidden="true" className="text-ink-subtle">
+                        /
+                      </span>
+                    ) : null}
+                    <span className={index === trail.length - 1 ? "truncate font-medium text-ink" : "text-ink-muted"}>
+                      {part}
                     </span>
-                  ) : null}
-                  <span className={index === trail.length - 1 ? "truncate font-medium text-ink" : "text-ink-muted"}>
-                    {part}
                   </span>
-                </span>
-              ))}
-            </p>
-            <div className="ml-auto flex items-center gap-1.5">
-              <ThemeToggle />
-              <UserMenu me={me} />
+                ))}
+              </p>
+              <div className="ml-auto flex items-center gap-1.5">
+                <NotificationsBell />
+                <ThemeToggle />
+                <UserMenu me={me} />
+              </div>
             </div>
-          </div>
-        </header>
-        <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-8 lg:px-10 lg:py-10">
-          {children}
-        </main>
+          </header>
+          <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-8 lg:px-10 lg:py-10">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </NotificationsProvider>
   );
 }

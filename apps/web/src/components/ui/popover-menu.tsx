@@ -50,7 +50,8 @@ export function PopoverMenu({ trigger, children, align = "start", label, classNa
     menu.style.minWidth = `${Math.round(rect.width)}px`;
   };
 
-  // Once open, the menu has a size: flip it above the trigger if it would run off the bottom.
+  // Once open, the menu has a size: flip it above the trigger if it would run off the bottom,
+  // and keep a wide menu inside the window on a phone.
   const fit = () => {
     const button = triggerRef.current;
     const menu = menuRef.current;
@@ -59,6 +60,14 @@ export function PopoverMenu({ trigger, children, align = "start", label, classNa
     const height = menu.offsetHeight;
     if (rect.bottom + 6 + height > window.innerHeight && rect.top - 6 - height >= 0) {
       menu.style.top = `${Math.round(rect.top - 6 - height)}px`;
+    }
+    const box = menu.getBoundingClientRect();
+    if (box.left < 8) {
+      menu.style.right = "auto";
+      menu.style.left = "8px";
+    } else if (box.right > window.innerWidth - 8) {
+      menu.style.left = "auto";
+      menu.style.right = "8px";
     }
   };
 

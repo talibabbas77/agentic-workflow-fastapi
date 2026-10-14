@@ -12,6 +12,7 @@ import type {
 import { KanbanIcon, ListBulletsIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { InboxIllustration } from "@/components/illustrations/illustrations";
+import { useNotifications } from "@/components/shell/notifications";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
@@ -77,6 +78,13 @@ export function InboxManager({
   }, [page]);
 
   const counts = (view === "list" ? page?.counts : board?.counts) ?? page?.counts ?? board?.counts ?? ZERO;
+
+  // The list refreshes every few seconds: keep the Inbox badge in step with it.
+  const { setInboxUnread } = useNotifications();
+  const loaded = (view === "list" ? page?.counts : board?.counts) !== undefined;
+  useEffect(() => {
+    if (loaded) setInboxUnread(counts.unread);
+  }, [loaded, counts.unread, setInboxUnread]);
   const total = counts.open + counts.assigned + counts.waiting + counts.resolved;
 
   const load = useCallback(

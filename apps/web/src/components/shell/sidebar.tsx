@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/cn";
 import { isActive, mainNav, settingsNav, type NavItem } from "./nav";
+import { InboxBadge } from "./notifications";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
 function NavLink({ item, pathname, onNavigate }: { item: NavItem; pathname: string; onNavigate?: () => void }) {
@@ -27,6 +28,7 @@ function NavLink({ item, pathname, onNavigate }: { item: NavItem; pathname: stri
         weight={active ? "fill" : "regular"}
       />
       {item.label}
+      {item.href === "/app/inbox" ? <InboxBadge /> : null}
     </Link>
   );
 }

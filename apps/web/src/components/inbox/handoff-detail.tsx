@@ -5,6 +5,7 @@ import { ArrowLeftIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AddToEvalSet } from "@/components/evals/add-to-eval-set";
+import { useNotifications } from "@/components/shell/notifications";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -40,10 +41,14 @@ export function HandoffDetail({
   const [detail, setDetail] = useState(initial);
   const [saving, setSaving] = useState(false);
   const id = detail.item.id;
+  const { refresh: refreshNotifications } = useNotifications();
 
+  // Reading a handoff also reads its notifications: the badge and the bell catch up at once.
   const markRead = useCallback(() => {
-    void request(api.POST("/v1/inbox/{escalation_id}/read", { params: { path: { escalation_id: id } } }));
-  }, [id]);
+    void request(api.POST("/v1/inbox/{escalation_id}/read", { params: { path: { escalation_id: id } } })).then(
+      (result) => (result.ok ? refreshNotifications() : undefined),
+    );
+  }, [id, refreshNotifications]);
 
   useEffect(markRead, [markRead]);
 

@@ -57,7 +57,7 @@ export function MetricsDashboard({ metrics }: { metrics: ProductionMetrics }) {
               {
                 label: "Conversations",
                 value: formatCount(m.conversations),
-                note: `${formatCount(m.answers)} ${plural(m.answers, "answer")} given`,
+                note: `${formatCount(m.answers)} ${plural(m.answers, "answer")}, ${formatCount(m.voted_up)} voted up, ${formatCount(m.voted_down)} down`,
               },
               {
                 label: "Resolved automatically",
@@ -67,12 +67,12 @@ export function MetricsDashboard({ metrics }: { metrics: ProductionMetrics }) {
               {
                 label: "Resolved, confirmed",
                 value: formatPercent(m.confirmed_resolution_rate),
-                note: `${formatCount(m.confirmed_resolved)} graded right in review`,
+                note: `${formatCount(m.confirmed_resolved)} confirmed by a customer or in review`,
               },
               {
                 label: "Wrong-answer rate",
                 value: formatPercent(m.wrong_answer_rate, 1),
-                note: `${formatCount(m.marked_wrong)} of ${formatCount(m.answers)} answers marked wrong`,
+                note: `${formatCount(m.wrong_answers)} of ${formatCount(m.answers)} answers marked wrong or voted down`,
                 warn: (m.wrong_answer_rate ?? 0) > 0.05,
                 quiet: m.wrong_answer_rate === null,
               },
@@ -98,6 +98,7 @@ export function MetricsDashboard({ metrics }: { metrics: ProductionMetrics }) {
                 note: `${formatCount(m.reviewed)} graded in this period`,
                 quiet: m.review_wrong_rate === null,
               },
+
             ]}
           />
 
@@ -136,14 +137,20 @@ export function MetricsDashboard({ metrics }: { metrics: ProductionMetrics }) {
             </CardHeader>
             <dl className="grid gap-x-8 gap-y-4 px-6 py-5 text-sm sm:grid-cols-2">
               <Definition term="Resolved automatically">
-                Quiet for 30 minutes, no handoff, nothing marked wrong, and the agent&apos;s last answer cited a source or
-                the customer&apos;s verified details.
+                Quiet for 30 minutes, no handoff, nothing marked wrong, no thumbs down from the customer, and the
+                agent&apos;s last answer cited a source or the customer&apos;s verified details.
               </Definition>
               <Definition term="Resolved, confirmed">
-                A teammate graded the conversation right in the weekly review. The widget does not ask customers yet.
+                The customer gave an answer a thumbs up, with no thumbs down and no handoff in the conversation, or a
+                teammate graded the conversation right in the weekly review.
               </Definition>
               <Definition term="Wrong-answer rate">
-                Answers marked wrong in the inbox or graded wrong in the review, out of every answer in the period.
+                Answers marked wrong in the inbox, graded wrong in the review, or voted down by the customer, out of
+                every answer in the period. An answer with more than one of these counts once.
+              </Definition>
+              <Definition term="Customer votes">
+                &ldquo;Was this helpful?&rdquo; under each answer in the widget. Customers can change or take back a vote;
+                the latest one counts.
               </Definition>
               <Definition term="Answer latency">
                 The answer model&apos;s time per answer. Handoffs decided by rules take no model time.
