@@ -27,6 +27,7 @@ from docent.api.schemas import (
 )
 from docent.api.views import build_me
 from docent.db.pool import set_context, transaction
+from docent.email.links import seal_link
 from docent.jobs import queue
 from docent.jobs.handlers import SEND_EMAIL
 from docent.security import ratelimit
@@ -71,7 +72,9 @@ async def signup(body: SignupIn, request: Request, response: Response, state: St
                 "data": {
                     "to": str(body.email),
                     "name": body.name,
-                    "url": _verify_url(state, token),
+                    **seal_link(
+                        state.settings.secret_key.get_secret_value(), _verify_url(state, token)
+                    ),
                     "ttl_hours": s.verify_token_ttl_hours,
                 },
             },
@@ -178,7 +181,9 @@ async def resend_verification(user: CurrentUser, state: State) -> None:
                 "data": {
                     "to": user.email,
                     "name": user.name,
-                    "url": _verify_url(state, token),
+                    **seal_link(
+                        state.settings.secret_key.get_secret_value(), _verify_url(state, token)
+                    ),
                     "ttl_hours": s.verify_token_ttl_hours,
                 },
             },
@@ -207,7 +212,10 @@ async def forgot_password(body: ForgotPasswordIn, request: Request, state: State
                 "data": {
                     "to": user["email"],
                     "name": user["name"],
-                    "url": f"{s.web_origin}/reset-password?token={token}",
+                    **seal_link(
+                        s.secret_key.get_secret_value(),
+                        f"{s.web_origin}/reset-password?token={token}",
+                    ),
                     "ttl_minutes": s.reset_token_ttl_minutes,
                 },
             },

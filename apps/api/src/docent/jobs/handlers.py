@@ -4,9 +4,11 @@ import uuid
 from collections.abc import Callable
 
 from docent.email import templates
+from docent.email.links import open_link
 from docent.email.sender import EmailSender, OutgoingEmail
 from docent.inbox import deliveries
 from docent.jobs.worker import Handler, JobContext, PermanentJobError
+from docent.security.secretbox import SecretError
 
 SEND_EMAIL = deliveries.SEND_EMAIL
 
@@ -29,7 +31,7 @@ def build_email(template: str, data: dict[str, object]) -> OutgoingEmail:
     return builder(**data)
 
 
-def make_handlers(sender: EmailSender) -> dict[str, Handler]:
+def make_handlers(sender: EmailSender, secret_key: str) -> dict[str, Handler]:
     async def send_email(ctx: JobContext) -> None:
         payload = ctx.job.payload
         tenant_id = ctx.job.tenant_id
@@ -46,8 +48,10 @@ def make_handlers(sender: EmailSender) -> dict[str, Handler]:
         ):
             return
         try:
-            email = build_email(str(payload["template"]), dict(payload["data"]))
-        except (TypeError, ValueError) as exc:
+            email = build_email(
+                str(payload["template"]), open_link(secret_key, dict(payload["data"]))
+            )
+        except (TypeError, ValueError, SecretError) as exc:
             if tenant_id and delivery_id:
                 await deliveries.mark_failed(
                     ctx.pool, tenant_id, delivery_id, notification_id, str(exc), 1, final=True

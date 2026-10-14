@@ -31,6 +31,7 @@ from docent.api.schemas import (
 )
 from docent.api.views import build_me
 from docent.db.pool import set_context, transaction
+from docent.email.links import seal_link
 from docent.ids import hash_token
 from docent.jobs import queue
 from docent.jobs.handlers import SEND_EMAIL
@@ -122,7 +123,9 @@ async def invite(body: InviteIn, member: AdminMember, state: State) -> Invitatio
                     "inviter": member.user.name,
                     "workspace": tenant["name"],
                     "role": body.role,
-                    "url": f"{s.web_origin}/invite?token={token}",
+                    **seal_link(
+                        s.secret_key.get_secret_value(), f"{s.web_origin}/invite?token={token}"
+                    ),
                     "ttl_days": s.invite_ttl_days,
                 },
             },

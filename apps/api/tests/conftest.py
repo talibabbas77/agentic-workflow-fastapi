@@ -262,7 +262,7 @@ async def worker(
             yield app_pool  # the API's docent_app pool, shared, so not closed here
 
         handlers = (
-            make_handlers(mailbox)
+            make_handlers(mailbox, settings.secret_key.get_secret_value())
             | make_knowledge_handlers(knowledge)
             | make_escalation_handlers(chat, settings)
             | make_memory_handlers(chat)

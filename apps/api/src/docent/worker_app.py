@@ -63,7 +63,7 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
         )
         summarizer = chat_model(settings, ollama, settings.llm_summary_model or settings.llm_model)
         io = (
-            make_handlers(SmtpEmailSender(settings))
+            make_handlers(SmtpEmailSender(settings), settings.secret_key.get_secret_value())
             | make_escalation_handlers(summarizer, settings)
             | make_memory_handlers(summarizer)
             | make_inbox_handlers(
