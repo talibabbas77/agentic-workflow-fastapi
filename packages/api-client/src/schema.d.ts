@@ -2053,27 +2053,23 @@ export interface components {
         /** CaseSnapshotOut */
         CaseSnapshotOut: {
             /** History */
-            history?: components["schemas"]["HistoryTurn"][];
+            history: components["schemas"]["HistoryTurn"][];
             /** Identity */
-            identity?: {
+            identity: {
                 [key: string]: string;
             } | null;
-            /**
-             * Reference Answer
-             * @default
-             */
+            /** Reference Answer */
             reference_answer: string;
             /** Must Include */
-            must_include?: string[];
+            must_include: string[];
             /** Must Not Include */
-            must_not_include?: string[];
+            must_not_include: string[];
             /** Gold Documents */
-            gold_documents?: components["schemas"]["GoldDocumentOut"][];
+            gold_documents: components["schemas"]["GoldDocumentOut"][];
             /** Tags */
-            tags?: string[];
+            tags: string[];
             /**
              * Origin
-             * @default manual
              * @enum {string}
              */
             origin: "manual" | "generated" | "conversation";
@@ -3725,14 +3721,17 @@ export interface components {
             type: ("answer" | "clarify" | "escalate" | "reply") | null;
             /** Content */
             content: string;
-            /** Reason */
-            reason?: string | null;
+            /**
+             * Reason
+             * @description Why it handed off
+             */
+            reason: string | null;
             /** Confidence */
-            confidence?: ("high" | "medium" | "low") | null;
+            confidence: ("high" | "medium" | "low") | null;
             /** Account Facts */
-            account_facts?: string[];
+            account_facts: string[];
             /** Citations */
-            citations?: components["schemas"]["ResultCitationOut"][];
+            citations: components["schemas"]["ResultCitationOut"][];
         };
         /** RetrievedOut */
         RetrievedOut: {

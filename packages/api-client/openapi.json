@@ -9270,8 +9270,7 @@
           },
           "reference_answer": {
             "type": "string",
-            "title": "Reference Answer",
-            "default": ""
+            "title": "Reference Answer"
           },
           "must_include": {
             "items": {
@@ -9308,11 +9307,20 @@
               "generated",
               "conversation"
             ],
-            "title": "Origin",
-            "default": "manual"
+            "title": "Origin"
           }
         },
         "type": "object",
+        "required": [
+          "history",
+          "identity",
+          "reference_answer",
+          "must_include",
+          "must_not_include",
+          "gold_documents",
+          "tags",
+          "origin"
+        ],
         "title": "CaseSnapshotOut"
       },
       "CasesChangedOut": {
@@ -13664,7 +13672,8 @@
                 "type": "null"
               }
             ],
-            "title": "Reason"
+            "title": "Reason",
+            "description": "Why it handed off"
           },
           "confidence": {
             "anyOf": [
@@ -13700,7 +13709,11 @@
         "type": "object",
         "required": [
           "type",
-          "content"
+          "content",
+          "reason",
+          "confidence",
+          "account_facts",
+          "citations"
         ],
         "title": "ResultOutputOut"
       },

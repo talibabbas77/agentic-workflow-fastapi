@@ -16,6 +16,8 @@ from fastapi import APIRouter, Query, status
 from docent.api.deps import AdminMember, CurrentMember, State
 from docent.api.errors import AppError, not_found
 from docent.api.eval_schemas import (
+    OUTPUT_DEFAULTS,
+    SNAPSHOT_DEFAULTS,
     CalibrationOut,
     CaseChangeOut,
     CaseIdsIn,
@@ -197,8 +199,8 @@ def _result_out(row: asyncpg.Record) -> EvalResultOut:
         position=row["position"],
         question=row["question"],
         expected=row["expected"],
-        case=CaseSnapshotOut.model_validate(row["case_snapshot"] or {}),
-        output=ResultOutputOut.model_validate(row["output"] or {"type": None, "content": ""}),
+        case=CaseSnapshotOut.model_validate(SNAPSHOT_DEFAULTS | (row["case_snapshot"] or {})),
+        output=ResultOutputOut.model_validate(OUTPUT_DEFAULTS | (row["output"] or {})),
         retrieved=row["retrieved"] or [],
         checks=row["checks"] or [],
         verdict=row["verdict"],

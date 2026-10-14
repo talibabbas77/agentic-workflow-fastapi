@@ -258,21 +258,44 @@ class RetrievedOut(BaseModel):
 class ResultOutputOut(BaseModel):
     type: ReplyType | None = Field(description="None when the case could not run")
     content: str
-    reason: str | None = None
-    confidence: Literal["high", "medium", "low"] | None = None
-    account_facts: list[str] = Field(default_factory=list)
-    citations: list[ResultCitationOut] = Field(default_factory=list)
+    reason: str | None = Field(description="Why it handed off")
+    confidence: Literal["high", "medium", "low"] | None
+    account_facts: list[str]
+    citations: list[ResultCitationOut]
+
+
+# Stored results written before a field existed read as these.
+OUTPUT_DEFAULTS: dict[str, object] = {
+    "type": None,
+    "content": "",
+    "reason": None,
+    "confidence": None,
+    "account_facts": [],
+    "citations": [],
+}
 
 
 class CaseSnapshotOut(BaseModel):
-    history: list[HistoryTurn] = Field(default_factory=list)
-    identity: dict[str, str] | None = None
-    reference_answer: str = ""
-    must_include: list[str] = Field(default_factory=list)
-    must_not_include: list[str] = Field(default_factory=list)
-    gold_documents: list[GoldDocumentOut] = Field(default_factory=list)
-    tags: list[str] = Field(default_factory=list)
-    origin: CaseOrigin = "manual"
+    history: list[HistoryTurn]
+    identity: dict[str, str] | None
+    reference_answer: str
+    must_include: list[str]
+    must_not_include: list[str]
+    gold_documents: list[GoldDocumentOut]
+    tags: list[str]
+    origin: CaseOrigin
+
+
+SNAPSHOT_DEFAULTS: dict[str, object] = {
+    "history": [],
+    "identity": None,
+    "reference_answer": "",
+    "must_include": [],
+    "must_not_include": [],
+    "gold_documents": [],
+    "tags": [],
+    "origin": "manual",
+}
 
 
 class EvalResultOut(BaseModel):
