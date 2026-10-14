@@ -68,16 +68,32 @@ Run everything in containers instead: `pnpm stack:up` (and `pnpm stack:down`).
 SEED_OWNER_PASSWORD='your password' pnpm seed --owner-email you@example.com
 ```
 
-Creates two fictional companies (Lumen Notes and Parcelwise) with teammates,
-roles, and pending invitations, and makes you owner of one and admin of the
-other. Teammates use public `@mailinator.com` inboxes and the password
-`docent-demo-password`. Add `--reset` to rebuild from scratch. Local and test
-environments only.
+Four fictional companies cover every plan state, and your account has a
+different role in each, so one login shows the owner, admin, and agent views:
 
-With the API running, the seed also teaches each company's agent from its help
-center in `fixtures/golden` and installs a widget on the demo host. The widget's
-private signing key is saved to `.data/demo-host/` (git-ignored, owner-only).
-Then run `pnpm demo-host` and open http://localhost:5173 to chat as an
+| Workspace | Plan | You are | Teammates (password `Docent@123`) |
+|---|---|---|---|
+| Lumen Notes | Growth, active | owner | Maya Chen (admin), Omar Haddad and Priya Nair (agents) |
+| Parcelwise | Scale, active | admin | Lucas Martin (owner), Sofia Rossi and Kenji Watanabe (agents) |
+| Tallyfox | Starter, payment failed, in its grace period | agent | Nina Okafor (owner), Daniel Weber (admin) |
+| Fernway Studio | Trial, 9 days left, empty | owner | a pending invitation |
+
+Teammates sign in as `docent-<first>.<last>@mailinator.com`, for example
+`docent-maya.chen@mailinator.com`. Set `SEED_DEMO_PASSWORD` to use a different
+password.
+
+With the API and worker running, the seed also teaches each company's agent
+from its help center (`fixtures/golden` and `fixtures/demo`), adds ticket types
+and team answers, installs a widget on the demo host, and then has about 40
+customer conversations with the real agent: answers with citations, small talk,
+off-topic questions, handoffs with summaries, signed-in customers and anonymous
+visitors. Those are spread over the past month, handoffs are mostly resolved,
+earlier months get usage history, and signed-in customers get their memory.
+This takes a few minutes; `--no-conversations` skips it. `--reset` rebuilds
+from scratch. Local and test environments only.
+
+The widget's private signing key is saved to `.data/demo-host/` (git-ignored,
+owner-only). Run `pnpm demo-host` and open http://localhost:5173 to chat as an
 anonymous visitor or sign in as one of the demo customers.
 
 No `.env` file is needed locally. Copy `.env.example` to `.env` to change

@@ -13,6 +13,7 @@ API_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = (repo_root() or API_ROOT) / "fixtures" / "golden"
 SAFETY = (repo_root() or API_ROOT) / "fixtures" / "agent"
 DEMO_KEYS = (repo_root() or API_ROOT) / ".data" / "demo-host"
+SEED_FIXTURES = (repo_root() or API_ROOT) / "fixtures"
 
 
 def _alembic_config() -> object:
@@ -67,7 +68,12 @@ def main(argv: list[str] | None = None) -> None:
     seed.add_argument("--owner-name", default="Talib Abbas")
     seed.add_argument("--reset", action="store_true", help="Rebuild the demo data from scratch")
     seed.add_argument("--api-url", default="http://127.0.0.1:8000", help="Used to upload docs")
-    seed.add_argument("--fixtures", type=Path, default=FIXTURES)
+    seed.add_argument("--fixtures", type=Path, default=SEED_FIXTURES)
+    seed.add_argument(
+        "--no-conversations",
+        action="store_true",
+        help="Skip the customer conversations (they need the worker and the chat model)",
+    )
     seed.add_argument(
         "--demo-keys", type=Path, default=DEMO_KEYS, help="Where the demo host's signing keys go"
     )
@@ -116,6 +122,8 @@ def main(argv: list[str] | None = None) -> None:
                 api_url=args.api_url,
                 fixtures=args.fixtures,
                 demo_keys=args.demo_keys,
+                with_conversations=not args.no_conversations,
+                say=lambda line: print(line, flush=True),
             )
         ):
             print(line)

@@ -11,7 +11,7 @@ import pytest
 from jwt.algorithms import ECAlgorithm
 
 from docent.config import Settings
-from docent.seed import DEMO_HOST_ORIGIN, WORKSPACES, _install_widget, seed
+from docent.seed import DEMO_HOST_ORIGIN, DEMO_PASSWORD, WORKSPACES, install_widget, seed
 from tests.conftest import ClientFactory, make_settings
 
 OWNER = "owner.demo@example.com"
@@ -32,7 +32,12 @@ async def test_seed_creates_walkthrough_and_is_repeatable(
     assert login.status_code == 200
     me = login.json()
     roles = {t["name"]: t["role"] for t in me["tenants"]}
-    assert roles == {"Lumen Notes": "owner", "Parcelwise": "admin"}
+    assert roles == {
+        "Lumen Notes": "owner",
+        "Parcelwise": "admin",
+        "Tallyfox": "agent",
+        "Fernway Studio": "owner",
+    }
     assert me["user"]["email_verified"] is True
 
     listing = (await client.get("/v1/members")).json()
@@ -41,9 +46,21 @@ async def test_seed_creates_walkthrough_and_is_repeatable(
         "docent-jordan.lee@mailinator.com",
         "docent-ava.brooks@mailinator.com",
     }
+    plans = {}
+    for tenant in me["tenants"]:
+        await client.post("/v1/auth/switch-tenant", json={"tenant_id": tenant["id"]})
+        billing = (await client.get("/v1/billing")).json()
+        plans[tenant["name"]] = (billing["plan"]["id"], billing["status"], billing["active"])
+    assert plans == {
+        "Lumen Notes": ("growth", "active", True),
+        "Parcelwise": ("scale", "active", True),
+        "Tallyfox": ("starter", "past_due", True),  # inside its grace period
+        "Fernway Studio": ("trial", "trialing", True),
+    }
+
     teammate = await client_factory().post(
         "/v1/auth/login",
-        json={"email": "docent-omar.haddad@mailinator.com", "password": "docent-demo-password"},
+        json={"email": "docent-omar.haddad@mailinator.com", "password": DEMO_PASSWORD},
     )
     assert teammate.status_code == 200
     assert teammate.json()["active_tenant"]["role"] == "agent"
@@ -80,10 +97,8 @@ async def test_seed_installs_widget_the_demo_host_can_sign_for(
     assert login.status_code == 200
     lumen = WORKSPACES[0]
 
-    assert (await _install_widget(api, lumen, tmp_path)).endswith(
-        f"installed on {DEMO_HOST_ORIGIN}"
-    )
-    assert (await _install_widget(api, lumen, tmp_path)).endswith(
+    assert (await install_widget(api, lumen, tmp_path)).endswith(f"installed on {DEMO_HOST_ORIGIN}")
+    assert (await install_widget(api, lumen, tmp_path)).endswith(
         "already installed on the demo host"
     )
     key_file = tmp_path / "lumen-notes.json"
@@ -92,7 +107,7 @@ async def test_seed_installs_widget_the_demo_host_can_sign_for(
     # A lost key file means a fresh key; the oldest is retired so two stay active at most.
     for _ in range(2):
         key_file.unlink()
-        await _install_widget(api, lumen, tmp_path)
+        await install_widget(api, lumen, tmp_path)
     (widget,) = (await api.get("/v1/widgets")).json()
     assert [k["status"] for k in widget["keys"]].count("active") == 2
     assert widget["allowed_origins"] == [DEMO_HOST_ORIGIN]

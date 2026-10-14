@@ -612,6 +612,29 @@ summary (`issue, tried, user_context, sentiment, suggested_next_step`) for the
 inbox. Placeholder values such as "unknown" or "anonymous visitor" are dropped
 before they reach a field.
 
+### What the agent remembers
+
+| Memory | Lives in | Comes from | Who sees it | How long |
+|---|---|---|---|---|
+| Help articles | `knowledge_sources`, `documents`, `chunks` | Files, pages, sitemaps the team adds | Every visitor (by audience) | Until removed |
+| Team answers | `team_answers`, as sources of kind `answer` | The team, often from a knowledge gap | Every visitor (by audience), cited like an article | Until removed |
+| Conversation | `messages` | The current conversation, last 6 turns | That conversation | 90 days |
+| Customer memory | `customer_memories` | A worker job, once a signed-in customer's conversation has been quiet for 15 minutes | That customer only, as notes | 90 days, up to 20 facts |
+| Knowledge gaps | `knowledge_gaps` | Product questions handed off with no supporting source | The team, grouped by meaning | Until answered or dismissed |
+
+Only help articles and team answers are sources: an answer must cite one of
+them. Customer memory reaches the model in a `<customer_memory>` block that
+the rules call notes, never a source, so it can shape an answer ("on Windows,
+sign out and back in") but cannot be the answer. It keeps no secrets, card or
+bank numbers, phone numbers, or emails, and the team can make the agent forget
+one fact or one customer. Anonymous visitors are never remembered across
+conversations.
+
+Gaps close the loop: the team sees the questions the agent could not answer,
+grouped by meaning with the query vectors retrieval already computed, and
+answers a group with one team answer, which the agent then cites. The memory
+page in the admin app draws all of this as a map.
+
 ### Prompt injection defenses
 
 - All visitor text and all document text are untrusted. The system prompt says

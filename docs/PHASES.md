@@ -280,6 +280,11 @@ because this phase deploys staging on real HTTPS origins.
 
 ## Phase 5. Admin inbox and notifications
 
+**Not started.** Two pieces it builds on landed early: handoffs now carry a
+reliable contact email (asked of anonymous visitors in the chat), and the
+memory page shows knowledge gaps and team answers, so the team can already
+teach the agent from what it could not answer.
+
 **Goal:** escalations reach the right person quickly, with enough context to
 reply without asking the customer to repeat themselves.
 
@@ -353,6 +358,17 @@ and escalates, and no prompt or model change ships if it makes those worse.
 ---
 
 ## Phase 7. Usage metering, caps, billing
+
+**Status: billing built 2026-10-14 ahead of Phases 5 and 6, on Stripe (D19),
+waiting for review.** Built: subscriptions with trials and plan states, live
+reply caps from the plan, 80 and 100 percent emails, escalate-only mode when a
+trial ends, a payment stays failed past the 7 day grace, or a plan is canceled,
+plan limits on widgets, seats, and pages, Stripe checkout, customer portal, and
+signed idempotent webhooks, and the billing page. Checks 2, 4, and 5 (upgrade
+part) run in the API suite; the gateway runs against stripe-mock in CI. Not yet
+built: top-up packs, the internal cost and margin dashboard, the Redis command
+budget alerts, and the load test in check 1. Live payments need your Stripe
+keys; see the README.
 
 **Goal:** tenants pay a predictable monthly price, can never be billed past
 their cap, and their customers never hit a dead widget.
