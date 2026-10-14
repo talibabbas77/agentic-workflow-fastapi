@@ -322,7 +322,9 @@ class CitationOut(BaseModel):
 
 
 class DecisionOut(BaseModel):
-    type: Literal["answer", "clarify", "escalate"]
+    type: Literal["answer", "clarify", "escalate", "reply"] = Field(
+        description="reply: conversation such as a greeting, with no facts and no citations"
+    )
     confidence: Literal["high", "medium", "low"] | None
     reason: str | None
     citations: list[int]

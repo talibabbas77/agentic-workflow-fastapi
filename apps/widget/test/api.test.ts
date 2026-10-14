@@ -142,6 +142,13 @@ describe("api client", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ content: "How do refunds work?" });
   });
 
+  it("keeps conversational replies, which carry no citations", async () => {
+    const greeting = { ...MESSAGE, decision: { type: "reply", confidence: null, reason: null, citations: [] } };
+    const { api } = setup([sse([`event: message\ndata: ${JSON.stringify(greeting)}\n\n`])]);
+    const reply = await api.sendMessage("st_1", "c1", "hi", () => {});
+    expect(reply.decision?.type).toBe("reply");
+  });
+
   it("raises a stream error from an SSE error event", async () => {
     const { api } = setup([
       sse(['event: status\ndata: {"stage":"searching"}\n\nevent: error\ndata: {"code":"agent_error","message":"No"}\n\n']),

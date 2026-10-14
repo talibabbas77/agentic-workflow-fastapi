@@ -12,7 +12,8 @@ export interface Citation {
 }
 
 export interface Decision {
-  type: "answer" | "clarify" | "escalate";
+  /** reply: conversation such as a greeting, with no facts and no citations. */
+  type: "answer" | "clarify" | "escalate" | "reply";
   confidence: string | null;
   reason: string | null;
   citations: number[];

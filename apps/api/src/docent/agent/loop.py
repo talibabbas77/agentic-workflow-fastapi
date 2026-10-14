@@ -1,16 +1,22 @@
 """One conversation turn.
 
-  1. record    store the visitor message, reserve one reply from the monthly cap
-  2. guard     rules catch requests for a person and restricted topics (no model call)
-  3. retrieve  hybrid search over the tenant's knowledge, filtered by audience
-  4. gate      no source above the evidence threshold means a handoff (no model call),
-               unless the visitor is verified: then the model sees only their
-               account details, so "what plan am I on" can still be answered
-  5. generate  the model returns a structured decision with cited source numbers
-  6. validate  citations must point at retrieved sources, account answers must
+  1. record    store the visitor message; an email sent after a handoff becomes
+               the contact the team replies to
+  2. triage    rules recognize greetings, thanks, goodbyes, and "who are you" and
+               reply from templates (no model call, no reply counted); otherwise
+               reserve one reply from the monthly cap
+  3. guard     rules catch requests for a person and restricted topics (no model call)
+  4. retrieve  hybrid search over the tenant's knowledge, filtered by audience
+  5. gate      with no passage above the evidence threshold, one small model call
+               sorts the message: small talk and off-topic questions get a polite
+               reply, a vague one gets a clarifying question, an account question
+               from a verified visitor goes to the model with only their details,
+               and a real question without an answer becomes a handoff
+  6. generate  the model returns a structured decision with cited source numbers
+  7. validate  citations must point at retrieved sources, account answers must
                repeat a verified value, links must be the sources' own, and a
                second low-confidence turn becomes a handoff
-  7. persist   reply, citations, usage and cost, escalation and its summary job
+  8. persist   reply, citations, usage and cost, escalation and its summary job
 
 The generator yields progress events while it works and the final reply last,
 so a client can show what is happening without ever seeing an unchecked answer.
@@ -22,7 +28,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from docent.agent import guards, prompts, repo, usage
+from docent.agent import guards, prompts, repo, triage, usage
 from docent.agent.prompts import AgentDecision, AgentProfile, EscalationReason, Source
 from docent.billing import notifications, subscriptions
 from docent.config import Settings
@@ -35,19 +41,29 @@ from docent.llm.client import ChatModel, LLMError, Structured
 
 SUMMARIZE_ESCALATION = "summarize_escalation"
 
-HANDOFF_MESSAGES: dict[str, str] = {
-    "user_requested": "I am passing you to the team now. They will reply by email.",
-    "restricted_topic": "Our team handles this directly. I have passed your message on, "
-    "and they will reply by email.",
+HANDOFF_REASONS: dict[str, str] = {
+    "user_requested": "I am passing you to the team now.",
+    "restricted_topic": "Our team handles this directly, so I have passed your message on.",
     "no_source": "I could not find this in our help articles, so I have passed your question "
-    "to the team. They will reply by email.",
+    "to the team.",
     "low_confidence": "I am not sure enough to answer this well, so I have passed your question "
-    "to the team. They will reply by email.",
-    "repeated_failure": "I have passed this to the team so a person can help. They will reply "
-    "by email.",
-    "cap_reached": "The assistant is not available right now. I have passed your message to "
-    "the team, and they will reply by email.",
+    "to the team.",
+    "repeated_failure": "I have passed this to the team so a person can help.",
+    "cap_reached": "The assistant is not available right now, so I have passed your message to "
+    "the team.",
 }
+
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+
+
+def handoff_text(reason: str, *, contact: str | None, anonymous: bool) -> str:
+    """Say plainly how the team will get back: to a known email, or ask for one."""
+    base = HANDOFF_REASONS[reason]
+    if contact:
+        return f"{base} They will reply to {contact} by email."
+    if anonymous:
+        return f"{base} Leave your email below so they can reply."
+    return f"{base} They will follow up with you."
 
 
 class ConversationNotFound(Exception):
@@ -76,13 +92,14 @@ class Reply:
 
 @dataclass(slots=True)
 class _Outcome:
-    kind: Literal["answer", "clarify", "escalate"]
+    kind: Literal["answer", "clarify", "escalate", "reply"]
     text: str
     reason: EscalationReason | None = None
     confidence: str | None = None
     cited: list[tuple[int, Hit]] = field(default_factory=list)
     account_facts: list[str] = field(default_factory=list)
     generation: Structured[AgentDecision] | None = None
+    sorted_as: Structured[triage.Triage] | None = None
     low_confidence_turns: int = 0
 
 
@@ -99,13 +116,23 @@ async def run_turn(
         await repo.add_message(
             conn, tenant_id=tenant_id, conversation_id=conversation_id, role="visitor", content=text
         )
-        cap = await subscriptions.reply_cap(conn, tenant_id)
-        reserved = await usage.reserve_reply(conn, tenant_id, cap)
+        anonymous = conversation["mode"] == "anonymous"
+        captured = await _capture_contact(conn, conversation_id, text) if anonymous else None
+        small = None if captured else triage.detect(text, profile)
+        reserved = False
+        if not (captured or small):
+            cap = await subscriptions.reply_cap(conn, tenant_id)
+            reserved = await usage.reserve_reply(conn, tenant_id, cap)
+        claims: dict[str, str] = dict(conversation["claims"] or {})
+        contact = claims.get("email") or await repo.handoff_contact(conn, conversation_id)
 
-    claims: dict[str, str] = dict(conversation["claims"] or {})
     low_turns = int(conversation["low_confidence_turns"])
     try:
-        if not reserved:
+        if captured:
+            outcome = _Outcome("reply", f"Thanks. The team will reply to {captured}.")
+        elif small:
+            outcome = _Outcome("reply", triage.reply(small.kind, small.lang, profile))
+        elif not reserved:
             outcome = _escalate("cap_reached", low_turns)
         elif guards.asks_for_human(text):
             outcome = _escalate("user_requested", low_turns)
@@ -116,21 +143,32 @@ async def run_turn(
             hits = await _retrieve(deps, tenant_id, conversation["mode"], text, history)
             if not _supported(hits, s.retrieval_min_similarity):
                 hits = []
-            if not hits and not claims:
-                outcome = _escalate("no_source", low_turns)
-            else:
+            if hits:
                 yield Progress("writing")
                 outcome = await _generate(deps, profile, claims, hits, history, text, low_turns)
                 yield Progress("checking")
+            else:
+                sorted_as = await _triage(deps, profile, history, text)
+                if sorted_as and sorted_as.value.intent == "account_question" and claims:
+                    yield Progress("writing")
+                    outcome = await _generate(deps, profile, claims, [], history, text, low_turns)
+                    yield Progress("checking")
+                else:
+                    outcome = _route(sorted_as, profile, low_turns)
+                outcome.sorted_as = sorted_as
     except BaseException:
         if reserved:
             async with transaction(deps.pool, tenant_id=tenant_id) as conn:
                 await usage.settle_reply(conn, tenant_id, used=False)
         raise
 
+    if outcome.kind == "escalate":
+        assert outcome.reason is not None
+        contact = contact or _email_in(text)
+        outcome.text = handoff_text(outcome.reason, contact=contact, anonymous=anonymous)
     async with transaction(deps.pool, tenant_id=tenant_id) as conn:
         reply, escalation_id, emailed = await _persist(
-            conn, tenant_id, conversation_id, outcome, reserved, claims.get("email"), s.web_origin
+            conn, tenant_id, conversation_id, outcome, reserved, contact, s.web_origin
         )
     if (escalation_id or emailed) and deps.waker:
         await deps.waker.wake()
@@ -266,9 +304,69 @@ def _account_facts(named: list[str], claims: dict[str, str], answer: str) -> lis
 
 
 def _escalate(reason: EscalationReason, low_turns: int) -> _Outcome:
+    """The wording is set once the contact is known; see handoff_text."""
     return _Outcome(
-        "escalate", HANDOFF_MESSAGES[reason], reason=reason, low_confidence_turns=low_turns
+        "escalate", HANDOFF_REASONS[reason], reason=reason, low_confidence_turns=low_turns
     )
+
+
+async def _triage(
+    deps: AgentDeps, profile: AgentProfile, history: list[tuple[str, str]], text: str
+) -> Structured[triage.Triage] | None:
+    try:
+        return await deps.llm.structured(
+            triage.triage_messages(profile, history, text),
+            triage.Triage,
+            name="triage",
+            max_tokens=120,
+        )
+    except LLMError:
+        return None  # sorting failed: treat it as a question without an answer
+
+
+def _route(
+    sorted_as: Structured[triage.Triage] | None, profile: AgentProfile, low_turns: int
+) -> _Outcome:
+    """What to do with a message that found no supporting passage."""
+    if sorted_as is None:
+        return _escalate("no_source", low_turns)
+    found = sorted_as.value
+    match found.intent:
+        case "small_talk" | "off_topic":
+            return _Outcome("reply", triage.reply(found.intent, found.language, profile))
+        case "wants_person":
+            return _escalate("user_requested", low_turns)
+        case "unclear" if question := _clarifying(found.clarifying_question):
+            return _Outcome("clarify", question, low_confidence_turns=low_turns)
+        case _:
+            return _escalate("no_source", low_turns)
+
+
+def _clarifying(question: str | None) -> str | None:
+    """A model-written clarifying question is shown only if it is just a short question."""
+    text = (question or "").strip()
+    if not 3 <= len(text) <= 200 or text[-1] not in "?؟" or EMAIL.search(text):
+        return None
+    if guards.strip_untrusted_links(text, []) != text:
+        return None
+    return text
+
+
+def _email_in(text: str) -> str | None:
+    match = EMAIL.search(text)
+    return match.group(0).lower()[:254] if match else None
+
+
+async def _capture_contact(conn: Connection, conversation_id: uuid.UUID, text: str) -> str | None:
+    """An anonymous visitor who types an email after a handoff has answered our request."""
+    email = _email_in(text)
+    if email is None:
+        return None
+    escalation_id = await repo.handoff_waiting_for_contact(conn, conversation_id)
+    if escalation_id is None:
+        return None
+    await repo.set_handoff_contact(conn, escalation_id, email)
+    return email
 
 
 async def _persist(
@@ -283,13 +381,16 @@ async def _persist(
     """Store the reply and everything it caused. Returns the reply, the handoff it
     opened (if any), and whether a usage email was queued."""
     gen = outcome.generation
+    sorted_as = outcome.sorted_as
     decision = {
         "type": outcome.kind,
         "confidence": outcome.confidence,
         "reason": outcome.reason,
         "citations": [n for n, _ in outcome.cited],
         "account_facts": outcome.account_facts,
+        "intent": sorted_as.value.intent if sorted_as else None,
     }
+    call = gen or sorted_as
     message_id = await repo.add_message(
         conn,
         tenant_id=tenant_id,
@@ -297,11 +398,13 @@ async def _persist(
         role="agent",
         content=outcome.text,
         decision=decision,
-        model=gen.model if gen else None,
-        prompt_version=prompts.ANSWER_PROMPT_VERSION if gen else None,
-        tokens_in=gen.tokens_in if gen else None,
-        tokens_out=gen.tokens_out if gen else None,
-        latency_ms=gen.latency_ms if gen else None,
+        model=call.model if call else None,
+        prompt_version=(
+            prompts.ANSWER_PROMPT_VERSION if gen else triage.TRIAGE_PROMPT_VERSION if call else None
+        ),
+        tokens_in=call.tokens_in if call else None,
+        tokens_out=call.tokens_out if call else None,
+        latency_ms=call.latency_ms if call else None,
     )
     citations = [
         {
@@ -317,20 +420,23 @@ async def _persist(
     ]
     if citations:
         await repo.add_citations(conn, tenant_id=tenant_id, message_id=message_id, rows=citations)
-    if gen:
-        await usage.record(
-            conn,
-            tenant_id=tenant_id,
-            kind="llm_call",
-            idempotency_key=f"llm:{message_id}",
-            model=gen.model,
-            tokens_in=gen.tokens_in,
-            tokens_out=gen.tokens_out,
-            conversation_id=conversation_id,
-            message_id=message_id,
-        )
+    for key, made in (("triage", sorted_as), ("llm", gen)):
+        if made:
+            await usage.record(
+                conn,
+                tenant_id=tenant_id,
+                kind="llm_call",
+                idempotency_key=f"{key}:{message_id}",
+                model=made.model,
+                tokens_in=made.tokens_in,
+                tokens_out=made.tokens_out,
+                conversation_id=conversation_id,
+                message_id=message_id,
+            )
     emailed = 0
-    if reserved:
+    if reserved and outcome.kind == "reply":
+        await usage.settle_reply(conn, tenant_id, used=False)  # conversation is not billed
+    elif reserved:
         await usage.record(
             conn,
             tenant_id=tenant_id,
@@ -363,7 +469,7 @@ async def _persist(
     await repo.set_conversation_state(
         conn,
         conversation_id,
-        status="escalated" if escalation_id else "open",
+        escalated=escalation_id is not None,
         low_confidence_turns=outcome.low_confidence_turns,
     )
     reply = {

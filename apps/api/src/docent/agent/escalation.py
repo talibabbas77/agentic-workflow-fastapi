@@ -13,6 +13,25 @@ from docent.db.pool import transaction
 from docent.jobs.worker import Handler, JobContext
 from docent.llm.client import ChatModel
 
+# Values a model writes when it has nothing to say. A missing field is better.
+PLACEHOLDERS = frozenset(
+    {
+        "",
+        "-",
+        "n/a",
+        "na",
+        "none",
+        "null",
+        "unknown",
+        "not provided",
+        "not specified",
+        "unspecified",
+        "anonymous",
+        "anonymous visitor",
+        "not available",
+    }
+)
+
 
 def make_escalation_handlers(llm: ChatModel, max_tokens: int = 600) -> dict[str, Handler]:
     async def summarize_escalation(ctx: JobContext) -> None:
@@ -47,7 +66,11 @@ def make_escalation_handlers(llm: ChatModel, max_tokens: int = 600) -> dict[str,
             None,
         )
         allowed = {f["key"] for f in chosen["fields"]} if chosen else set()
-        fields = {f.key: f.value[:500] for f in brief.value.fields if f.key in allowed and f.value}
+        fields = {
+            f.key: f.value.strip()[:500]
+            for f in brief.value.fields
+            if f.key in allowed and f.value.strip().casefold() not in PLACEHOLDERS
+        }
         summary = brief.value.model_dump(exclude={"ticket_type", "fields"})
 
         async with transaction(ctx.pool, tenant_id=tenant_id) as conn:

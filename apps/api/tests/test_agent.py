@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from docent.agent import guards
 from docent.agent.loop import AgentDeps
+from docent.agent.triage import TRIAGE_RULES
 from docent.api import streaming
 from docent.db.pool import Pool
 from docent.llm.client import LLMError
@@ -98,7 +99,7 @@ async def test_answer_streams_progress_and_cites_sources(
     assert dict(period) == {"replies_used": 1, "replies_reserved": 0}
 
 
-async def test_no_supporting_source_hands_off_without_calling_the_model(
+async def test_no_supporting_source_hands_off_after_only_a_triage_call(
     owner: httpx.AsyncClient, chat: FakeChat, drain: Drain
 ) -> None:
     cid = await conversation(owner)
@@ -110,7 +111,8 @@ async def test_no_supporting_source_hands_off_without_calling_the_model(
         "citations": [],
         "account_facts": [],
     }
-    assert chat.calls == []
+    assert message["content"].endswith("Leave your email below so they can reply.")
+    assert [call[0]["content"] for call in chat.calls] == [TRIAGE_RULES]  # no answer call
     await drain()  # the summary job runs in the worker
     detail = (await owner.get(f"/v1/agent/conversations/{cid}")).json()
     assert detail["status"] == "escalated"
@@ -275,6 +277,11 @@ async def test_verified_claims_reach_the_model_and_chat_claims_do_not(
     assert (await owner.get(f"/v1/agent/conversations/{anonymous}")).json()["claims"] == {}
 
 
+def sorted_as(intent: str, question: str | None = None, language: str = "en") -> dict[str, Any]:
+    """A scripted triage result."""
+    return {"intent": intent, "language": language, "clarifying_question": question}
+
+
 def account_reply(answer: str, facts: list[str]) -> dict[str, Any]:
     return {
         "type": "answer",
@@ -290,7 +297,12 @@ async def test_verified_visitor_gets_account_answers_without_a_source(
     owner: httpx.AsyncClient, chat: FakeChat
 ) -> None:
     """Nothing in the help center says which plan this visitor is on; the signed claims do."""
-    chat.replies.append(account_reply("You are on the Pro plan.", ["Plan: pro", "name"]))
+    chat.replies.extend(
+        [
+            sorted_as("account_question"),
+            account_reply("You are on the Pro plan.", ["Plan: pro", "name"]),
+        ]
+    )
     cid = await conversation(owner, mode="identified", claims={"name": "Sam", "plan": "pro"})
     message = await say(owner, cid, "what plan am I on")
     assert message["decision"]["type"] == "answer"
@@ -312,19 +324,20 @@ async def test_verified_visitor_gets_account_answers_without_a_source(
 async def test_account_answers_must_repeat_a_verified_value(
     owner: httpx.AsyncClient, chat: FakeChat, answer: str, facts: list[str]
 ) -> None:
-    chat.replies.append(account_reply(answer, facts))
+    chat.replies.extend([sorted_as("account_question"), account_reply(answer, facts)])
     cid = await conversation(owner, mode="identified", claims={"plan": "pro"})
     message = await say(owner, cid, "what plan am I on")
     assert message["decision"]["reason"] == "no_source"
 
 
-async def test_identified_without_claims_still_skips_the_model(
+async def test_account_questions_without_claims_hand_off_without_an_answer_call(
     owner: httpx.AsyncClient, chat: FakeChat
 ) -> None:
+    chat.replies.append(sorted_as("account_question"))
     cid = await conversation(owner, mode="identified", claims={})
-    message = await say(owner, cid, "zebra migration patterns in kenya")
+    message = await say(owner, cid, "what plan am I on")
     assert message["decision"]["reason"] == "no_source"
-    assert chat.calls == []
+    assert len(chat.calls) == 1  # the triage call only
 
 
 async def test_untrusted_text_cannot_break_out_of_its_block(
@@ -355,6 +368,41 @@ async def test_escalation_summary_picks_ticket_type_and_filters_fields(
     escalation = (await owner.get(f"/v1/agent/conversations/{cid}")).json()["escalation"]
     assert escalation["ticket_type"] == "Refund request"
     assert escalation["fields"] == {"order_id": "A-1001"}
+
+
+async def test_summary_placeholders_never_fill_ticket_fields(
+    owner: httpx.AsyncClient, chat: FakeChat, drain: Drain
+) -> None:
+    await owner.post(
+        "/v1/ticket-types",
+        json={
+            "name": "Billing question",
+            "description": "Invoices and charges.",
+            "fields": [
+                {"key": "plan", "label": "Plan"},
+                {"key": "invoice", "label": "Invoice number"},
+            ],
+        },
+    )
+    cid = await conversation(owner)
+    await say(owner, cid, "talk to a person about my invoice")
+    chat.replies.append(
+        {
+            "ticket_type": "Billing question",
+            "fields": [
+                {"key": "plan", "value": "Anonymous visitor"},
+                {"key": "invoice", "value": " INV-0042 "},
+            ],
+            "issue": "Asked about an invoice.",
+            "tried": "Nothing yet.",
+            "user_context": "Not signed in.",
+            "sentiment": "calm",
+            "suggested_next_step": "Reply by email.",
+        }
+    )
+    await drain()
+    escalation = (await owner.get(f"/v1/agent/conversations/{cid}")).json()["escalation"]
+    assert escalation["fields"] == {"invoice": "INV-0042"}
 
 
 async def test_ticket_types_crud_and_permissions(
@@ -438,3 +486,88 @@ async def test_quiet_streams_get_a_heartbeat() -> None:
     assert [chunk async for chunk in relay if not chunk.startswith(":")] == [
         "event: message\ndata: {}\n\n"
     ]
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Hi, who are you?", "I'm Lumen Notes assistant, an AI assistant for Lumen Notes."),
+        ("hello there", "Hi! I'm Lumen Notes assistant"),
+        ("Hola", "¡Hola! Soy Lumen Notes assistant"),
+        ("ok thanks!", "You're welcome!"),
+        ("Merci beaucoup", "Avec plaisir"),
+    ],
+)
+async def test_conversation_gets_a_reply_without_the_model_or_a_billed_reply(
+    owner: httpx.AsyncClient, chat: FakeChat, admin_pool: Pool, text: str, expected: str
+) -> None:
+    cid = await conversation(owner)
+    message = await say(owner, cid, text)
+    assert message["decision"]["type"] == "reply"
+    assert message["content"].startswith(expected)
+    assert chat.calls == []
+    async with admin_pool.acquire() as conn:
+        assert await conn.fetchval("select count(*) from escalations") == 0
+        assert await conn.fetchval("select count(*) from usage_events") == 0
+    detail = (await owner.get(f"/v1/agent/conversations/{cid}")).json()
+    assert detail["status"] == "open"
+
+
+async def test_a_greeting_with_a_real_question_is_answered(
+    owner: httpx.AsyncClient, chat: FakeChat
+) -> None:
+    cid = await conversation(owner)
+    message = await say(owner, cid, "hi! how do refunds work for annual plans")
+    assert message["decision"]["type"] == "answer"
+
+
+@pytest.mark.parametrize(
+    ("scripted", "kind", "content"),
+    [
+        (sorted_as("off_topic"), "reply", "I can only help with questions about Lumen Notes."),
+        (sorted_as("off_topic", language="es"), "reply", "Solo puedo ayudar con preguntas"),
+        (sorted_as("small_talk"), "reply", "Happy to help."),
+        (
+            sorted_as("unclear", "Do you mean the desktop app or the web app?"),
+            "clarify",
+            "Do you mean",
+        ),
+        (sorted_as("unclear", "Our refund window is 30 days."), "escalate", "I could not find"),
+        (sorted_as("wants_person"), "escalate", "I am passing you to the team now."),
+        (sorted_as("product_question"), "escalate", "I could not find this"),
+    ],
+)
+async def test_messages_without_a_source_are_routed_by_intent(
+    owner: httpx.AsyncClient, chat: FakeChat, scripted: dict[str, Any], kind: str, content: str
+) -> None:
+    chat.replies.append(scripted)
+    cid = await conversation(owner)
+    message = await say(owner, cid, "zebra migration patterns in kenya")
+    assert message["decision"]["type"] == kind
+    assert message["content"].startswith(content)
+    assert len(chat.calls) == 1  # a triage reply never states facts written by the model
+
+
+async def test_handoffs_say_how_the_team_will_reply(
+    owner: httpx.AsyncClient, chat: FakeChat, admin_pool: Pool
+) -> None:
+    signed_in = await conversation(owner, mode="identified", claims={"email": "sam@example.com"})
+    message = await say(owner, signed_in, "I want to talk to a human")
+    assert message["content"].endswith("They will reply to sam@example.com by email.")
+
+    anonymous = await conversation(owner)
+    message = await say(owner, anonymous, "I want to talk to a human")
+    assert message["content"].endswith("Leave your email below so they can reply.")
+    captured = await say(owner, anonymous, "sure, it's Robin.Diaz@Example.com")
+    assert captured["decision"]["type"] == "reply"
+    assert captured["content"] == "Thanks. The team will reply to robin.diaz@example.com."
+    async with admin_pool.acquire() as conn:
+        contacts = await conn.fetch("select contact_email from escalations order by created_at")
+        replies = await conn.fetchval("select count(*) from usage_events where kind = 'ai_reply'")
+    assert [r["contact_email"] for r in contacts] == ["sam@example.com", "robin.diaz@example.com"]
+    assert replies == 2  # the two handoffs, not the thank-you
+    detail = (await owner.get(f"/v1/agent/conversations/{anonymous}")).json()
+    assert detail["status"] == "escalated"  # answering later never reopens a handoff
+
+    again = await say(owner, anonymous, "can a human also call me?")
+    assert again["content"].endswith("They will reply to robin.diaz@example.com by email.")

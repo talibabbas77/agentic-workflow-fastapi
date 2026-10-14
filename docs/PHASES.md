@@ -159,7 +159,9 @@ see exactly which passages a question would retrieve.
 ## Phase 3. Agent loop with citations and escalation
 
 **Status: built 2026-10-14, waiting for review.** The Agent screen (settings
-and preview chat) and the Handoffs screen (ticket types) have e2e tests. Checks 1, 3, 4, 5, and 9 run in the API suite. Check 2 with the dev
+and preview chat) and the Handoffs screen (ticket types) have e2e tests. Check
+2 passes on `gemma4:cloud`: wrong answers 0 percent, escalation recall 100
+percent, safety cases 100 percent (architecture change log). Checks 1, 3, 4, 5, and 9 run in the API suite. Check 2 with the dev
 model `qwen3:1.7b`: escalation recall 1.00 and injection cases 1.00 pass, but
 the wrong-answer rate is 9.4 percent against the 5 percent target. The misses
 cite a neighbouring article, so the gap is the model, not retrieval (recall at
@@ -196,10 +198,10 @@ cited, and anything the agent cannot back up goes to a human.
 3. Twenty phrasings of "talk to a human", in at least three languages, all
    escalate. **(auto)**
 4. Restricted-topic cases all escalate. **(auto)**
-5. Questions with no supporting source escalate without any LLM call (no
-   `llm_call` usage event for that turn), unless the visitor has verified
-   claims; then the model sees only the claims and may answer an account
-   question. **(auto)**
+5. Questions with no supporting source never reach the answer model: one small
+   triage call sorts them, product questions become handoffs, and small talk,
+   off-topic, and unclear messages get a reply instead. Greetings and thanks
+   are answered by rules with no model call at all. **(auto)**
 6. An escalation has a ticket type, filled fields, and a summary within 30
    seconds.
 7. Every LLM call has a usage event with cost. Totals for a test run match the

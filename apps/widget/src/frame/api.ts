@@ -56,7 +56,7 @@ export interface Api {
 const ROLES: readonly Role[] = ["visitor", "agent", "human", "system"];
 const HANDOFF: readonly Handoff["status"][] = ["open", "assigned", "waiting", "resolved"];
 const STAGES: readonly Stage[] = ["searching", "writing", "checking"];
-const DECISIONS: readonly Decision["type"][] = ["answer", "clarify", "escalate"];
+const DECISIONS: readonly Decision["type"][] = ["answer", "clarify", "escalate", "reply"];
 
 export const isStage = (v: unknown): v is Stage => STAGES.includes(v as Stage);
 

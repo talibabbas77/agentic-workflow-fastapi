@@ -3628,9 +3628,11 @@
             "enum": [
               "answer",
               "clarify",
-              "escalate"
+              "escalate",
+              "reply"
             ],
-            "title": "Type"
+            "title": "Type",
+            "description": "reply: conversation such as a greeting, with no facts and no citations"
           },
           "confidence": {
             "anyOf": [

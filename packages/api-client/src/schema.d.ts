@@ -921,9 +921,10 @@ export interface components {
         DecisionOut: {
             /**
              * Type
+             * @description reply: conversation such as a greeting, with no facts and no citations
              * @enum {string}
              */
-            type: "answer" | "clarify" | "escalate";
+            type: "answer" | "clarify" | "escalate" | "reply";
             /** Confidence */
             confidence: ("high" | "medium" | "low") | null;
             /** Reason */

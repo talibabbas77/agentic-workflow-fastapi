@@ -471,17 +471,45 @@ on pages (section 10) keep this in check.
 ### One visitor message, step by step
 
 ```
-1. Guard        size limit, rate limits, usage reservation (section 10)
-2. Fast intent  rule match for "human", "agent", "person", restricted keywords
-3. Rewrite      follow-up turns only: condense history into a standalone query
-4. Retrieve     hybrid search, audience filter, top 8 sources
-5. Evidence     if no source clears the threshold, skip generation and escalate
-6. Generate     structured decision with answer and source markers
-7. Validate     schema, citation markers, link allowlist, restricted topics
-8. Decide       answer, clarify, or escalate
-9. Persist      message, citations, usage event, conversation state
-10. Respond     widget gets the validated result
+1. Record       store the message; an email sent after a handoff becomes its contact
+2. Small talk   rules recognize greetings, thanks, goodbyes, "who are you", in seven
+                languages: a template reply, no model call, no reply counted
+3. Guard        rate limits, usage reservation (section 10)
+4. Fast intent  rule match for "human", "agent", "person", restricted keywords
+5. Rewrite      follow-up turns only: borrow the previous question for short ones
+6. Retrieve     hybrid search, audience filter, top 8 sources
+7. Evidence     no source clears the threshold: one small triage call sorts the
+                message (see below) instead of an automatic handoff
+8. Generate     structured decision with answer and source markers
+9. Validate     schema, citation markers, account facts, link allowlist
+10. Persist     message, citations, usage events, conversation state, handoff
+11. Respond     widget gets the validated result
 ```
+
+### Triage when nothing in the docs matches
+
+A message that finds no supporting passage is not always a question for the
+team. One structured call (about one second, a few hundred tokens) names its
+intent, and the reply comes from a template, so triage never states a fact:
+
+| Intent | What the visitor gets |
+|---|---|
+| Small talk | A friendly reply that says what the agent can help with |
+| Off topic (general knowledge, other companies, code) | "I can only help with questions about {company}" |
+| Unclear ("it doesn't work") | One clarifying question written by the model, shown only if it is a short question with no links |
+| Account question, verified visitor | The answer model, with only the visitor's claims (section 4) |
+| Product question | Handoff with reason `no_source`. These are the knowledge gaps. |
+| Wants a person | Handoff with reason `user_requested` |
+
+If the triage call fails, the message is handed off. Conversational replies
+(decision type `reply`) never count against the plan's AI replies.
+
+### How the team reaches the visitor
+
+Every handoff says how the reply will arrive. A signed-in visitor hears "They
+will reply to {email}". An anonymous visitor is asked to leave an email, in the
+widget's form or simply by typing it in the chat; the agent confirms it and
+stores it on the handoff. Later handoffs in the same conversation reuse it.
 
 ### Retrieval
 
@@ -577,11 +605,12 @@ validation error. A second failure becomes `escalate` with `low_confidence`.
 | Repeated failure | Two thumbs-down, or three visitor turns restating the same question | Offer human |
 | Cap reached | Tenant usage period is full | Escalate-only mode (section 10) |
 
-When escalating, the agent picks the best matching ticket type by description,
-fills fields from the conversation and verified claims, and asks only for
-missing required fields. Anonymous visitors must give an email. A worker job
-writes the summary (`issue, tried, user_context, sentiment,
-suggested_next_step`) for the inbox.
+When escalating, a worker job picks the ticket type whose description clearly
+fits (or none, for a greeting or a vague message), fills fields only with
+values the customer stated or the verified claims contain, and writes the
+summary (`issue, tried, user_context, sentiment, suggested_next_step`) for the
+inbox. Placeholder values such as "unknown" or "anonymous visitor" are dropped
+before they reach a field.
 
 ### Prompt injection defenses
 
@@ -1107,4 +1136,22 @@ error page for "how many devices on Free"), so the small model picks the wrong
 source rather than inventing one. Safety holds because the guards and citation
 check run outside the model. The dev model stays for local work; quality
 targets are checked on `gemma4:cloud` before Phase 4 staging.
+
+### 2026-10-14, Phase 3 agent eval on gemma4:cloud
+
+The same run as above (`pnpm eval:agent --sample 8`) on the target dev model,
+through the local Ollama after `ollama signin`.
+
+| Measure | gemma4:cloud | qwen3:1.7b | Target |
+|---|---|---|---|
+| Answer rate on answerable questions | 0.88 | 0.63 | |
+| Cites the right article | 0.88 | 0.44 | |
+| Cites the right section | 0.88 | 0.25 | |
+| Wrong-answer rate | 0.00 | 0.094 | 0.05 or less |
+| Escalation recall on unanswerable questions | 1.00 | 1.00 | 0.95 or more |
+| Safety and injection cases | 1.00 | 1.00 | 1.00 |
+| Latency p50 / p95 | 0.1 s / 2.0 s | 0.1 s / 15.2 s | |
+| Cost of the run | 6,253 micro dollars | 0 | |
+
+All Phase 3 quality targets pass. gemma4:cloud is now the default chat model.
 

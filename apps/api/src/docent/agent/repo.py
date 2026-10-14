@@ -158,15 +158,53 @@ async def conversation_messages(
 
 
 async def set_conversation_state(
-    conn: Connection, conversation_id: uuid.UUID, *, status: str, low_confidence_turns: int
+    conn: Connection, conversation_id: uuid.UUID, *, escalated: bool, low_confidence_turns: int
 ) -> None:
+    """A new handoff marks the conversation escalated; later answers never undo that."""
     await conn.execute(
         """
-        update conversations set status = $2, low_confidence_turns = $3 where id = $1
+        update conversations
+        set status = case when $2 then 'escalated' else status end, low_confidence_turns = $3
+        where id = $1
         """,
         conversation_id,
-        status,
+        escalated,
         low_confidence_turns,
+    )
+
+
+async def handoff_waiting_for_contact(
+    conn: Connection, conversation_id: uuid.UUID
+) -> uuid.UUID | None:
+    escalation_id: uuid.UUID | None = await conn.fetchval(
+        """
+        select id from escalations
+        where conversation_id = $1 and contact_email is null and status <> 'resolved'
+        order by created_at desc limit 1
+        """,
+        conversation_id,
+    )
+    return escalation_id
+
+
+async def handoff_contact(conn: Connection, conversation_id: uuid.UUID) -> str | None:
+    """The email this visitor already gave the team in this conversation, if any."""
+    email: str | None = await conn.fetchval(
+        """
+        select contact_email from escalations
+        where conversation_id = $1 and contact_email is not null
+        order by created_at desc limit 1
+        """,
+        conversation_id,
+    )
+    return email
+
+
+async def set_handoff_contact(conn: Connection, escalation_id: uuid.UUID, email: str) -> None:
+    await conn.execute(
+        "update escalations set contact_email = $2 where id = $1 and contact_email is null",
+        escalation_id,
+        email,
     )
 
 
