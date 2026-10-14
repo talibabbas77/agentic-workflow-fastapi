@@ -1601,3 +1601,36 @@ and lets the API reset a dead job's status columns. Decisions made on the way:
   recall may fall 5 points but never below 95 percent, safety cases must all
   pass. The `agent-gate` job runs it when the repository has a chat model
   configured.
+
+### 2026-10-14, security review
+
+A read-only review of the whole codebase confirmed tenant isolation, the
+widget identity flow, the platform admin console, billing, and the SSRF guard
+as sound, and found seven issues, all fixed:
+
+- **High: hostile Word files.** A small .docx could expand to gigabytes and
+  stall or crash the worker. Zip files are checked before parsing (entries,
+  unpacked size, compression ratio), every document has output caps, and PDF
+  and Word files are parsed in a child process with CPU, memory, and time
+  limits (`EXTRACT_TIMEOUT_SECONDS`, `EXTRACT_MEMORY_MB`).
+- **Medium: Docent as a mailer.** Notify addresses and email replies need a
+  verified member, handoff notification emails are capped per workspace per
+  day (`NOTIFICATION_EMAILS_PER_DAY`), and people outside the workspace see
+  "Docent" as the sender.
+- **Medium: eval spend.** Eval runs and drafts are counted from the audit log,
+  which deleting a set does not touch; each workspace has a monthly eval case
+  budget (half its plan's replies, at least 300) and a daily draft limit.
+- **Medium: production defaults.** The API image defaults to
+  `DOCENT_ENV=production`, so a deployment without its secrets refuses to
+  start, and production refuses `FORWARDED_ALLOW_IPS="*"`.
+- **Low:** verify, reset, and invitation links are sealed with the secret box
+  while they wait in the job queue; the preview chat writes only into preview
+  conversations; email subjects are one line.
+- **Minor:** a sitemap re-sync stays within the plan's page limit, and widget
+  sessions end when a key is retired, anonymous mode is turned off, or a site
+  is removed from the allowed list.
+
+Still open by choice: the web app's CSP has no `script-src` (Next.js inline
+scripts need nonces), and signup answers 409 for an email that already has an
+account.
+
