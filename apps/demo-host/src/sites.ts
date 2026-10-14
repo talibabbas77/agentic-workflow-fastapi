@@ -69,6 +69,33 @@ const PARCELWISE_SCREEN = `
   </section>
 </div>`;
 
+const TALLYFOX_SCREEN = `
+<div class="app">
+  <aside class="sidebar" aria-label="Sections">
+    <p class="label">Invoicing</p>
+    <ul>
+      <li class="active">Invoices</li>
+      <li>Clients</li>
+      <li>Payments</li>
+      <li>Taxes</li>
+      <li>Settings</li>
+    </ul>
+  </aside>
+  <section class="doc">
+    <p class="crumb">Invoices / This month</p>
+    <h1>Invoices</h1>
+    <table>
+      <thead><tr><th scope="col">Invoice</th><th scope="col">Client</th><th scope="col">Amount</th><th scope="col">Status</th></tr></thead>
+      <tbody>
+        <tr><td>INV-0142</td><td>Harbor Coffee</td><td>$1,200.00</td><td><span class="tag">Paid</span></td></tr>
+        <tr><td>INV-0141</td><td>Orchard Studio</td><td>$860.00</td><td><span class="tag">Partly paid</span></td></tr>
+        <tr><td>INV-0140</td><td>Northwind Books</td><td>$2,450.00</td><td><span class="tag">Sent</span></td></tr>
+        <tr><td>INV-0139</td><td>Blue Fern Yoga</td><td>$320.00</td><td><span class="tag tag-alert">Overdue</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>`;
+
 export const SITES: Site[] = [
   {
     slug: "lumen-notes",
@@ -106,6 +133,15 @@ export const SITES: Site[] = [
         email: mailbox("diego.ramos"),
         context: { plan: "Starter", account: "Ramos Outdoor" },
       },
+    ],
+  },
+  {
+    slug: "tallyfox",
+    name: "Tallyfox",
+    screen: TALLYFOX_SCREEN,
+    personas: [
+      { id: "tf-1201", name: "Frank Osei", email: mailbox("frank.osei"), context: { plan: "Solo" } },
+      { id: "tf-1388", name: "Grace Lin", email: mailbox("grace.lin"), context: { plan: "Studio" } },
     ],
   },
 ];
