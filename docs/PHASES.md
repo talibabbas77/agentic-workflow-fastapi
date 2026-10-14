@@ -396,21 +396,33 @@ and escalates, and no prompt or model change ships if it makes those worse.
 
 ## Phase 7. Usage metering, caps, billing
 
-**Status: billing built 2026-10-14 ahead of Phases 5 and 6, on Stripe (D19),
-waiting for review.** Built: subscriptions with trials and plan states, live
-reply caps from the plan, 80 and 100 percent emails, escalate-only mode when a
-trial ends, a payment stays failed past the 7 day grace, or a plan is canceled,
-plan limits on widgets, seats, and pages, Stripe checkout, customer portal, and
-signed idempotent webhooks, and the billing page. Plan changes are made in
-Docent with a line-by-line preview: prorated upgrades charged now, downgrades
-scheduled for the end of the paid period (refused while usage is over the
-smaller plan), cancel at period end with resume, and a 14 day money-back refund
-(ARCHITECTURE section 10). Checks 2, 4, and 5 run in the API suite; the gateway
-runs against stripe-mock in CI. The internal cost and margin dashboard, with
-the cost-per-reply anomaly list, is part of the platform admin console at
-`/admin` (ARCHITECTURE section 12). Not yet built: top-up packs, the Redis
-command budget alerts, and the load test in check 1. Live payments need your
-Stripe keys; see the README.
+**Status: built 2026-10-14 on Stripe (D19), waiting for review.** Built:
+subscriptions with trials and plan states, live reply caps from the plan, 80
+and 100 percent emails, escalate-only mode when a trial ends, a payment stays
+failed past the 7 day grace, or a plan is canceled, plan limits on widgets,
+seats, and pages, Stripe checkout, customer portal, and signed idempotent
+webhooks, and the billing page. Plan changes are made in Docent with a
+line-by-line preview: prorated upgrades charged now, downgrades scheduled for
+the end of the paid period (refused while usage is over the smaller plan),
+cancel at period end with resume, and a 14 day money-back refund. Top-up packs:
+two per paid plan at the plan's own price per reply, bought through Stripe
+Checkout from a card on the billing page that appears at 80 percent, credited
+only by the signed webhook, and counted for the month they are paid in. The
+Redis command budget: counted in process, added up in Postgres, emails to the
+platform admins at 80 and 90 percent, local-only mode from 90 percent until the
+month ends, and a panel on the admin console's overview (ARCHITECTURE sections
+7 and 10). The internal cost and margin dashboard, with the cost-per-reply
+anomaly list and top-up revenue, is part of the platform admin console at
+`/admin` (ARCHITECTURE section 12).
+
+Checks 1, 2, 3, 4, 5, 6, 7, and 9 run in the API suite; the gateway, top-up
+checkout included, runs against stripe-mock in CI. Check 1 also runs against a
+live stack with `docent loadtest caps` (real database and models; a new scratch
+workspace by default). Check 3 runs through the widget's own API endpoints
+rather than in a browser: at the cap every message is a handoff and the
+anonymous visitor's handoff asks for an email, which is what the frame shows
+its contact form for. Check 6 moves the clock past the grace period in the
+test. Check 8 needs your Stripe test keys; see the README.
 
 **Goal:** tenants pay a predictable monthly price, can never be billed past
 their cap, and their customers never hit a dead widget.
