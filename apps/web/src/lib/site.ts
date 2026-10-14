@@ -20,3 +20,24 @@ export const legalNav = [
   { href: "/security", label: "Security" },
   { href: "/contact", label: "Contact" },
 ];
+
+/** Footer columns. */
+export const footerNav = [
+  {
+    title: "Product",
+    links: [
+      { href: "/how-it-works", label: "How it works" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/docs", label: "Docs" },
+      { href: "/security", label: "Security" },
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      { href: "/contact", label: "Contact" },
+      { href: "/privacy", label: "Privacy" },
+      { href: "/terms", label: "Terms" },
+    ],
+  },
+];

@@ -77,6 +77,8 @@
   /* Radius: small and consistent */
   --radius-sm: 4px;
   --radius-md: 6px;
+  /* Large marketing panels only; small elements keep radius-md. */
+  --radius-lg: 12px;
   --radius-full: 9999px;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -336,5 +338,244 @@
   }
   .spinner {
     animation: spin 1.4s linear infinite !important;
+  }
+}
+
+/*
+ * Marketing site. Utilities used only by the public pages under (marketing),
+ * all prefixed mk-. Every motion here is an enhancement: the content is
+ * complete without it, without script, and under reduced motion.
+ */
+@layer components {
+  /*
+   * Sticky header. Where scroll-driven animations exist it starts clear and
+   * fills to solid paper with a hairline over the first 4rem of scroll.
+   * Elsewhere it is always filled. Solid, not translucent: a blur of the cards
+   * passing beneath read as a soft glow, which the brand does not use.
+   */
+  .mk-header {
+    background-color: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+  @supports (animation-timeline: scroll()) {
+    .mk-header {
+      animation: mk-header-fill linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 4rem;
+    }
+  }
+
+  /* Section entrances: a short fade and 8px rise tied to scrolling. No script. */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .mk-reveal {
+        animation: mk-reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 9rem;
+      }
+    }
+  }
+
+  /* The brand bookmark: a rust ribbon with a notch, as in the logo. Always brand rust. */
+  .mk-ribbon {
+    background: var(--ribbon);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 83%, 0 100%);
+  }
+
+  /*
+   * Play once on view. PlayOnView arms a block (data-view="armed") only when
+   * script runs and motion is allowed, then sets "run" when it scrolls in.
+   * Without either, bars simply show their final width.
+   */
+  .mk-fill {
+    transform-origin: left center;
+  }
+  [data-view="armed"] .mk-fill {
+    transform: scaleX(0);
+  }
+  [data-view="run"] .mk-fill {
+    animation: mk-fill 1.4s var(--ease-out) 120ms both;
+  }
+
+  /*
+   * Hero demo. The client sets data-phase on the playing scenario (0 the
+   * question, 1 typing, 2 the answer, 3 sources and notes) and each step
+   * carries data-at. Steps that have not played yet keep their space but stay
+   * hidden, so the panel never changes height. Without script (see the
+   * noscript style in hero-demo) and under reduced motion, everything shows.
+   */
+  .mk-scenario[data-phase="0"] .mk-step:not([data-at="0"]),
+  .mk-scenario[data-phase="1"] .mk-step:is([data-at="2"], [data-at="3"]),
+  .mk-scenario[data-phase="2"] .mk-step[data-at="3"] {
+    visibility: hidden;
+  }
+  .mk-scenario:not([data-phase="1"]) .mk-typing {
+    display: none;
+  }
+  .mk-dots i {
+    width: 5px;
+    height: 5px;
+    border-radius: var(--radius-full);
+    background: var(--rust);
+    opacity: 0.35;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    /* A step rises in when its phase arrives; steps already shown keep the same animation and do not replay. */
+    .mk-scenario[data-phase="0"] .mk-step[data-at="0"],
+    .mk-scenario[data-phase="1"] .mk-step:is([data-at="0"], [data-at="1"]),
+    .mk-scenario[data-phase="2"] .mk-step:not([data-at="3"]),
+    .mk-scenario[data-phase="3"] .mk-step {
+      animation: mk-rise 320ms var(--ease-out) both;
+    }
+    .mk-swap {
+      animation: mk-fade 240ms var(--ease-out) both;
+    }
+    .mk-dots i {
+      animation: mk-pulse 1.2s ease-in-out infinite;
+    }
+    .mk-dots i:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+    .mk-dots i:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mk-scenario .mk-step {
+      visibility: inherit !important;
+    }
+    .mk-typing {
+      display: none !important;
+    }
+  }
+
+  /* Tab panels that script hides; a noscript style shows them all instead. */
+  .mk-tab-inactive {
+    display: none;
+  }
+
+  /* Range input: a transparent native slider over a drawn track and fill. */
+  .mk-range {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    height: 1.5rem;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .mk-range::-webkit-slider-runnable-track {
+    height: 1.5rem;
+    background: transparent;
+  }
+  .mk-range::-moz-range-track {
+    height: 1.5rem;
+    background: transparent;
+  }
+  .mk-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.125rem;
+    border: 2px solid var(--rust);
+    border-radius: var(--radius-full);
+    background: var(--surface);
+    transition: transform 150ms var(--ease-out);
+  }
+  .mk-range::-moz-range-thumb {
+    box-sizing: border-box;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid var(--rust);
+    border-radius: var(--radius-full);
+    background: var(--surface);
+  }
+  .mk-range:active::-webkit-slider-thumb {
+    transform: scale(1.1);
+  }
+  .mk-range:focus-visible {
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* FAQ: the answer opens with a short height transition where browsers allow it. */
+  @media (prefers-reduced-motion: no-preference) {
+    .mk-faq {
+      interpolate-size: allow-keywords;
+    }
+    .mk-faq::details-content {
+      height: 0;
+      overflow: clip;
+      transition:
+        height 240ms var(--ease-out),
+        content-visibility 240ms allow-discrete;
+    }
+    .mk-faq[open]::details-content {
+      height: auto;
+    }
+  }
+}
+
+@keyframes mk-header-fill {
+  from {
+    background-color: transparent;
+    border-bottom-color: transparent;
+  }
+  to {
+    background-color: var(--paper);
+    border-bottom-color: var(--line);
+  }
+}
+
+@keyframes mk-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mk-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mk-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mk-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes mk-pulse {
+  0%,
+  70%,
+  100% {
+    opacity: 0.35;
+  }
+  35% {
+    opacity: 1;
   }
 }

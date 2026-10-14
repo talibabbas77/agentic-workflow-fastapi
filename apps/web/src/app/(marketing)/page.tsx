@@ -1,22 +1,34 @@
 import {
-  CookieIcon,
-  EnvelopeSimpleIcon,
+  ArrowRightIcon,
   GaugeIcon,
-  ProhibitIcon,
+  HeadsetIcon,
   QuotesIcon,
-  UserSoundIcon,
+  UserCheckIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { ExampleConversation } from "@/components/marketing/example-conversation";
-import { PlansUnavailable, PlanSummary } from "@/components/marketing/plans";
-import { DiagramPanel, Section } from "@/components/marketing/section";
+import { ClosingCta } from "@/components/marketing/closing-cta";
+import {
+  faqCap,
+  faqFiles,
+  faqIdentified,
+  faqLiveChat,
+  faqReplies,
+  faqTraining,
+  FaqSection,
+  faqUnsure,
+} from "@/components/marketing/faq";
+import { FeatureBento } from "@/components/marketing/feature-bento";
+import { HeroDemo } from "@/components/marketing/hero-demo";
+import { HowItWorksExplorer } from "@/components/marketing/how-it-works";
+import { IdentityChecks } from "@/components/marketing/identity-section";
+import { PricingBlock } from "@/components/marketing/pricing-block";
+import { ProblemContrast } from "@/components/marketing/problem-contrast";
+import { container, Section } from "@/components/marketing/section";
+import { TrustFacts, WillWont } from "@/components/marketing/trust";
 import { ButtonLink } from "@/components/ui/button";
-import { AnswerFlow } from "@/components/workflow/answer-flow";
-import { HandoffFlow } from "@/components/workflow/handoff-flow";
-import { IdentityFlow } from "@/components/workflow/identity-flow";
-import { TeachingFlow } from "@/components/workflow/teaching-flow";
-import { getPlans } from "@/lib/plans";
+import { TextLink } from "@/components/ui/text-link";
+import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = {
   title: { absolute: "Docent: support answers from your docs, not guesses" },
@@ -24,165 +36,128 @@ export const metadata: Metadata = {
     "Docent answers customer questions only from the documents you teach it, cites the page it used, and hands everything else to your team by email.",
 };
 
-const limits: { icon: ReactNode; title: string; body: string }[] = [
-  {
-    icon: <QuotesIcon />,
-    title: "Guess",
-    body: "Without a passage that supports an answer, it says so and hands the conversation to your team.",
-  },
-  {
-    icon: <EnvelopeSimpleIcon />,
-    title: "Offer live chat",
-    body: "Handoffs reach your team in an inbox and your team replies by email. Live chat is not part of this version.",
-  },
-  {
-    icon: <CookieIcon />,
-    title: "Read your cookies",
-    body: "It never reads cookies or storage on your site. It only knows what your server signs.",
-  },
-  {
-    icon: <UserSoundIcon />,
-    title: "Trust a name typed into the chat",
-    body: "Who the customer is comes from the signed token, not from anything they type.",
-  },
-  {
-    icon: <GaugeIcon />,
-    title: "Go dark at the cap",
-    body: "When a plan reaches its monthly cap, the widget becomes a contact form for your team.",
-  },
-  {
-    icon: <ProhibitIcon />,
-    title: "Train models on your data",
-    body: "Your documents and your customers' conversations are never used to train models.",
-  },
+const proof: { icon: ReactNode; label: string }[] = [
+  { icon: <QuotesIcon />, label: "Cites the page it used" },
+  { icon: <HeadsetIcon />, label: "Hands off when unsure" },
+  { icon: <UserCheckIcon />, label: "Knows who is signed in" },
+  { icon: <GaugeIcon />, label: "Hard monthly cap" },
 ];
 
 export default function HomePage() {
   return (
     <>
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-8 sm:py-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:gap-16">
-        <div className="flex flex-col gap-6">
-          <h1 className="text-3xl text-ink sm:text-4xl">Support answers from your docs, not guesses</h1>
-          <p className="max-w-xl text-lg text-ink-muted">
-            Your team answers the same questions every day, and most support bots fill the gaps by guessing. Docent
-            answers only from the documents you teach it, cites the page it used, and hands everything else to your
-            team.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <ButtonLink href="/signup">Start free trial</ButtonLink>
-            <ButtonLink href="/how-it-works" variant="secondary">
-              See how it works
-            </ButtonLink>
+      <section aria-labelledby="hero-heading">
+        <div
+          className={cn(
+            container,
+            "grid items-center gap-14 pt-12 pb-20 sm:pt-16 sm:pb-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,31rem)] lg:gap-16 lg:pt-20 lg:pb-28",
+          )}
+        >
+          <div className="flex flex-col gap-6">
+            <p className="inline-flex items-center gap-2 self-start rounded-full border border-line-strong bg-surface py-1 pr-3 pl-2.5 text-sm text-ink">
+              <span aria-hidden="true" className="mk-ribbon h-3 w-2 shrink-0" />
+              Support agent for software companies
+            </p>
+            <h1 id="hero-heading" className="max-w-[16ch] text-3xl text-ink sm:text-4xl">
+              Support answers from your docs, not guesses
+            </h1>
+            <p className="max-w-[54ch] text-lg text-ink-muted">
+              Docent answers your customers only from the documents you teach it, and cites the page it used. When
+              your docs do not cover a question, it hands the conversation to your team with a summary.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <ButtonLink href="/signup">Start free trial</ButtonLink>
+              <ButtonLink href="#how-it-works" variant="secondary">
+                See how it works
+              </ButtonLink>
+            </div>
+            <ul className="mt-4 grid max-w-xl grid-cols-2 gap-x-6 gap-y-3 border-t border-line pt-6">
+              {proof.map((item) => (
+                <li key={item.label} className="flex items-center gap-2.5 text-base text-ink">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-line bg-surface text-md text-rust"
+                  >
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </li>
+              ))}
+            </ul>
           </div>
+          <HeroDemo />
         </div>
-        <ExampleConversation />
-      </div>
+      </section>
 
       <Section
-        id="answers"
-        title="How Docent answers"
-        intro="A customer asks in the widget on your site. Docent searches only the sources you added. When a passage supports an answer, it replies and cites the page. When nothing does, it says so and hands over."
+        id="problem"
+        eyebrow="The problem"
+        title="Most support bots guess when your docs run out"
+        intro="A customer asks something your help center does not cover. A typical bot writes an answer anyway, in the same confident tone it uses when it is right, and nobody can tell the difference until the customer holds your team to it."
       >
-        <DiagramPanel>
-          <AnswerFlow />
-        </DiagramPanel>
+        <ProblemContrast />
       </Section>
 
       <Section
-        id="identity"
-        title="How it knows who is asking"
-        intro="Your server signs a short-lived token for the logged-in user. Docent checks the signature with your public key and answers for that account, with their plan and account id in context."
+        id="how-it-works"
+        eyebrow="How it works"
+        title="Four steps, from your docs to an answer or to your team"
+        intro="Docent only knows what you teach it. Pick a step to see what happens and where it stops. Each diagram follows the real order of operations."
       >
-        <DiagramPanel>
-          <IdentityFlow />
-        </DiagramPanel>
-        <dl className="mt-6 grid gap-4 sm:grid-cols-2">
-          <ModeNote title="Anonymous mode">
-            One script tag. Docent answers visitors from the docs you mark for everyone.
-          </ModeNote>
-          <ModeNote title="Identified mode">
-            Needs a small signing step on your server. Answers can use the customer&apos;s plan and account.
-          </ModeNote>
-        </dl>
+        <HowItWorksExplorer />
       </Section>
 
       <Section
-        id="teaching"
-        title="Teach the agent from your docs"
-        intro="Upload PDF, Word, Markdown, text, or HTML files, or point it at a page or a sitemap. Docent reads them, splits them into passages, and indexes them for search. Re-sync when your docs change."
+        id="features"
+        eyebrow="What you get"
+        title="Everything the customer sees comes from your docs or your server"
+        intro="Docent does one job: answer from what you taught it, know who is asking when your server says so, and hand everything else to a person. Every part below is in every plan, including the trial."
       >
-        <DiagramPanel>
-          <TeachingFlow />
-        </DiagramPanel>
+        <FeatureBento />
       </Section>
 
       <Section
-        id="handoff"
-        title="Handoff to your team"
-        intro="Docent hands the conversation over when no source supports an answer, when the customer asks for a person, or when the topic is restricted, such as legal questions, security reports, account deletion, or billing disputes. It writes a summary so nobody starts over. In this version your team replies by email, not live chat."
+        id="identified"
+        eyebrow="Identified mode"
+        title="It knows who is asking because your server says so"
+        intro="Most support bots know nothing about the person asking, or trust whatever the page tells them. With identified mode, your server signs a short-lived token for the logged-in customer, Docent checks it before a session starts, and answers can use their plan and account."
       >
-        <DiagramPanel>
-          <HandoffFlow />
-        </DiagramPanel>
+        <IdentityChecks />
       </Section>
 
-      <Section id="limits" title="What it will not do">
-        <ul className="grid gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
-          {limits.map((item) => (
-            <li key={item.title} className="flex flex-col gap-2 bg-surface p-5 sm:p-6">
-              <h3 className="flex items-center gap-2.5 text-md text-ink">
-                <span aria-hidden="true" className="text-xl text-rust">
-                  {item.icon}
-                </span>
-                <span className="sr-only">It will not </span>
-                {item.title}
-              </h3>
-              <p className="text-base text-ink-muted">{item.body}</p>
-            </li>
-          ))}
-        </ul>
+      <Section
+        id="security"
+        eyebrow="Security"
+        title="Your data stays yours, and stays apart"
+        intro="Docent holds your help content and your customers' questions. Here is how each is kept apart, what the agent is allowed to do, and what it will never do."
+      >
+        <div className="flex flex-col gap-4">
+          <TrustFacts />
+          <WillWont />
+        </div>
       </Section>
 
       <Section
         id="pricing"
+        eyebrow="Pricing"
         title="Priced by replies, with a hard cap"
-        intro="Plans are priced by AI replies per month. At the cap the widget switches to a contact form, so customers still reach a person and you never pay overage."
+        intro="Plans are priced by AI replies per month, in US dollars. At the cap the widget becomes a contact form, so customers still reach a person and you never pay overage."
+        aside={
+          <TextLink href="/pricing#compare" className="inline-flex items-center gap-1 text-base">
+            Compare every plan
+            <ArrowRightIcon aria-hidden="true" className="size-4" />
+          </TextLink>
+        }
       >
-        <Plans />
+        <PricingBlock />
       </Section>
 
-      <section aria-labelledby="start-heading" className="border-t border-line bg-surface">
-        <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-16 sm:px-8 sm:py-20 md:flex-row md:items-center md:justify-between">
-          <div className="flex max-w-2xl flex-col gap-3">
-            <h2 id="start-heading" className="text-2xl text-ink sm:text-3xl">
-              Teach the agent and try it on your own site
-            </h2>
-            <p className="text-md text-ink-muted">
-              Add your docs during the trial and test it with real questions before you pay.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <ButtonLink href="/signup">Start free trial</ButtonLink>
-            <ButtonLink href="/docs" variant="secondary">
-              Read the install guide
-            </ButtonLink>
-          </div>
-        </div>
-      </section>
+      <FaqSection
+        intro="Plain answers about replies, caps, files, identity, and your data."
+        items={[faqReplies, faqCap, faqUnsure, faqFiles, faqIdentified, faqTraining, faqLiveChat]}
+      />
+
+      <ClosingCta />
     </>
   );
-}
-
-function ModeNote({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-md border border-line bg-surface px-5 py-4">
-      <dt className="font-medium text-ink">{title}</dt>
-      <dd className="text-base text-ink-muted">{children}</dd>
-    </div>
-  );
-}
-
-async function Plans() {
-  const plans = await getPlans();
-  return plans ? <PlanSummary plans={plans} /> : <PlansUnavailable />;
 }
