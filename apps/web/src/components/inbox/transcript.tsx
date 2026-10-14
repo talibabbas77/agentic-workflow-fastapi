@@ -311,8 +311,8 @@ function CustomerVote({
   const when = formatRelative(feedback.updated_at, now);
   if (feedback.vote === "up") {
     return (
-      <p className="inline-flex items-center gap-1.5 text-sm text-ink-muted">
-        <ThumbsUpIcon aria-hidden="true" className="size-3.5 text-ink" weight="bold" />
+      <p className="max-w-full text-right text-sm text-ink-muted">
+        <ThumbsUpIcon aria-hidden="true" className="mr-1.5 inline size-3.5 align-[-2px] text-ink" weight="bold" />
         {customer} said this helped, {when}
       </p>
     );
