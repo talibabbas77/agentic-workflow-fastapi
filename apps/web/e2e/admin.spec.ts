@@ -44,17 +44,17 @@ async function seriousViolations(page: Page) {
     .map((v) => ({ rule: v.id, targets: v.nodes.map((n) => n.target.join(" ")) }));
 }
 
-test("the console answers everyone but a platform admin as a page that does not exist", async ({ page }) => {
+test("signed out, the console asks to log in; for a member who is not a platform admin it does not exist", async ({
+  page,
+}) => {
   const unknown = await page.goto("/no-such-page");
   expect(unknown?.status()).toBe(404);
 
-  // Signed out: no redirect to log in, just the 404 page.
-  const signedOut = await page.goto("/admin/workspaces");
-  expect(signedOut?.status()).toBe(404);
-  await expect(page).toHaveURL(/\/admin\/workspaces$/);
-  await expect(page.getByRole("heading", { name: "This page does not exist" })).toBeVisible();
+  // Signed out, like every signed-in page: log in, then come back.
+  await page.goto("/admin/workspaces");
+  await expect(page).toHaveURL(/\/login\?next=%2Fadmin%2Fworkspaces$/);
 
-  // A workspace owner is no different.
+  // A workspace owner gets the same 404 as a page that does not exist.
   await signUp(page, "Ada Lovelace", "Ordinary Co");
   expect((await page.goto("/admin"))?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "This page does not exist" })).toBeVisible();

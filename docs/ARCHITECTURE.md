@@ -1242,11 +1242,13 @@ at `/admin` (API under `/v1/admin`).
   is set only from the command line, `docent admin grant|revoke <email>` (the
   local seed sets it for its owner account). No screen or API route can set it,
   and a revoke applies on the next request.
-- **Hidden from everyone else**: anyone else, signed in or not, gets the same
-  404 as an unknown path. On the API a gate answers before routing, so not even
-  a 405 or a 422 gives the console away, and every route checks again on its
-  own. The web app answers `/admin` the same way from its proxy, with no
-  redirect to log in.
+- **Hidden from everyone else**: on the API, anyone else, signed in or not,
+  gets the same 404 as an unknown path. A gate answers before routing, so not
+  even a 405 or a 422 gives the console away, and every route checks again on
+  its own. In the web app, `/admin` sends a signed-out visitor (or an expired
+  session) to log in like any other page, answers a signed-in member who is not
+  a platform admin with the 404 page, and answers a 503 when the API cannot be
+  reached, never the console.
 - **Reads without BYPASSRLS**: the API sets the `app.platform_admin` capability
   (section 3) only after it checked the flag and the verified email.
   Select-only policies honor it on exactly the tables the console reads:
