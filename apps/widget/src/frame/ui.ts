@@ -578,12 +578,15 @@ export function createUi(
         if (person) {
           more = h("div", { class: "rate-actions" }, person);
           box.appendChild(more);
+          more.scrollIntoView?.({ block: "nearest" });
         }
         down.focus();
       });
       more = form;
       box.appendChild(form);
       text.focus();
+      // The whole form, buttons too, in view: it opens under the last answer.
+      form.scrollIntoView?.({ block: "nearest" });
     };
 
     const choose = async (next: Vote): Promise<void> => {
