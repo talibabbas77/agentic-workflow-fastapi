@@ -53,6 +53,7 @@ async def set_context(
     widget_public_id: str | None = None,
     widget_session_hash: bytes | None = None,
     billing_customer: str | None = None,
+    platform_admin: bool = False,
 ) -> None:
     """Replace the RLS context for the rest of the current transaction."""
     await conn.execute(
@@ -61,13 +62,15 @@ async def set_context(
         " set_config('app.invite_token', $3, true),"
         " set_config('app.widget_public_id', $4, true),"
         " set_config('app.widget_session', $5, true),"
-        " set_config('app.billing_customer', $6, true)",
+        " set_config('app.billing_customer', $6, true),"
+        " set_config('app.platform_admin', $7, true)",
         _ctx(tenant_id),
         _ctx(user_id),
         _ctx(invite_token_hash),
         widget_public_id or "",
         _ctx(widget_session_hash),
         billing_customer or "",
+        "on" if platform_admin else "",
     )
 
 
@@ -81,6 +84,7 @@ async def transaction(
     widget_public_id: str | None = None,
     widget_session_hash: bytes | None = None,
     billing_customer: str | None = None,
+    platform_admin: bool = False,
 ) -> AsyncIterator[Connection]:
     """Run a transaction with RLS context.
 
@@ -90,6 +94,8 @@ async def transaction(
     widget_public_id     the one widget with this public id, and its keys, are readable
     widget_session_hash  the one widget session with this token hash is readable
     billing_customer     the one subscription of this provider customer is readable
+    platform_admin       the console's tables are readable across tenants, never writable.
+                         Only for a user already checked by deps.get_platform_admin.
     """
     async with pool.acquire() as conn, conn.transaction():
         await set_context(
@@ -100,5 +106,6 @@ async def transaction(
             widget_public_id=widget_public_id,
             widget_session_hash=widget_session_hash,
             billing_customer=billing_customer,
+            platform_admin=platform_admin,
         )
         yield conn

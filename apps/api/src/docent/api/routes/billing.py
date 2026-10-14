@@ -70,6 +70,7 @@ async def get_billing(member: CurrentMember, state: State) -> BillingOut:
         scheduled_plan=current.scheduled_plan,
         scheduled_change_at=current.scheduled_change_at,
         grace_ends_at=current.grace_ends_at,
+        comped_until=current.comped_until,
         refund_until=refunds.window_end(current),
         billing_enabled=state.billing is not None,
         can_manage=member.role == "owner",

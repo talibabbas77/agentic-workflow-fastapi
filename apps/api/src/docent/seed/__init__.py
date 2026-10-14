@@ -2,7 +2,8 @@
 
   pnpm seed --owner-email you@example.com      (SEED_OWNER_PASSWORD in the environment)
 
-1. People, workspaces, roles, invitations, and plan states (always).
+1. People, workspaces, roles, invitations, and plan states (always). The owner
+   account is made a platform admin, so /admin opens for it.
 2. With the API running: agent settings, ticket types, help articles, team
    answers, and a widget on the demo host, all through the public API.
 3. Then, unless --no-conversations: customer conversations through the real
@@ -71,6 +72,7 @@ async def seed(
             for key, person in people.items():
                 password_hash = owner_hash if key == OWNER else demo_hash
                 ids[key] = await accounts.ensure_user(conn, person, password_hash)
+            await accounts.make_platform_admin(conn, owner_email)
         lines = [(await accounts.create_workspace(pool, ws, ids, settings))[1] for ws in WORKSPACES]
 
         if api_url and fixtures:
@@ -154,6 +156,7 @@ def _accounts_summary(people: dict[str, Person], owner_email: str, demo_password
         for key, role in ws.members:
             roles.setdefault(key, []).append(f"{role} of {ws.name} ({ws.plan.plan_id})")
     lines = [f"Log in as {owner_email} with SEED_OWNER_PASSWORD: {', '.join(roles[OWNER])}."]
+    lines.append(f"{owner_email} is also a platform admin: the console is at /admin.")
     lines.append(f"Teammates, all with the password {demo_password}:")
     lines += [
         f"  {people[key].email:<38} {people[key].name:<15} {', '.join(roles[key])}"

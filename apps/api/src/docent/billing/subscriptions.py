@@ -6,6 +6,7 @@ owns payment status and tells us through webhooks.
 
 Access:
   trial (no payment yet)  until trial_ends_at
+  comped plan             until comped_until (a paid plan Docent gave by hand)
   trialing, active        yes
   past_due                for a 7 day grace period, then off
   anything else           off
@@ -59,6 +60,7 @@ class Entitlement:
     refunded_at: datetime | None
     customer_id: str | None
     subscription_id: str | None
+    comped_until: datetime | None = None
 
 
 async def start_trial(conn: Connection, tenant_id: uuid.UUID) -> None:
@@ -93,14 +95,22 @@ async def entitlement(conn: Connection, tenant_id: uuid.UUID) -> Entitlement:
         )
         row = await conn.fetchrow("select * from subscriptions where tenant_id = $1", tenant_id)
         assert row is not None
-    return _entitlement(row, datetime.now(UTC))
+    return from_row(row)
+
+
+def from_row(row: asyncpg.Record, now: datetime | None = None) -> Entitlement:
+    """The entitlement a subscriptions row gives, for code that already read the row."""
+    return _entitlement(row, now or datetime.now(UTC))
 
 
 def _entitlement(row: asyncpg.Record, now: datetime) -> Entitlement:
     status = row["status"]
     grace_ends_at = row["past_due_since"] + GRACE if row["past_due_since"] else None
+    comped_until = row["comped_until"] if row["provider"] == "manual" else None
     if row["provider"] == "manual" and status == "trialing":
         active = row["trial_ends_at"] is None or now < row["trial_ends_at"]
+    elif comped_until is not None and status == "active":
+        active = now < comped_until
     elif status in ("trialing", "active"):
         active = True
     elif status == "past_due":
@@ -125,6 +135,7 @@ def _entitlement(row: asyncpg.Record, now: datetime) -> Entitlement:
         refunded_at=row["refunded_at"],
         customer_id=row["provider_customer_id"],
         subscription_id=row["provider_subscription_id"],
+        comped_until=comped_until,
     )
 
 

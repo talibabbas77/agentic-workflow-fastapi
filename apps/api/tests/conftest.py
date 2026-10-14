@@ -55,6 +55,21 @@ TENANT_TABLES = [
     "end_users",
     "widget_sessions",
 ]
+# Tables the platform admin console reads across tenants, through a select-only policy on
+# the app.platform_admin capability (migration 0011). Content tables are never on it.
+CONSOLE_TABLES = [
+    "tenants",
+    "memberships",
+    "subscriptions",
+    "usage_periods",
+    "usage_events",
+    "widgets",
+    "knowledge_sources",
+    "documents",
+    "conversations",
+    "escalations",
+    "audit_log",
+]
 ALL_TABLES = [
     "customer_memories",
     "knowledge_gaps",

@@ -10,10 +10,12 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
 from docent.api import streaming
+from docent.api.deps import is_platform_admin_request
 from docent.api.errors import install_error_handlers
 from docent.api.middleware import (
     BodySizeLimitMiddleware,
     OriginCheckMiddleware,
+    PlatformAdminGate,
     RequestContextMiddleware,
 )
 from docent.api.routes import (
@@ -24,6 +26,7 @@ from docent.api.routes import (
     knowledge,
     members,
     memory,
+    platform_admin,
     public,
     ticket_types,
     widget_api,
@@ -105,6 +108,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if settings.env in ("local", "test") else None,
     )
     install_error_handlers(app)
+    # Innermost, so the request id and the origin check apply to what it answers.
+    app.add_middleware(PlatformAdminGate, allowed=is_platform_admin_request)
     app.add_middleware(OriginCheckMiddleware, allowed_origins=settings.allowed_origins)
     app.add_middleware(
         BodySizeLimitMiddleware,
@@ -127,6 +132,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         billing.router,
         billing.webhook_router,
         public.router,
+        platform_admin.router,
     ):
         app.include_router(router)
     return app

@@ -18,13 +18,12 @@ async def build_me(
         TenantSummary(id=r["id"], name=r["name"], slug=r["slug"], role=r["role"]) for r in rows
     ]
     active = next((t for t in summaries if t.id == active_tenant_id), None)
+    verified = user["email_verified_at"] is not None
     return MeOut(
         user=UserOut(
-            id=user["id"],
-            email=user["email"],
-            name=user["name"],
-            email_verified=user["email_verified_at"] is not None,
+            id=user["id"], email=user["email"], name=user["name"], email_verified=verified
         ),
         active_tenant=active,
         tenants=summaries,
+        platform_admin=user["is_platform_admin"] and verified,
     )

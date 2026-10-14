@@ -33,6 +33,11 @@ def not_found(what: str = "Resource") -> AppError:
     return AppError(404, "not_found", f"{what} not found.")
 
 
+def hidden() -> AppError:
+    """The same 404 an unknown path gets, for something the caller may not know exists."""
+    return AppError(404, "not_found", "Not Found")
+
+
 def forbidden(message: str = "You do not have permission to do that.") -> AppError:
     return AppError(403, "forbidden", message)
 
@@ -50,7 +55,7 @@ def rate_limited(retry_after: int) -> AppError:
     )
 
 
-def _body(code: str, message: str, fields: dict[str, str] | None = None) -> dict[str, object]:
+def error_body(code: str, message: str, fields: dict[str, str] | None = None) -> dict[str, object]:
     error: dict[str, object] = {"code": code, "message": message}
     if fields:
         error["fields"] = fields
@@ -63,7 +68,9 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
-            _body(exc.code, exc.message, exc.fields), status_code=exc.status, headers=exc.headers
+            error_body(exc.code, exc.message, exc.fields),
+            status_code=exc.status,
+            headers=exc.headers,
         )
 
     @app.exception_handler(RequestValidationError)
@@ -75,19 +82,19 @@ def install_error_handlers(app: FastAPI) -> None:
             msg = str(err.get("msg", "Invalid value"))
             fields.setdefault(key, msg.removeprefix("Value error, "))
         return JSONResponse(
-            _body("invalid_request", "Some fields need attention.", fields), status_code=422
+            error_body("invalid_request", "Some fields need attention.", fields), status_code=422
         )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
         code = {404: "not_found", 405: "method_not_allowed"}.get(exc.status_code, "http_error")
         return JSONResponse(
-            _body(code, str(exc.detail)), status_code=exc.status_code, headers=exc.headers
+            error_body(code, str(exc.detail)), status_code=exc.status_code, headers=exc.headers
         )
 
     @app.exception_handler(Exception)
     async def _unhandled(_: Request, exc: Exception) -> JSONResponse:
         log.exception("unhandled error", exc_info=exc)
         return JSONResponse(
-            _body("internal_error", "Something went wrong on our side."), status_code=500
+            error_body("internal_error", "Something went wrong on our side."), status_code=500
         )

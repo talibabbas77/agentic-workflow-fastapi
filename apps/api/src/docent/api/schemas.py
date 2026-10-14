@@ -112,6 +112,9 @@ class MeOut(BaseModel):
     user: UserOut
     active_tenant: TenantSummary | None
     tenants: list[TenantSummary]
+    platform_admin: bool = Field(
+        default=False, description="A platform admin with a verified email: /admin is open"
+    )
 
 
 class TenantOut(BaseModel):
@@ -540,6 +543,9 @@ class BillingOut(BaseModel):
     scheduled_plan: Plan | None = Field(description="A downgrade waiting for the period to end")
     scheduled_change_at: datetime | None
     grace_ends_at: datetime | None
+    comped_until: datetime | None = Field(
+        default=None, description="A paid plan Docent gave free of charge, until this time"
+    )
     refund_until: datetime | None = Field(
         description="End of the 14 day money-back window, while the workspace can still use it"
     )
@@ -670,3 +676,265 @@ class MemoryOverviewOut(BaseModel):
     customer_facts: int
     answers_30d: int
     handoffs_30d: int
+
+
+# Platform admin console. Counts and metadata only: never message, knowledge, or memory content.
+
+WorkspaceState = Literal[
+    "trial", "trial_ended", "paying", "comped", "comp_ended", "past_due", "canceled", "other"
+]
+WorkspaceSort = Literal["newest", "name", "cost", "margin"]
+PlanId = Literal["trial", "starter", "growth", "scale"]
+PaidPlanId = Literal["starter", "growth", "scale"]
+JobStatus = Literal["queued", "running", "succeeded", "failed", "dead"]
+EventOutcome = Literal["applied", "ignored", "stale", "unknown_customer"]
+Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+
+
+class AdminFiguresOut(BaseModel):
+    """One workspace this calendar month. Money is in micro dollars (1 USD = 1,000,000)."""
+
+    replies_used: int = Field(description="Billed AI replies, as the cap counts them")
+    replies_cap: int = Field(description="The plan's cap while it is active, else 0")
+    cost_micros: int = Field(description="Model cost from usage_events")
+    revenue_micros: int = Field(description="The plan's monthly price if it is paid through Stripe")
+    margin_micros: int = Field(description="Revenue less model cost")
+    cost_per_reply_micros: float | None
+    anomaly: bool = Field(description="Cost per reply is more than 3 times the median")
+
+
+class AdminPlanStateCount(BaseModel):
+    plan_id: str
+    state: WorkspaceState
+    count: int
+
+
+class AdminAnomalyOut(BaseModel):
+    tenant_id: uuid.UUID
+    name: str
+    plan_id: str
+    replies_used: int
+    cost_micros: int
+    cost_per_reply_micros: float
+    times_median: float
+
+
+class AdminOverviewOut(BaseModel):
+    period_start: date
+    workspaces: int
+    by_plan_state: list[AdminPlanStateCount]
+    paying_workspaces: int = Field(description="Active Stripe subscriptions")
+    mrr_micros: int = Field(description="Monthly price of every active Stripe subscription")
+    new_workspaces_30d: int
+    new_accounts_30d: int
+    replies_this_month: int
+    cost_this_month_micros: int
+    gross_margin: float | None = Field(description="(MRR - model cost) / MRR; null without MRR")
+    median_cost_per_reply_micros: float | None
+    anomalies: list[AdminAnomalyOut]
+
+
+class AdminWorkspaceRowOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    plan: Plan
+    state: WorkspaceState
+    provider: Literal["manual", "stripe"]
+    members: int
+    created_at: datetime
+    figures: AdminFiguresOut
+
+
+class AdminWorkspacesOut(BaseModel):
+    items: list[AdminWorkspaceRowOut]
+    total: int
+    page: int
+    per_page: int
+    median_cost_per_reply_micros: float | None
+
+
+class AdminSubscriptionOut(BaseModel):
+    plan: Plan
+    state: WorkspaceState
+    status: SubscriptionStatus
+    provider: Literal["manual", "stripe"]
+    active: bool = Field(description="False means escalate-only mode")
+    trial_ends_at: datetime | None
+    current_period_start: datetime | None
+    current_period_end: datetime | None
+    cancel_at: datetime | None
+    cancel_at_period_end: bool
+    scheduled_plan: Plan | None
+    scheduled_change_at: datetime | None
+    grace_ends_at: datetime | None
+    comped_until: datetime | None
+    first_paid_at: datetime | None
+    refunded_at: datetime | None
+    refund_until: datetime | None
+    customer_id: str | None = Field(description="Stripe customer id")
+    subscription_id: str | None = Field(description="Stripe subscription id")
+
+
+class AdminUsageMonthOut(BaseModel):
+    month: date
+    replies_used: int
+    replies_cap: int | None = Field(description="The cap that month; null with no usage row")
+    cost_micros: int
+    tokens_in: int
+    tokens_out: int
+
+
+class AdminMemberOut(BaseModel):
+    user_id: uuid.UUID
+    name: str
+    email: str
+    role: Role
+    email_verified: bool
+    joined_at: datetime
+    last_active_at: datetime | None
+
+
+class AdminWidgetOut(BaseModel):
+    id: uuid.UUID
+    public_id: str
+    name: str
+    anonymous_enabled: bool
+    allowed_origins: int = Field(description="How many origins may embed it")
+    created_at: datetime
+
+
+class AdminKnowledgeOut(BaseModel):
+    sources: int = Field(description="Uploads, pages, and sitemaps; team answers not included")
+    failed_sources: int
+    team_answers: int
+    documents: int = Field(description="Pages of docs, as the plan counts them")
+    documents_cap: int
+    passages: int
+
+
+class AdminActivityOut(BaseModel):
+    conversations: int = Field(description="Started this month, widget and preview")
+    widget_conversations: int
+    handoffs: int = Field(description="Handoffs to the team this month")
+    open_handoffs: int = Field(description="Not resolved yet, any month")
+
+
+class AdminBillingEventOut(BaseModel):
+    id: str
+    type: str
+    outcome: EventOutcome | None = Field(description="Null for events from before it was kept")
+    tenant_id: uuid.UUID | None
+    workspace_name: str | None
+    created_at: datetime
+    received_at: datetime
+
+
+class AdminAuditEntryOut(BaseModel):
+    id: uuid.UUID
+    action: str
+    actor_name: str | None
+    actor_email: str | None
+    target_type: str | None
+    target_id: str | None
+    metadata: dict[str, Any]
+    created_at: datetime
+
+
+class AdminActionsOut(BaseModel):
+    extend_trial: bool
+    give_comp: bool
+    end_comp: bool
+    refusal: str | None = Field(description="Why no plan action applies to this workspace")
+
+
+class AdminWorkspaceDetailOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    status: Literal["active", "suspended", "deleted"]
+    created_at: datetime
+    subscription: AdminSubscriptionOut
+    this_month: AdminFiguresOut
+    activity: AdminActivityOut
+    usage: list[AdminUsageMonthOut] = Field(description="The last 6 months, oldest first")
+    members: list[AdminMemberOut]
+    widgets: list[AdminWidgetOut]
+    knowledge: AdminKnowledgeOut
+    billing_events: list[AdminBillingEventOut]
+    audit: list[AdminAuditEntryOut]
+    actions: AdminActionsOut
+
+
+class AdminExtendTrialIn(Model):
+    days: int = Field(ge=1, le=30)
+    reason: Reason
+
+
+class AdminCompIn(Model):
+    plan_id: PaidPlanId
+    until: date = Field(description="The comp ends at the start of this day, UTC")
+    reason: Reason
+
+
+class AdminReasonIn(Model):
+    reason: Reason
+
+
+class AdminPersonWorkspaceOut(BaseModel):
+    tenant_id: uuid.UUID
+    name: str
+    role: Role
+
+
+class AdminPersonOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    email: str
+    email_verified: bool
+    is_platform_admin: bool
+    created_at: datetime
+    last_login_at: datetime | None
+    workspaces: list[AdminPersonWorkspaceOut]
+
+
+class AdminPeopleOut(BaseModel):
+    items: list[AdminPersonOut]
+    total: int
+    page: int
+    per_page: int
+
+
+class AdminJobCountOut(BaseModel):
+    kind: str
+    status: JobStatus
+    count: int
+
+
+class AdminDeadJobOut(BaseModel):
+    id: int
+    kind: str
+    tenant_id: uuid.UUID | None
+    workspace_name: str | None
+    attempts: int
+    max_attempts: int
+    last_error: str | None
+    created_at: datetime
+    finished_at: datetime | None
+
+
+class AdminJobsOut(BaseModel):
+    counts: list[AdminJobCountOut] = Field(description="Kept jobs by kind and status")
+    ready: int = Field(description="Queued and due now")
+    scheduled: int = Field(description="Queued for later: retries and scheduled work")
+    running: int
+    dead: int
+    oldest_ready_seconds: int | None = Field(description="How long the oldest due job has waited")
+    dead_jobs: list[AdminDeadJobOut] = Field(description="The 50 most recent")
+
+
+class AdminBillingEventsOut(BaseModel):
+    items: list[AdminBillingEventOut]
+    total: int
+    page: int
+    per_page: int

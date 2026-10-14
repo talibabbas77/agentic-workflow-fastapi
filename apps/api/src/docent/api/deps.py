@@ -1,4 +1,5 @@
-"""Request dependencies: app state, the signed-in user, and their role in the active tenant."""
+"""Request dependencies: app state, the signed-in user, their role in the active tenant, and
+platform admin access."""
 
 import uuid
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request, Response
 
-from docent.api.errors import AppError, forbidden, rate_limited, unauthenticated
+from docent.api.errors import AppError, forbidden, hidden, rate_limited, unauthenticated
 from docent.api.state import AppState
 from docent.config import Settings
 from docent.db.pool import transaction
@@ -87,6 +88,23 @@ async def get_user(user: OptionalUser) -> SessionUser:
 
 
 CurrentUser = Annotated[SessionUser, Depends(get_user)]
+
+
+async def get_platform_admin(user: OptionalUser) -> SessionUser:
+    """A signed-in platform admin with a verified email. Anyone else, signed in or not, gets
+    the 404 an unknown path gets, so the console's existence is not revealed."""
+    if user is None or not user.platform_admin:
+        raise hidden()
+    return user
+
+
+PlatformAdmin = Annotated[SessionUser, Depends(get_platform_admin)]
+
+
+async def is_platform_admin_request(request: Request) -> bool:
+    """The same check, for middleware.PlatformAdminGate, which runs before routing."""
+    user = await get_optional_user(request, get_state(request))
+    return user is not None and user.platform_admin
 
 
 @dataclass(frozen=True, slots=True)
