@@ -20,6 +20,10 @@ COPY packages/api-client packages/api-client
 COPY apps/web apps/web
 ARG API_INTERNAL_URL=http://api:8000
 ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+# Public settings are inlined into the build, so they are build arguments.
+ARG NEXT_PUBLIC_SITE_URL NEXT_PUBLIC_WIDGET_ORIGIN NEXT_PUBLIC_CONTACT_EMAIL \
+    NEXT_PUBLIC_SOCIAL_X NEXT_PUBLIC_SOCIAL_LINKEDIN NEXT_PUBLIC_SOCIAL_GITHUB \
+    NEXT_PUBLIC_SOCIAL_YOUTUBE NEXT_PUBLIC_SOCIAL_DISCORD NEXT_PUBLIC_SOCIAL_INSTAGRAM
 RUN pnpm --filter @docent/web build
 
 FROM node:24-alpine AS runtime

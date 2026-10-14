@@ -1,10 +1,13 @@
-/** Public addresses for the marketing site. The defaults are placeholders until the domain is chosen. */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://docent.example").replace(/\/$/, "");
-export const WIDGET_ORIGIN = (process.env.NEXT_PUBLIC_WIDGET_ORIGIN ?? "https://widget.docent.example").replace(
+/**
+ * Public addresses for the marketing site. The defaults are placeholders until the domain
+ * is chosen. An empty value counts as unset, since Docker build arguments are never missing.
+ */
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://docent.example").replace(/\/$/, "");
+export const WIDGET_ORIGIN = (process.env.NEXT_PUBLIC_WIDGET_ORIGIN || "https://widget.docent.example").replace(
   /\/$/,
   "",
 );
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@docent.example";
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "hello@docent.example";
 
 /** Marketing pages, in navigation order. Used by the header, footer, and sitemap. */
 export const marketingNav = [
@@ -28,8 +31,17 @@ export const footerNav = [
     links: [
       { href: "/how-it-works", label: "How it works" },
       { href: "/pricing", label: "Pricing" },
-      { href: "/docs", label: "Docs" },
       { href: "/security", label: "Security" },
+      { href: "/signup", label: "Start free trial" },
+    ],
+  },
+  {
+    title: "Developers",
+    links: [
+      { href: "/docs", label: "Install guide" },
+      { href: "/docs#identified", label: "Signed-in customers" },
+      { href: "/docs#claims", label: "Token claims" },
+      { href: "/docs#csp", label: "Content Security Policy" },
     ],
   },
   {
@@ -38,6 +50,29 @@ export const footerNav = [
       { href: "/contact", label: "Contact" },
       { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
+      { href: "/login", label: "Log in" },
     ],
   },
 ];
+
+export type SocialPlatform = "x" | "linkedin" | "github" | "youtube" | "discord" | "instagram";
+
+/**
+ * Social profiles, set per deployment. A platform appears only once its URL is
+ * set, so the site never links to an account that is not ours. Set a variable
+ * to an empty string to hide it. Each one is read by name so Next can inline it.
+ */
+export const socialLinks = (
+  [
+    { platform: "x", label: "X", href: process.env.NEXT_PUBLIC_SOCIAL_X },
+    { platform: "linkedin", label: "LinkedIn", href: process.env.NEXT_PUBLIC_SOCIAL_LINKEDIN },
+    {
+      platform: "github",
+      label: "GitHub",
+      href: process.env.NEXT_PUBLIC_SOCIAL_GITHUB ?? "https://github.com/talibabbas77/agentic-workflow-fastapi",
+    },
+    { platform: "youtube", label: "YouTube", href: process.env.NEXT_PUBLIC_SOCIAL_YOUTUBE },
+    { platform: "discord", label: "Discord", href: process.env.NEXT_PUBLIC_SOCIAL_DISCORD },
+    { platform: "instagram", label: "Instagram", href: process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM },
+  ] satisfies { platform: SocialPlatform; label: string; href: string | undefined }[]
+).filter((link): link is { platform: SocialPlatform; label: string; href: string } => Boolean(link.href));
