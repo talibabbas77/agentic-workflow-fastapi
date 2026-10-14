@@ -360,6 +360,32 @@ async def refresh_source(conn: Connection, source_id: uuid.UUID) -> str:
     return status
 
 
+async def help_topics(conn: Connection, *, identified: bool, limit: int = 4) -> list[str]:
+    """Titles of the help articles customers ask about most, for "what can you help with".
+
+    Ranked by how often answers cited them, then by age. Team answers are not
+    topics, and anonymous visitors never see the title of a signed-in-only article.
+    """
+    rows = await conn.fetch(
+        """
+        select d.title
+        from documents d
+        join knowledge_sources s on s.id = d.source_id
+        left join (
+          select document_title, count(*) as n from message_citations group by document_title
+        ) cited on cited.document_title = d.title
+        where d.status = 'ready' and s.status = 'ready' and s.kind <> 'answer'
+          and ($1 or s.audience = 'public') and char_length(d.title) between 2 and 80
+        group by d.title
+        order by max(coalesce(cited.n, 0)) desc, min(d.created_at), d.title
+        limit $2
+        """,
+        identified,
+        limit,
+    )
+    return [row["title"] for row in rows]
+
+
 async def ready_source_exists(conn: Connection) -> bool:
     return bool(
         await conn.fetchval(

@@ -526,7 +526,7 @@ async def test_a_greeting_with_a_real_question_is_answered(
     [
         (sorted_as("off_topic"), "reply", "I can only help with questions about Lumen Notes."),
         (sorted_as("off_topic", language="es"), "reply", "Solo puedo ayudar con preguntas"),
-        (sorted_as("small_talk"), "reply", "Happy to help."),
+        (sorted_as("small_talk"), "reply", "I'm an AI assistant for Lumen Notes."),
         (
             sorted_as("unclear", "Do you mean the desktop app or the web app?"),
             "clarify",
@@ -600,3 +600,58 @@ async def test_repeated_first_questions_from_anonymous_visitors_reuse_the_checke
     await owner.patch("/v1/agent/settings", json={"tone": "formal"})
     await say(owner, await conversation(owner), question)
     assert len(chat.calls) == calls + 3  # a settings change expires every cached answer
+
+
+async def test_a_reply_to_a_clarifying_question_is_read_in_context(
+    owner: httpx.AsyncClient, chat: FakeChat
+) -> None:
+    """The conversation from the Parcelwise showcase: never two clarifying questions in a row."""
+    cid = await conversation(owner)
+    about = await say(owner, cid, "What is this about?")
+    assert (about["decision"]["type"], len(chat.calls)) == ("reply", 0)
+    assert about["content"].startswith("I'm an AI assistant for Lumen Notes.")
+
+    chat.replies.append(sorted_as("unclear", "Do you mean the desktop app or the web app?"))
+    assert (await say(owner, cid, "zebra migration"))["decision"]["type"] == "clarify"
+    chat.replies.append(sorted_as("unclear", "Do you mean Lumen Notes in general?"))
+    again = await say(owner, cid, "Yes")
+    assert again["decision"]["type"] == "reply"  # what the agent can help with, not a question
+    assert again["content"].startswith("I'm an AI assistant for Lumen Notes.")
+
+    chat.replies.append(sorted_as("unclear", "Do you mean the desktop app or the web app?"))
+    await say(owner, cid, "zebra migration")
+    chat.replies.append(sorted_as("product_question"))
+    assert (await say(owner, cid, "not sure"))["decision"]["type"] == "reply"
+
+    chat.replies.append(sorted_as("unclear", "Do you mean the desktop app or the web app?"))
+    await say(owner, cid, "zebra migration")
+    calls = len(chat.calls)
+    ok = await say(owner, cid, "ok")
+    assert (ok["decision"]["type"], len(chat.calls)) == ("reply", calls)  # no "glad that helps"
+    assert not ok["content"].startswith("Glad")
+
+    chat.replies.append(sorted_as("unclear", "Do you mean the desktop app or the web app?"))
+    await say(owner, cid, "zebra migration")
+    chat.replies.append(sorted_as("product_question"))
+    real = await say(owner, cid, "zebra herds kenya")
+    assert real["decision"]["type"] == "escalate"  # a real answer with nothing to cite
+
+
+async def test_the_about_reply_names_the_most_cited_help_topics(
+    owner: httpx.AsyncClient, chat: FakeChat
+) -> None:
+    cid = await conversation(owner)
+    await say(owner, cid, "how do refunds work for annual plans")  # cites a help article
+    about = await say(owner, await conversation(owner), "what can you help with?")
+    assert "Visitors often ask about " in about["content"]
+    assert about["content"].endswith("What can I help you with?")
+
+
+def test_line_breaks_escaped_twice_by_the_model_are_restored() -> None:
+    from docent.agent.loop import _unescape_newlines
+
+    assert _unescape_newlines("Carriers:\\n- Ridgeway: 30 days\\n- Kestrel: 24 hours") == (
+        "Carriers:\n- Ridgeway: 30 days\n- Kestrel: 24 hours"
+    )
+    code = 'Use this:\n```\nprintf("a\\n");\n```'
+    assert _unescape_newlines(code) == code  # real line breaks: leave the code sample alone

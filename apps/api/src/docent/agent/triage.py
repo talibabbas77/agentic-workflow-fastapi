@@ -154,6 +154,42 @@ def _normalize(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s]", " ", joined).split())
 
 
+# Replies with nothing to search for, in the supported languages.
+_BARE = frozenset(
+    (
+        "yes",
+        "yeah",
+        "yep",
+        "no",
+        "nope",
+        "maybe",
+        "not sure",
+        "idk",
+        "i dont know",
+        "both",
+        "either",
+        "neither",
+        "what",
+        "huh",
+        "si",
+        "oui",
+        "non",
+        "ja",
+        "nein",
+        "sim",
+        "nao",
+        "\u0646\u0639\u0645",
+        "\u0644\u0627",
+    )
+)
+
+
+def is_bare_reply(text: str) -> bool:
+    """A yes, no, ok, or not sure: an answer only to the assistant's last message."""
+    norm = _normalize(text)
+    return norm in _BARE or any(norm in words for words in _PHRASES["ack"].values())
+
+
 def _lookup(phrase: str, kind: SmallTalk) -> Lang | None:
     return next((lang for lang, words in _PHRASES[kind].items() if phrase in words), None)
 
@@ -255,15 +291,6 @@ _REPLIES: dict[str, dict[str, str]] = {
     },
     "ack": {
         "en": "Glad that helps. Anything else about {company}?",
-    },
-    "small_talk": {
-        "en": "Happy to help. Is there anything about {company} I can help you with?",
-        "es": "Con gusto. ¿Hay algo sobre {company} en lo que pueda ayudarte?",
-        "fr": "Avec plaisir. Puis-je vous aider pour quelque chose concernant {company} ?",
-        "de": "Gern. Gibt es etwas zu {company}, bei dem ich helfen kann?",
-        "pt": "Com prazer. Há algo sobre a {company} em que eu possa ajudar?",
-        "it": "Volentieri. C'è qualcosa su {company} in cui posso aiutarti?",
-        "ar": "بكل سرور. هل هناك شيء يخص {company} يمكنني مساعدتك فيه؟",
     },
     "off_topic": {
         "en": "I can only help with questions about {company}. Is there something about "

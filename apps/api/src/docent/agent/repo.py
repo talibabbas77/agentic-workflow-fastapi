@@ -73,6 +73,19 @@ async def recent_turns(
     return [(r["role"], r["content"]) for r in rows]
 
 
+async def last_agent_decision(conn: Connection, conversation_id: uuid.UUID) -> str | None:
+    """What the agent's last turn was: answer, clarify, escalate, or reply."""
+    decision: str | None = await conn.fetchval(
+        """
+        select decision->>'type' from messages
+        where conversation_id = $1 and role = 'agent'
+        order by created_at desc limit 1
+        """,
+        conversation_id,
+    )
+    return decision
+
+
 async def add_message(
     conn: Connection,
     *,

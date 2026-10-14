@@ -118,6 +118,7 @@ async def run_turn(
             raise ConversationNotFound
         profile = await _profile(conn, tenant_id)
         history = await repo.recent_turns(conn, conversation_id, s.agent_history_turns)
+        asked_to_clarify = await repo.last_agent_decision(conn, conversation_id) == "clarify"
         await repo.add_message(
             conn, tenant_id=tenant_id, conversation_id=conversation_id, role="visitor", content=text
         )
@@ -126,6 +127,14 @@ async def run_turn(
         anonymous = conversation["mode"] == "anonymous"
         captured = await _capture_contact(conn, conversation_id, text) if anonymous else None
         small = None if captured else triage.detect(text, profile)
+        if small and small.kind == "ack" and asked_to_clarify:
+            # "ok" to a clarifying question is not thanks for an answer.
+            small = triage.Detected("about", small.lang)
+        topics = (
+            await knowledge_repo.help_topics(conn, identified=not anonymous)
+            if small and small.kind == "about"
+            else []
+        )
         reserved = False
         if not (captured or small):
             cap = await subscriptions.reply_cap(conn, tenant_id)
@@ -146,7 +155,7 @@ async def run_turn(
         if captured:
             outcome = _Outcome("reply", f"Thanks. The team will reply to {captured}.")
         elif small:
-            outcome = _Outcome("reply", triage.reply(small.kind, small.lang, profile))
+            outcome = _Outcome("reply", triage.reply(small.kind, small.lang, profile, topics))
         elif not reserved:
             outcome = _escalate("cap_reached", low_turns)
         elif guards.asks_for_human(text):
@@ -186,6 +195,13 @@ async def run_turn(
                         deps, profile, claims, [], history, text, low_turns, memory
                     )
                     yield Progress("checking")
+                elif _orient(sorted_as, asked_to_clarify, text):
+                    # Never a second clarifying question, and never a handoff for "yes":
+                    # say what the agent can help with, from the articles customers ask about.
+                    async with transaction(deps.pool, tenant_id=tenant_id) as conn:
+                        topics = await knowledge_repo.help_topics(conn, identified=not anonymous)
+                    language = sorted_as.value.language if sorted_as else "en"
+                    outcome = _Outcome("reply", triage.reply("about", language, profile, topics))
                 else:
                     outcome = _route(sorted_as, profile, low_turns)
                 outcome.sorted_as = sorted_as
@@ -304,7 +320,7 @@ def validate(
     """Turn the model's decision into what the visitor sees, failing toward a person."""
     if decision.type == "escalate":
         return _escalate(decision.escalation_reason or "no_source", low_turns)
-    answer = decision.answer.strip()
+    answer = _unescape_newlines(decision.answer).strip()
     if not answer:
         return _escalate("low_confidence", low_turns)
     if decision.type == "clarify":
@@ -382,14 +398,38 @@ def _route(
         return _escalate("no_source", low_turns)
     found = sorted_as.value
     match found.intent:
-        case "small_talk" | "off_topic":
-            return _Outcome("reply", triage.reply(found.intent, found.language, profile))
+        case "off_topic":
+            return _Outcome("reply", triage.reply("off_topic", found.language, profile))
         case "wants_person":
             return _escalate("user_requested", low_turns)
         case "unclear" if question := _clarifying(found.clarifying_question):
             return _Outcome("clarify", question, low_confidence_turns=low_turns)
         case _:
             return _escalate("no_source", low_turns)
+
+
+def _unescape_newlines(text: str) -> str:
+    """Undo a model that escaped its line breaks twice, so a list shows as a list.
+
+    Only when the text has no real line break: then every backslash-n came from
+    the model's JSON, not from a code sample in the answer.
+    """
+    if "\n" in text or "\\n" not in text:
+        return text
+    return text.replace("\\r\\n", "\n").replace("\\n", "\n")
+
+
+def _orient(sorted_as: Structured[triage.Triage] | None, asked_to_clarify: bool, text: str) -> bool:
+    """An answer to the agent's clarifying question that still gives nothing to search for.
+
+    Small talk about the assistant itself is answered the same way.
+    """
+    intent = sorted_as.value.intent if sorted_as else None
+    if intent == "small_talk":
+        return True
+    if not asked_to_clarify or intent in ("wants_person", "off_topic", "account_question"):
+        return False
+    return intent == "unclear" or triage.is_bare_reply(text)
 
 
 def _clarifying(question: str | None) -> str | None:
