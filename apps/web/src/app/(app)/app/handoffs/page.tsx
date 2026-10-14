@@ -4,7 +4,7 @@ import { TicketTypesManager } from "@/components/handoffs/ticket-types-manager";
 import { ListPageSkeleton } from "@/components/shell/page-skeleton";
 import { getMe, getTicketTypes } from "@/lib/api/server";
 
-export const metadata: Metadata = { title: "Handoffs" };
+export const metadata: Metadata = { title: "Ticket types" };
 
 export default function HandoffsPage() {
   return (

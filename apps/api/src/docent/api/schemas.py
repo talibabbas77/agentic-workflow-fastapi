@@ -670,3 +670,389 @@ class MemoryOverviewOut(BaseModel):
     customer_facts: int
     answers_30d: int
     handoffs_30d: int
+
+
+# Inbox
+
+EscalationStatus = Literal["open", "assigned", "waiting", "resolved"]
+Priority = Literal["low", "normal", "high", "urgent"]
+HandoffReason = Literal[
+    "no_source",
+    "low_confidence",
+    "user_requested",
+    "restricted_topic",
+    "repeated_failure",
+    "cap_reached",
+]
+InboxSort = Literal["newest", "oldest", "updated", "priority"]
+WebhookEvent = Literal["escalation.created", "escalation.updated", "escalation.resolved"]
+ALL_WEBHOOK_EVENTS: tuple[WebhookEvent, ...] = (
+    "escalation.created",
+    "escalation.updated",
+    "escalation.resolved",
+)
+EmailDeliveryStatus = Literal["queued", "sent", "retrying", "dead"]
+NotificationStatus = Literal["queued", "sent", "retrying", "dead", "skipped"]
+WebhookDeliveryStatus = Literal["queued", "retrying", "succeeded", "dead"]
+LongText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=5000)]
+FieldValue = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+
+
+class PersonOut(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class TicketTypeRef(BaseModel):
+    id: uuid.UUID
+    name: str
+
+
+class InboxItemOut(BaseModel):
+    id: uuid.UUID
+    status: EscalationStatus
+    reason: HandoffReason
+    priority: Priority
+    issue: str = Field(description="The summary's issue, or the customer's message until then")
+    ticket_type: TicketTypeRef | None
+    contact_email: str | None
+    customer_name: str | None = Field(description="From the signed identity; None if anonymous")
+    mode: Literal["anonymous", "identified"]
+    channel: Literal["preview", "widget"]
+    assignee: PersonOut | None
+    unread: bool = Field(description="Created or changed since you last opened it")
+    summary_ready: bool
+    created_at: datetime
+    updated_at: datetime
+    first_response_at: datetime | None
+    resolved_at: datetime | None
+
+
+class InboxCountsOut(BaseModel):
+    open: int
+    assigned: int
+    waiting: int
+    resolved: int
+    unread: int = Field(description="Unread handoffs that are not resolved")
+    mine: int = Field(description="Assigned to you and not resolved")
+    unassigned: int = Field(description="Nobody assigned and not resolved")
+
+
+class InboxPageOut(BaseModel):
+    items: list[InboxItemOut]
+    next_cursor: str | None = Field(description="Pass as cursor for the next page")
+    counts: InboxCountsOut
+
+
+class BoardColumnOut(BaseModel):
+    status: EscalationStatus
+    total: int
+    items: list[InboxItemOut]
+
+
+class InboxBoardOut(BaseModel):
+    columns: list[BoardColumnOut]
+    counts: InboxCountsOut
+
+
+class MessageFlagOut(BaseModel):
+    reason: str
+    by: str | None
+    at: datetime
+
+
+class EmailDeliveryOut(BaseModel):
+    id: uuid.UUID
+    kind: Literal["reply", "notification", "digest"]
+    to_hint: str = Field(description="The recipient, partly hidden")
+    subject: str
+    status: EmailDeliveryStatus
+    attempts: int
+    last_error: str | None
+    created_at: datetime
+    sent_at: datetime | None
+
+
+class InboxMessageOut(BaseModel):
+    id: uuid.UUID
+    role: Literal["visitor", "agent", "human", "system"]
+    content: str
+    decision: DecisionOut | None
+    citations: list[CitationOut]
+    created_at: datetime
+    author: PersonOut | None = Field(description="The team member who wrote a human reply")
+    flag: MessageFlagOut | None = Field(description="Marked as a wrong answer, and why")
+    delivery: EmailDeliveryOut | None = Field(description="The email that carried a human reply")
+
+
+class NoteOut(BaseModel):
+    id: uuid.UUID
+    body: str
+    author: PersonOut | None
+    created_at: datetime
+    can_delete: bool
+
+
+class HistoryEntryOut(BaseModel):
+    id: uuid.UUID
+    action: str
+    text: str = Field(description="What happened, in a sentence")
+    actor: str | None = Field(description="Who did it; None for Docent itself")
+    created_at: datetime
+
+
+class CustomerOut(BaseModel):
+    external_id: str
+    name: str | None
+    email: str | None
+    claims: dict[str, str]
+    first_seen_at: datetime
+    last_seen_at: datetime
+
+
+class InboxDetailOut(BaseModel):
+    item: InboxItemOut
+    summary: EscalationSummaryOut | None
+    fields: dict[str, str]
+    ticket_type_fields: list[TicketField] = Field(description="The ticket type's fields, to edit")
+    conversation_id: uuid.UUID
+    claims: dict[str, str] = Field(description="Verified claims from the signed identity token")
+    customer: CustomerOut | None
+    messages: list[InboxMessageOut]
+    notes: list[NoteOut]
+    history: list[HistoryEntryOut]
+    deliveries: list[EmailDeliveryOut]
+    routed_by_rule: str | None
+    reply_from: str = Field(description="The From line of a reply")
+    reply_to: str = Field(description="Where the customer's answer goes")
+    can_assign_others: bool
+
+
+class InboxUpdateIn(Model):
+    """Send only what changes. assignee_user_id or ticket_type_id set to null clears them."""
+
+    status: EscalationStatus | None = None
+    assignee_user_id: uuid.UUID | None = None
+    priority: Priority | None = None
+    ticket_type_id: uuid.UUID | None = None
+    fields: dict[FieldKey, FieldValue] | None = Field(default=None, max_length=12)
+
+
+class ReplyIn(Model):
+    body: LongText
+    then: Literal["waiting", "resolved", "keep"] = Field(
+        default="waiting", description="Status after sending: waiting on the customer by default"
+    )
+
+
+class ReplyOut(BaseModel):
+    message: InboxMessageOut
+    item: InboxItemOut
+
+
+class NoteIn(Model):
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+
+
+class FlagIn(Model):
+    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=500)]
+
+
+class InboxStatsOut(BaseModel):
+    open: int
+    unassigned: int
+    mine: int
+    waiting: int
+    resolved_7d: int
+    median_first_response_minutes: float | None = Field(description="Last 30 days")
+    answers_30d: int
+    wrong_answers_30d: int = Field(description="Agent answers the team marked wrong")
+    wrong_answer_rate_30d: float | None
+
+
+class AssigneeOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    role: Role
+    is_you: bool
+
+
+class InboxSettingsOut(BaseModel):
+    support_email: str | None = Field(description="Reply-To on inbox replies")
+    reply_from: str = Field(description="The From line customers see")
+
+
+class InboxSettingsIn(Model):
+    support_email: EmailStr | None
+
+
+class NotificationPrefs(Model):
+    daily_digest: bool = Field(description="One email each morning while handoffs are open")
+    assigned_email: bool = Field(description="Email when a handoff is assigned to you")
+
+
+# Automation
+
+ClaimOp = Literal["equals", "not_equals", "contains", "exists"]
+
+
+class ClaimCondition(Model):
+    key: ClaimKey
+    op: ClaimOp = "equals"
+    value: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = ""
+
+
+class RoutingRuleIn(Model):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    active: bool = True
+    ticket_type_ids: list[uuid.UUID] = Field(
+        default_factory=list, max_length=20, description="Any of these; empty matches any type"
+    )
+    reasons: list[HandoffReason] = Field(
+        default_factory=list, max_length=6, description="Any of these; empty matches any reason"
+    )
+    claim_conditions: list[ClaimCondition] = Field(
+        default_factory=list, max_length=10, description="All must match the verified claims"
+    )
+    assign_user_id: uuid.UUID | None = None
+    set_priority: Priority | None = None
+    notify_emails: list[EmailStr] = Field(default_factory=list, max_length=10)
+    notify_channel_id: uuid.UUID | None = None
+    webhook_id: uuid.UUID | None = None
+
+    @field_validator("claim_conditions")
+    @classmethod
+    def _conditions(cls, conditions: list[ClaimCondition]) -> list[ClaimCondition]:
+        for c in conditions:
+            if c.op != "exists" and not c.value:
+                raise ValueError(f"Give a value to compare {c.key} with.")
+        return conditions
+
+    def has_action(self) -> bool:
+        return bool(
+            self.assign_user_id
+            or self.set_priority
+            or self.notify_emails
+            or self.notify_channel_id
+            or self.webhook_id
+        )
+
+
+class RoutingRuleOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    position: int
+    active: bool
+    ticket_type_ids: list[uuid.UUID]
+    reasons: list[HandoffReason]
+    claim_conditions: list[ClaimCondition]
+    assign_user_id: uuid.UUID | None
+    set_priority: Priority | None
+    notify_emails: list[str]
+    notify_channel_id: uuid.UUID | None
+    webhook_id: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class RuleOrderIn(Model):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+SecretUrl = Annotated[str, StringConstraints(strip_whitespace=True, min_length=8, max_length=2048)]
+
+
+class SlackChannelIn(Model):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    url: SecretUrl = Field(description="The Slack incoming webhook URL. Never shown again.")
+    post_all: bool = Field(default=True, description="Every new handoff, not only from rules")
+
+
+class SlackChannelUpdateIn(Model):
+    name: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)] | None
+    ) = None
+    url: SecretUrl | None = None
+    post_all: bool | None = None
+    active: bool | None = None
+
+
+class NotificationStateOut(BaseModel):
+    kind: Literal["new_handoff", "assigned", "daily_digest", "test"]
+    status: NotificationStatus
+    attempts: int
+    last_error: str | None
+    created_at: datetime
+    sent_at: datetime | None
+
+
+class SlackChannelOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    url_hint: str = Field(description="Enough of the URL to recognize it")
+    post_all: bool
+    active: bool
+    created_at: datetime
+    last_delivery: NotificationStateOut | None
+
+
+class WebhookIn(Model):
+    url: SecretUrl
+    description: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] = ""
+    events: list[WebhookEvent] = Field(
+        default_factory=lambda: list(ALL_WEBHOOK_EVENTS),
+        max_length=3,
+        description="Empty: only routing rules send to it",
+    )
+    active: bool = True
+
+
+class WebhookUpdateIn(Model):
+    url: SecretUrl | None = None
+    description: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] | None = (
+        None
+    )
+    events: list[WebhookEvent] | None = Field(default=None, max_length=3)
+    active: bool | None = None
+
+
+class WebhookDeliveryOut(BaseModel):
+    id: uuid.UUID
+    event_id: str
+    event_type: str
+    test: bool
+    status: WebhookDeliveryStatus
+    attempts: int
+    max_attempts: int
+    response_status: int | None
+    response_ms: int | None
+    last_error: str | None
+    next_attempt_at: datetime | None
+    created_at: datetime
+    delivered_at: datetime | None
+
+
+class WebhookOut(BaseModel):
+    id: uuid.UUID
+    url_hint: str
+    description: str
+    events: list[WebhookEvent]
+    active: bool
+    secret_hint: str
+    created_at: datetime
+    updated_at: datetime
+    last_delivery: WebhookDeliveryOut | None
+
+
+class WebhookCreatedOut(BaseModel):
+    webhook: WebhookOut
+    secret: str = Field(description="The signing secret. Shown once; store it now.")
+
+
+class WebhookSecretOut(BaseModel):
+    secret: str = Field(description="The new signing secret. Shown once.")
+
+
+class QueuedOut(BaseModel):
+    id: uuid.UUID
+    status: Literal["queued"] = "queued"

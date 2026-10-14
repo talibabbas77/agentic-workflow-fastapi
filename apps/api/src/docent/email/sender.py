@@ -1,8 +1,9 @@
 """Outgoing email. SMTP covers Mailpit locally and Resend or any provider in production."""
 
+import re
 from dataclasses import dataclass, field
 from email.message import EmailMessage
-from email.utils import make_msgid
+from email.utils import formataddr, make_msgid, parseaddr
 from typing import Protocol
 
 import aiosmtplib
@@ -18,6 +19,18 @@ class OutgoingEmail:
     html: str
     reply_to: str | None = None
     headers: dict[str, str] = field(default_factory=dict)
+    from_name: str | None = None  # display name on the platform sender, such as a workspace's
+
+
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
+
+
+def sender_address(email_from: str, name: str | None) -> str:
+    """The platform's From address, with `name` as its display name when given."""
+    if not name:
+        return email_from
+    clean = _CONTROL.sub(" ", name).strip()[:100]
+    return formataddr((clean, parseaddr(email_from)[1])) if clean else email_from
 
 
 class EmailSender(Protocol):
@@ -30,7 +43,7 @@ class SmtpEmailSender:
 
     async def send(self, email: OutgoingEmail) -> str:
         msg = EmailMessage()
-        msg["From"] = self._s.email_from
+        msg["From"] = sender_address(self._s.email_from, email.from_name)
         msg["To"] = email.to
         msg["Subject"] = email.subject
         msg_id = make_msgid(domain="docent")

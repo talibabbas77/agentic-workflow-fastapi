@@ -21,12 +21,15 @@ from docent.cli import API_ROOT
 from docent.config import Settings
 from docent.db.pool import Pool, create_pool
 from docent.email.sender import MemoryEmailSender, OutgoingEmail
+from docent.inbox.jobs import make_inbox_handlers
+from docent.inbox.outbound import OutboundDeps
 from docent.jobs.handlers import make_handlers
 from docent.jobs.worker import Worker
 from docent.knowledge.fetch import guarded_client
 from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
 from docent.memory.customers import make_memory_handlers
 from docent.security.ratelimit import RateLimiter
+from docent.security.secretbox import SecretBox
 from tests.fakes import FakeChat, FakeEmbedder
 
 PG_HOST = os.environ.get("TEST_PG_HOST", "127.0.0.1")
@@ -54,8 +57,26 @@ TENANT_TABLES = [
     "signing_keys",
     "end_users",
     "widget_sessions",
+    "escalation_reads",
+    "escalation_notes",
+    "notification_channels",
+    "notifications",
+    "email_deliveries",
+    "routing_rules",
+    "webhooks",
+    "webhook_deliveries",
+    "notification_preferences",
 ]
 ALL_TABLES = [
+    "notification_preferences",
+    "webhook_deliveries",
+    "notifications",
+    "email_deliveries",
+    "routing_rules",
+    "webhooks",
+    "notification_channels",
+    "escalation_notes",
+    "escalation_reads",
     "customer_memories",
     "knowledge_gaps",
     "team_answers",
@@ -204,11 +225,15 @@ async def worker(
         knowledge = KnowledgeDeps(
             settings=settings, store=app.state.docent.store, embedder=embedder, http=http
         )
+        outbound = OutboundDeps(
+            settings=settings, box=SecretBox(settings.secret_key.get_secret_value()), http=http
+        )
         handlers = (
             make_handlers(mailbox)
             | make_knowledge_handlers(knowledge)
-            | make_escalation_handlers(chat)
+            | make_escalation_handlers(chat, settings)
             | make_memory_handlers(chat)
+            | make_inbox_handlers(outbound)
         )
         yield Worker(worker_pool, handlers, idle_poll_seconds=60, lease_seconds=30, worker_id="t1")
 

@@ -31,3 +31,25 @@ export function uniqueEmail(label: string) {
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
   return `${label}-${id}@example.com`;
 }
+
+export type MailpitMessage = {
+  ID: string;
+  Subject: string;
+  From: { Name: string; Address: string };
+  ReplyTo: { Name: string; Address: string }[];
+  Text?: string;
+};
+
+/** Wait for an email to `to` whose subject contains `subject`, and return all of it. */
+export async function waitForMessage(to: string, subject: string, timeoutMs = 60_000): Promise<MailpitMessage> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const message of await search(to)) {
+      if (!message.Subject.includes(subject)) continue;
+      const response = await fetch(`${MAILPIT}/api/v1/message/${message.ID}`);
+      return (await response.json()) as MailpitMessage;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(`No email to ${to} about "${subject}" within ${timeoutMs}ms`);
+}

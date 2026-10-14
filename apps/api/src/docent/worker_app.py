@@ -14,6 +14,8 @@ from docent.agent.escalation import make_escalation_handlers
 from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
 from docent.email.sender import SmtpEmailSender
+from docent.inbox.jobs import inbox_schedules, make_inbox_handlers
+from docent.inbox.outbound import OutboundDeps
 from docent.jobs.handlers import make_handlers
 from docent.jobs.worker import Lane, Worker
 from docent.knowledge.embeddings import OllamaEmbedder
@@ -22,6 +24,7 @@ from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
 from docent.llm.client import chat_model
 from docent.log import configure_logging
 from docent.memory.customers import make_memory_handlers
+from docent.security.secretbox import SecretBox
 from docent.storage import ObjectStore
 
 
@@ -51,11 +54,24 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             ),
             http=crawler,
         )
+        # Slack and webhook calls go to tenant URLs: the same guard as crawling.
+        outbound = guarded_client(
+            user_agent="Docent-Webhooks/1.0",
+            timeout=10.0,
+            allow_private=settings.crawl_allow_private,
+        )
         summarizer = chat_model(settings, ollama, settings.llm_summary_model or settings.llm_model)
         io = (
             make_handlers(SmtpEmailSender(settings))
-            | make_escalation_handlers(summarizer)
+            | make_escalation_handlers(summarizer, settings)
             | make_memory_handlers(summarizer)
+            | make_inbox_handlers(
+                OutboundDeps(
+                    settings=settings,
+                    box=SecretBox(settings.secret_key.get_secret_value()),
+                    http=outbound,
+                )
+            )
         )
         ingest = make_knowledge_handlers(knowledge)
         worker = Worker(
@@ -67,6 +83,7 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             ],
             idle_poll_seconds=settings.job_idle_poll_seconds,
             lease_seconds=settings.job_lease_seconds,
+            schedules=inbox_schedules(),
         )
         app.state.worker = worker
         task = asyncio.create_task(worker.run_forever())
@@ -77,6 +94,7 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             with contextlib.suppress(asyncio.CancelledError):
                 await asyncio.wait_for(task, timeout=30)
             await crawler.aclose()
+            await outbound.aclose()
             await ollama.aclose()
             await pool.close()
 

@@ -107,7 +107,7 @@ export function ChatMessageItem({ message, children }: { message: ChatMessage; c
   );
 }
 
-const confidenceLabel = { high: "High confidence", medium: "Medium confidence", low: "Low confidence" } as const;
+export const confidenceLabel = { high: "High confidence", medium: "Medium confidence", low: "Low confidence" } as const;
 
 const chipClasses =
   "inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-sm border border-rust/30 bg-rust-soft px-1 text-xs leading-none font-medium text-rust tabular-nums";
@@ -115,7 +115,7 @@ const chipClasses =
 const linkClasses =
   "rounded-sm text-rust underline decoration-rust/30 underline-offset-[3px] transition-colors duration-150 hover:text-rust-hover";
 
-function Source({ id, citation, active }: { id: string; citation: Citation; active: boolean }) {
+export function Source({ id, citation, active }: { id: string; citation: Citation; active: boolean }) {
   const url = safeUrl(citation.url);
   // The heading path starts with the document title, which is already shown above it.
   const trail = citation.heading_path
@@ -184,7 +184,7 @@ const sameUrl = (url: string) => url.replace(/\/+$/, "");
 const TOKEN =
   /\*\*(\S(?:[^\n]*?\S)?)\*\*|\[([^[\]\n]{1,300})\]\((https?:\/\/[^\s()<>]+)\)|\[(\d{1,3})\]|(https?:\/\/[^\s<>()[\]"']+)/g;
 
-function MessageText({
+export function MessageText({
   text,
   citations,
   onCite,

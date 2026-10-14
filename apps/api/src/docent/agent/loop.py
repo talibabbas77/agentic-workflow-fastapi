@@ -121,6 +121,8 @@ async def run_turn(
         await repo.add_message(
             conn, tenant_id=tenant_id, conversation_id=conversation_id, role="visitor", content=text
         )
+        if conversation["status"] == "escalated":
+            await repo.touch_open_handoff(conn, conversation_id)
         anonymous = conversation["mode"] == "anonymous"
         captured = await _capture_contact(conn, conversation_id, text) if anonymous else None
         small = None if captured else triage.detect(text, profile)

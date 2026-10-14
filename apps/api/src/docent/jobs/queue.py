@@ -16,7 +16,10 @@ DEFAULT_PRIORITY = 100
 PRIORITY_BY_KIND = {
     "delete_source": 10,
     "send_email": 20,
+    "send_slack": 20,
     "summarize_escalation": 30,
+    "deliver_webhook": 40,
+    "send_digest": 60,
 }
 
 
@@ -60,6 +63,31 @@ async def enqueue(
         dedupe_key,
     )
     return int(row["id"]) if row else None
+
+
+async def enqueue_once(
+    conn: Connection,
+    kind: str,
+    payload: dict[str, Any],
+    *,
+    tenant_id: uuid.UUID | None,
+    dedupe_key: str,
+    run_at: datetime | None = None,
+) -> int | None:
+    """Enqueue unless a job with this key exists in any state, finished ones included.
+
+    For scheduled work done once per period, such as a daily digest: the dedupe
+    index only covers queued and running jobs, so it alone would let a finished
+    job be queued again. Finished jobs are kept for 7 days, which covers a day.
+    """
+    exists = await conn.fetchval(
+        "select exists(select 1 from jobs where dedupe_key = $1)", dedupe_key
+    )
+    if exists:
+        return None
+    return await enqueue(
+        conn, kind, payload, tenant_id=tenant_id, run_at=run_at, dedupe_key=dedupe_key
+    )
 
 
 async def claim(

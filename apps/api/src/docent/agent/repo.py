@@ -203,9 +203,23 @@ async def handoff_contact(conn: Connection, conversation_id: uuid.UUID) -> str |
 
 async def set_handoff_contact(conn: Connection, escalation_id: uuid.UUID, email: str) -> None:
     await conn.execute(
-        "update escalations set contact_email = $2 where id = $1 and contact_email is null",
+        """
+        update escalations set contact_email = $2, updated_at = now()
+        where id = $1 and contact_email is null
+        """,
         escalation_id,
         email,
+    )
+
+
+async def touch_open_handoff(conn: Connection, conversation_id: uuid.UUID) -> None:
+    """The customer wrote again after a handoff: it shows as unread in the inbox."""
+    await conn.execute(
+        """
+        update escalations set updated_at = now()
+        where conversation_id = $1 and status <> 'resolved'
+        """,
+        conversation_id,
     )
 
 

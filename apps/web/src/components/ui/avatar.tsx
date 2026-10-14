@@ -8,12 +8,13 @@ function tint(seed: string) {
   return Math.abs(hash) % 2 === 0 ? "bg-rust-soft text-ink" : "bg-surface-2 text-ink";
 }
 
-export function Avatar({ name, seed }: { name: string; seed: string }) {
+export function Avatar({ name, seed, size = "md" }: { name: string; seed: string; size?: "sm" | "md" }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-line text-xs font-medium tracking-wide select-none",
+        "inline-flex shrink-0 items-center justify-center rounded-full border border-line text-xs font-medium select-none",
+        size === "sm" ? "size-6" : "size-8 tracking-wide",
         tint(seed),
       )}
     >

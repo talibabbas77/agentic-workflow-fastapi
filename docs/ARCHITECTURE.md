@@ -196,6 +196,7 @@ carries a narrow capability that a dedicated `for select` policy honors:
 | `app.user_id` | The user's own `memberships` rows and the `tenants` they belong to | Log in, tenant switcher, `/me` |
 | `app.invite_token` | The one `invitations` row whose token hash matches, and its tenant's name | Invitation lookup and accept |
 | `app.billing_customer` | The one `subscriptions` row of that Stripe customer | Billing webhooks |
+| `app.scheduler` | Every tenant's id, name, and status, only through the `tenant_profiles` view | The daily digest scheduler |
 
 The widget id lookup in Phase 4 uses the same pattern (`app.widget_public_id`).
 
@@ -434,10 +435,16 @@ on pages (section 10) keep this in check.
 | Table | | Key columns |
 |---|---|---|
 | `ticket_types` | T | `id, tenant_id, name, description (the agent reads this to classify), fields jsonb (text, email, number, select; required flags), notify_emails text[], priority, active, created_at` |
-| `escalations` | T | `id, tenant_id, conversation_id, ticket_type_id null, reason (no_source, low_confidence, user_requested, restricted_topic, repeated_failure, cap_reached), fields jsonb, summary jsonb (issue, tried, user_context, sentiment, suggested_next_step), contact_email, status (open, assigned, waiting, resolved), assignee_user_id, created_at, first_response_at, resolved_at` |
-| `notifications` | T | `id, tenant_id, user_id, kind, payload jsonb, read_at, created_at` |
-| `notification_channels` | T | `id, tenant_id, kind (email, slack_webhook), target (encrypted), events text[], active` |
-| `email_deliveries` | T | `id, tenant_id, escalation_id null, to_hash, provider_message_id, status, created_at` |
+| `escalations` | T | `id, tenant_id, conversation_id, ticket_type_id null, reason (no_source, low_confidence, user_requested, restricted_topic, repeated_failure, cap_reached), fields jsonb, summary jsonb (issue, tried, user_context, sentiment, suggested_next_step), contact_email, status (open, assigned, waiting, resolved), priority, assignee_user_id, routed_at, routed_by_rule_id, created_at, updated_at, first_response_at, resolved_at` |
+| `escalation_reads` | T | `tenant_id, user_id, escalation_id, read_at`. Unread means `updated_at` is later than the member's `read_at` |
+| `escalation_notes` | T | `id, tenant_id, escalation_id, author_user_id, body, created_at`. Internal, never sent |
+| `routing_rules` | T | `id, tenant_id, name, position, active, ticket_type_ids uuid[], reasons text[], claim_conditions jsonb, assign_user_id, set_priority, notify_emails text[], notify_channel_id, webhook_id` |
+| `notifications` | T | `id, tenant_id, kind (new_handoff, assigned, daily_digest, test), channel (email, slack), escalation_id, user_id, channel_id, email_delivery_id, dedupe_key unique per tenant, payload jsonb, status, attempts, last_error, sent_at, read_at, created_at` |
+| `notification_channels` | T | `id, tenant_id, kind (slack_webhook), name, target_encrypted, target_hint, events text[], active` |
+| `notification_preferences` | T | `tenant_id, user_id, daily_digest, assigned_email` |
+| `email_deliveries` | T | `id, tenant_id, escalation_id null, message_id null, kind (reply, notification, digest), to_hash, to_hint, subject, status (queued, sent, retrying, dead), attempts, provider_message_id, last_error, sent_at` |
+| `webhooks` | T | `id, tenant_id, description, url_encrypted, url_hint, secret_encrypted, secret_hint, events text[], active` |
+| `webhook_deliveries` | T | `id, tenant_id, webhook_id, event_id, event_type, escalation_id, payload jsonb, status (queued, retrying, succeeded, dead), attempts, max_attempts, response_status, response_ms, last_error, next_attempt_at, delivered_at` |
 
 ### Usage and billing
 
@@ -827,8 +834,9 @@ through the pooler. So:
 ### Job kinds
 
 `ingest_source`, `crawl_url`, `parse_document`, `embed_document`,
-`delete_source`, `summarize_escalation`, `send_email`, `send_notification`,
-`run_eval`, `rollup_usage`, `close_idle_conversations`, `purge_retention`.
+`delete_source`, `summarize_escalation` (which also routes the handoff),
+`send_email`, `send_slack`, `deliver_webhook`, `send_digest`, `run_eval`,
+`rollup_usage`, `close_idle_conversations`, `purge_retention`.
 
 ---
 
@@ -1254,3 +1262,90 @@ the end of the paid period; refunds follow a 14 day money-back guarantee that
 covers every payment in the window. Migration 0008 adds the period start, the
 scheduled change, `cancel_at_period_end`, `first_paid_at`, and `refunded_at`.
 The portal stays for cards and invoices.
+
+### 2026-10-14, Phase 5 inbox, routing, notifications, webhooks
+
+- **Unread per member.** `escalations.updated_at` moves on every change the
+  team should notice: a new customer message, the summary arriving, status,
+  assignee, priority, fields, a note, a reply. `escalation_reads` keeps when
+  each member last opened each handoff. A member's own changes mark it read
+  for them, so only teammates' changes show as new.
+- **Statuses and times.** Assigning someone moves an open handoff to Assigned
+  and unassigning moves it back; moving to Open puts it back in the queue
+  with nobody on it. `resolved_at` is set on Resolved and cleared on reopen,
+  and a resolved handoff closes its conversation so the widget starts fresh.
+  `first_response_at` is set by the first reply by email only, never by a
+  status change, so response times measure answers customers received.
+  Replying takes an unowned handoff and, by default, moves it to Waiting.
+- **Roles.** Every member, the agent role too, can list, read, reply, add
+  notes, change status, priority, and fields, take a handoff, or let go of
+  their own. Assigning or unassigning someone else, routing rules, Slack
+  channels, webhooks, and the support address need an owner or admin.
+- **Replies by email** come From the platform sender with the workspace's
+  name ("Lumen Notes via Docent <hello@...>"; the name is stripped of control
+  characters) and Reply-To the workspace's `support_email` (a tenant setting)
+  or the replying member. Each email to a handoff thread carries the same
+  `References` header so customers' mail apps keep one thread. Every email
+  about a workspace's handoffs has an `email_deliveries` row that the
+  `send_email` job updates: sent, retrying with its last error, or dead after
+  5 attempts. A delivery already sent is never sent again.
+- **Routing** runs once per handoff (`routed_at`), in the summary job once the
+  ticket type is known. The first active rule in order whose conditions all
+  match wins: ticket type is any of, reason is any of, and verified claims
+  (equals, not equals, contains, is set; case-insensitive). It can assign,
+  set priority, email, post to a Slack channel, and send to a webhook. If the
+  model keeps failing, the summary job's last attempt routes without a
+  summary so nobody misses the handoff.
+- **Who is emailed about a new handoff:** the ticket type's list, the rule's
+  list, and the assignee. When that is nobody and the handoff came from the
+  widget, owners and admins are told instead. Handoffs from the team's own
+  preview chat follow the same rules but skip that fallback.
+- **Notifications are idempotent.** Each one is a `notifications` row with a
+  dedupe key unique per workspace, written in the same transaction as the
+  job that sends it, so a job that runs twice sends nothing more. The digest
+  key is `digest:<user>:<day>`.
+- **Daily digest.** A small scheduler in the worker runs with maintenance
+  (hourly, so an idle worker still sends no extra queries between safety
+  polls), lists active workspaces through the `app.scheduler` capability, and
+  queues one `send_digest` job per workspace per day for 08:00 UTC unless a
+  job with that key exists in any state (`queue.enqueue_once`). Members who
+  turned it off, and workspaces with nothing open or new, get no email.
+- **No new grants on tenants or users for the worker.** Two views owned by
+  `docent_owner` read those tables through their forced RLS:
+  `member_contacts` (the current tenant's members' id, email, name, role) and
+  `tenant_profiles` (id, name, status). A `scheduler_read` policy on
+  `tenants`, restricted to the view owner, lists every tenant only through
+  `tenant_profiles` and only with `app.scheduler` set; reading `tenants`
+  directly with that setting shows nothing. The worker also gained insert on
+  `audit_log` so rule assignments appear in the history.
+- **Secrets at rest.** Slack URLs, webhook URLs (Zapier and n8n URLs work as
+  passwords), and webhook signing secrets are AES-256-GCM encrypted with a key
+  derived from `SECRET_KEY` by HKDF-SHA256. A stored value is a version byte,
+  a 12 byte random nonce, and the ciphertext with its tag; the associated
+  data is `purpose:tenant:row`, so a value copied to another row or tenant
+  does not open. The API returns only hints (`https://host/…abcd`,
+  `whsec_…abcd`). The signing secret is shown once, when it is made or
+  rotated. Changing `SECRET_KEY` means entering these again.
+- **Outgoing webhooks.** Events `escalation.created` (after routing),
+  `escalation.updated` (with `data.changes`: status, assignee, priority,
+  ticket_type, fields, reply), and `escalation.resolved`. The body carries the
+  escalation snapshot (status, reason, priority, issue, ticket type, fields,
+  summary, contact email, assignee, verified customer) but never the
+  transcript. Header `Docent-Signature: t=<unix>,v1=<hex>`, where v1 is
+  HMAC-SHA256 of `"<t>.<raw body>"` with the signing secret, Stripe style;
+  receivers reject timestamps older than five minutes. The event id is the
+  same on every attempt. Delivery is a `deliver_webhook` job through the
+  SSRF-guarded client (public addresses only, checked at connect time for
+  every attempt; no redirects; 10 second timeout), retried at 30 s, 2 min,
+  10 min, and 1 h, then dead with the last error in the delivery log. A dead
+  delivery can be sent again by hand once. Test events are a sample
+  `escalation.created` with `"test": true` and one attempt.
+- **The API never calls tenant URLs.** Slack test messages and webhook test
+  events go through the worker's guarded client like real ones; the page
+  polls for the result. URLs are checked at save time too: http(s) only, no
+  user info, no private IP literals, https only outside local and test, and
+  Slack URLs only on hooks.slack.com outside local and test.
+- **Mark as wrong** stores the reason, who, and when on the message.
+  `inbox.metrics.answer_quality` is the query Phase 6 builds on: agent
+  messages with decision type `answer`, and how many were marked wrong.
+

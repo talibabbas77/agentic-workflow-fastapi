@@ -43,6 +43,16 @@ class Lane:
     slots: int = 1
 
 
+@dataclass(frozen=True, slots=True)
+class Schedule:
+    """Periodic work, such as queueing daily digests. Runs with maintenance, so an
+    idle worker still sends no queries between safety polls."""
+
+    name: str
+    every_seconds: float
+    run: Callable[[Pool], Awaitable[object]]
+
+
 class Worker:
     REAP_INTERVAL_SECONDS = 120.0
     PURGE_INTERVAL_SECONDS = 6 * 3600.0
@@ -56,6 +66,7 @@ class Worker:
         lease_seconds: int,
         lanes: list[Lane] | None = None,
         worker_id: str | None = None,
+        schedules: list[Schedule] | None = None,
     ) -> None:
         self.pool = pool
         self.handlers = handlers
@@ -70,6 +81,8 @@ class Worker:
         self._stopping = asyncio.Event()
         self._last_reap = 0.0
         self._last_purge = 0.0
+        self.schedules = schedules or []
+        self._last_scheduled = {s.name: float("-inf") for s in self.schedules}
         self.processed = 0
 
     def wake(self) -> None:
@@ -116,6 +129,14 @@ class Worker:
             async with transaction(self.pool) as conn:
                 await queue.purge_finished(conn)
             self._last_purge = now
+        for schedule in self.schedules:
+            if force or now - self._last_scheduled[schedule.name] >= schedule.every_seconds:
+                # Mark first, so other slots running maintenance at once skip it.
+                self._last_scheduled[schedule.name] = now
+                try:
+                    await schedule.run(self.pool)
+                except Exception:
+                    log.exception("scheduled work failed", extra={"schedule": schedule.name})
 
     async def drain(self, limit: int | None = None, kinds: tuple[str, ...] | None = None) -> int:
         """Run ready jobs of the given kinds (default all) until none are left."""

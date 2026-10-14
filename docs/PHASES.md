@@ -280,10 +280,29 @@ because this phase deploys staging on real HTTPS origins.
 
 ## Phase 5. Admin inbox and notifications
 
-**Not started.** Two pieces it builds on landed early: handoffs now carry a
-reliable contact email (asked of anonymous visitors in the chat), and the
-memory page shows knowledge gaps and team answers, so the team can already
-teach the agent from what it could not answer.
+**Status: built 2026-10-14, waiting for review.** Checks 1 to 4 and 6 to 8 pass
+locally; check 5 passes against a local stand-in for Slack.
+Checks 3, 4, 6, 7, and 8 run in the API suite (`tests/test_inbox.py`,
+`tests/test_automation.py`, and the RLS tests, which now cover the nine new
+tables). Checks 1 and 2 run in the Playwright suite (`e2e/inbox.spec.ts`)
+against the Docker stack and Mailpit: a handoff made while the inbox is open
+shows up within 6 seconds (the list refreshes every 4), its email
+notification arrived in about 10 seconds with `gemma4:cloud` writing the
+summary, and the reply arrives From "{workspace} via Docent" with Reply-To set
+to the support address or the replying member. Check 5 passes against a local
+stand-in for Slack (the test message is posted, the stored URL is AES-GCM
+ciphertext bound to its row); posting to a real Slack workspace needs a real
+incoming webhook URL and was not tried. Two pieces landed earlier: handoffs
+carry a reliable contact email, and the memory page shows knowledge gaps and
+team answers.
+
+Built: the inbox list (filters, sort, cursor pages, unread dots and counts per
+member), the board (drag and drop plus a keyboard Move menu), the handoff page
+(transcript with citations, reply by email with delivery state, notes, mark
+as wrong, assignment history), and Automation (routing rules, Slack channels
+with a test message, signed webhooks with a delivery log, the support
+address, and each member's notification choices). Design notes are in the
+architecture change log.
 
 **Goal:** escalations reach the right person quickly, with enough context to
 reply without asking the customer to repeat themselves.

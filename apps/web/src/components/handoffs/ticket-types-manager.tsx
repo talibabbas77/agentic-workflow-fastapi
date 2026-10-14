@@ -51,7 +51,7 @@ export function TicketTypesManager({ initial, canManage }: { initial: TicketType
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Handoffs"
+        title="Ticket types"
         description="When the agent passes a conversation to your team, it sorts it into one of these types and fills in what the type asks for."
         actions={types.length > 0 ? addButton : null}
       />

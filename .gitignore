@@ -56,3 +56,6 @@ Thumbs.db
 
 # Local object storage (uploaded files)
 .data/
+
+# Agent worktrees made by Claude Code
+/.claude/worktrees/

@@ -22,7 +22,13 @@ type GetPath =
   | "/v1/memory"
   | "/v1/memory/answers"
   | "/v1/memory/gaps"
-  | "/v1/memory/customers";
+  | "/v1/memory/customers"
+  | "/v1/inbox/assignees"
+  | "/v1/inbox/settings"
+  | "/v1/inbox/preferences"
+  | "/v1/automation/rules"
+  | "/v1/automation/channels"
+  | "/v1/automation/webhooks";
 type GetData<P extends GetPath> = paths[P]["get"]["responses"][200]["content"]["application/json"];
 
 /**
@@ -106,6 +112,45 @@ export async function getWidget(widgetId: string) {
 export async function getSource(sourceId: string) {
   const result = await call((client) =>
     client.GET("/v1/knowledge/sources/{source_id}", { params: { path: { source_id: sourceId } } }),
+  );
+  if (result.status === 404 || result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+export const getAssignees = () => getOrThrow("/v1/inbox/assignees");
+
+export const getInboxSettings = () => getOrThrow("/v1/inbox/settings");
+
+export const getNotificationPrefs = () => getOrThrow("/v1/inbox/preferences");
+
+export const getRoutingRules = () => getOrThrow("/v1/automation/rules");
+
+export const getSlackChannels = () => getOrThrow("/v1/automation/channels");
+
+export const getWebhooks = () => getOrThrow("/v1/automation/webhooks");
+
+type InboxQuery = NonNullable<paths["/v1/inbox"]["get"]["parameters"]["query"]>;
+type BoardQuery = NonNullable<paths["/v1/inbox/board"]["get"]["parameters"]["query"]>;
+
+/** A page of the inbox for these filters. */
+export async function getInbox(query: InboxQuery) {
+  const result = await call((client) => client.GET("/v1/inbox", { params: { query } }));
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+/** The inbox as a board, by status. */
+export async function getInboxBoard(query: BoardQuery) {
+  const result = await call((client) => client.GET("/v1/inbox/board", { params: { query } }));
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+/** One handoff. A missing one, or an id that is not one, shows the 404 page. */
+export async function getHandoff(escalationId: string) {
+  const result = await call((client) =>
+    client.GET("/v1/inbox/{escalation_id}", { params: { path: { escalation_id: escalationId } } }),
   );
   if (result.status === 404 || result.status === 422) notFound();
   if (!result.ok) throw new Error(result.error.message);

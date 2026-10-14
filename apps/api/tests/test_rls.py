@@ -88,7 +88,12 @@ async def two_tenants(
     await drain()
     for c in (a_client, b_client):
         ticket = await c.post(
-            "/v1/ticket-types", json={"name": "Billing", "description": "Payments and refunds."}
+            "/v1/ticket-types",
+            json={
+                "name": "Billing",
+                "description": "Payments and refunds.",
+                "notify_emails": ["billing@example.com"],
+            },
         )
         assert ticket.status_code == 201, ticket.text
         conversation = (await c.post("/v1/agent/conversations", json={})).json()
@@ -124,6 +129,24 @@ async def two_tenants(
             json={"widget": widget["public_id"], "parent_origin": SITE, "token": token},
         )
         assert created.status_code == 201, created.text
+        # Inbox: a read marker, a note, preferences, a channel, a webhook, a rule.
+        handoff = (await c.get("/v1/inbox")).json()["items"][0]["id"]
+        assert (await c.post(f"/v1/inbox/{handoff}/read")).status_code == 204
+        note = await c.post(f"/v1/inbox/{handoff}/notes", json={"body": "Looking into it."})
+        assert note.status_code == 201, note.text
+        prefs = {"daily_digest": True, "assigned_email": False}
+        assert (await c.put("/v1/inbox/preferences", json=prefs)).status_code == 200
+        channel = await c.post(
+            "/v1/automation/channels", json={"name": "Support", "url": "http://127.0.0.1:9/slack"}
+        )
+        assert channel.status_code == 201, channel.text
+        webhook = await c.post("/v1/automation/webhooks", json={"url": "http://127.0.0.1:9/hook"})
+        assert webhook.status_code == 201, webhook.text
+        rule = await c.post("/v1/automation/rules", json={"name": "All", "set_priority": "high"})
+        assert rule.status_code == 201, rule.text
+        test = await c.post(f"/v1/automation/webhooks/{webhook.json()['webhook']['id']}/test")
+        assert test.status_code == 202, test.text
+    await drain()  # summaries and routing: notifications, email deliveries, webhook events
     return a, b
 
 

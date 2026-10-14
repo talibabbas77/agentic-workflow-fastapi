@@ -128,3 +128,6 @@ INVITE_PER_TENANT = Limit("invite-tenant", 50, 86400)
 INVITE_LOOKUP_PER_IP = Limit("invite-lookup-ip", 30, 60)
 SEARCH_PER_USER = Limit("search-user", 60, 60)
 AGENT_TURN_PER_USER = Limit("agent-turn", 20, 60)
+# Inbox: emails to customers, and test sends to tenant URLs.
+INBOX_REPLY_PER_USER = Limit("inbox-reply", 30, 60)
+OUTBOUND_TEST_PER_TENANT = Limit("outbound-test", 20, 600)

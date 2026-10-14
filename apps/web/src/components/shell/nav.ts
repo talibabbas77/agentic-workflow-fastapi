@@ -8,6 +8,7 @@ import {
   GearSixIcon,
   HeadsetIcon,
   HouseIcon,
+  LightningIcon,
   TrayIcon,
   type Icon,
 } from "@phosphor-icons/react";
@@ -22,7 +23,9 @@ export const mainNav: NavItem[] = [
   { href: "/app/knowledge", label: "Knowledge", icon: BookOpenTextIcon },
   { href: "/app/memory", label: "Memory", icon: BrainIcon },
   { href: "/app/agent", label: "Agent", icon: ChatCircleTextIcon },
-  { href: "/app/handoffs", label: "Handoffs", icon: HeadsetIcon },
+  { href: "/app/handoffs", label: "Ticket types", icon: HeadsetIcon },
+  // What happens to a handoff once it arrives: routing rules, Slack, webhooks.
+  { href: "/app/automation", label: "Automation", icon: LightningIcon },
   { href: "/app/widgets", label: "Widgets", icon: CodeIcon },
   { href: "/app/evals", label: "Evals", icon: ExamIcon },
   { href: "/app/billing", label: "Billing", icon: CreditCardIcon },
