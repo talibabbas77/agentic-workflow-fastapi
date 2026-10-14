@@ -1,8 +1,11 @@
 /// <reference types="node" />
-// Sets up a fresh tenant for the widget checks, through the API the way a
-// customer would: sign up, confirm the email (via Mailpit), teach the agent one
-// public article, create a widget for the demo host, and register a signing key.
-// The demo host reads the private key from DOCENT_E2E_DIR/lumen-notes.json.
+// Sets up two fresh companies for the widget checks, through the API the way a
+// customer would: sign up, confirm the email (via Mailpit), teach the agent,
+// create a widget for the demo host, and register a signing key. One company
+// per showcase site:
+//   lumen-notes  the public help site. Anonymous chat on, one public article.
+//   parcelwise   the signed-in dashboard. Anonymous chat off.
+// The demo host reads each private key from DOCENT_E2E_DIR/<site slug>.json.
 import { generateKeyPairSync } from "node:crypto";
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -77,6 +80,74 @@ async function verifyToken(to: string): Promise<string> {
   });
 }
 
+interface Company {
+  slug: "lumen-notes" | "parcelwise";
+  name: string;
+  article?: { file: string; body: string };
+  widget: {
+    allowed_origins: string[];
+    anonymous_enabled: boolean;
+    allowed_claims: string[];
+    greeting: string;
+  };
+}
+
+/** Sign up, teach, and install one company's widget. Returns its public widget id and origin. */
+async function setUpCompany(company: Company, id: string): Promise<{ widget: string; widgetOrigin: string }> {
+  const api = client();
+  const email = `widget-e2e-${company.slug}-${id}@example.com`;
+  await expectOk(
+    await api("POST", "/v1/auth/signup", {
+      name: "Widget Tester",
+      email,
+      password: PASSWORD,
+      workspace_name: `${company.name} ${id}`,
+    }),
+    `Sign up (${company.slug})`,
+  );
+  await expectOk(await api("POST", "/v1/auth/verify-email", { token: await verifyToken(email) }), "Verify email");
+
+  if (company.article) {
+    // Teach the agent one public article and wait until it is searchable.
+    const form = new FormData();
+    form.append("file", new Blob([company.article.body], { type: "text/markdown" }), company.article.file);
+    form.append("audience", "public");
+    const source = (await expectOk(await api("POST", "/v1/knowledge/uploads", form), "Upload")) as { id: string };
+    await waitFor("the uploaded article to be ready (is the worker running?)", 120_000, async () => {
+      const detail = (await expectOk(await api("GET", `/v1/knowledge/sources/${source.id}`), "Read source")) as {
+        source: { status: string; last_error: string | null };
+      };
+      if (detail.source.status === "failed") throw new Error(`Indexing failed: ${detail.source.last_error}`);
+      return detail.source.status === "ready" ? true : null;
+    });
+  }
+
+  const widget = (await expectOk(
+    await api("POST", "/v1/widgets", { name: "Help center", anonymous_daily_cap: 200, ...company.widget }),
+    `Create widget (${company.slug})`,
+  )) as { id: string; public_id: string; embed_origin: string };
+
+  // The company keeps the private key; Docent only ever sees the public half.
+  const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const key = (await expectOk(
+    await api("POST", `/v1/widgets/${widget.id}/keys`, { public_jwk: publicKey.export({ format: "jwk" }) }),
+    "Add signing key",
+  )) as { kid: string };
+
+  writeFileSync(
+    join(process.env.DOCENT_E2E_DIR as string, `${company.slug}.json`),
+    JSON.stringify({
+      company: company.name,
+      widget: widget.public_id,
+      kid: key.kid,
+      private_jwk: privateKey.export({ format: "jwk" }),
+      widget_origin: widget.embed_origin,
+    }),
+    { mode: 0o600 },
+  );
+  return { widget: widget.public_id, widgetOrigin: widget.embed_origin };
+}
+
 export default async function globalSetup(): Promise<() => void> {
   const { host, thirdPartyHost } = hosts();
 
@@ -89,70 +160,47 @@ export default async function globalSetup(): Promise<() => void> {
     );
   }
 
-  const api = client();
   const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  const email = `widget-e2e-${id}@example.com`;
-  await expectOk(
-    await api("POST", "/v1/auth/signup", {
-      name: "Widget Tester",
-      email,
-      password: PASSWORD,
-      workspace_name: `Lumen Notes ${id}`,
-    }),
-    "Sign up",
-  );
-  await expectOk(await api("POST", "/v1/auth/verify-email", { token: await verifyToken(email) }), "Verify email");
+  const [lumen, parcelwise] = await Promise.all([
+    setUpCompany(
+      {
+        slug: "lumen-notes",
+        name: "Lumen Notes",
+        article: { file: "exporting-notes.md", body: ARTICLE },
+        widget: {
+          // The public site, by name and by IP. The IP origin is a different
+          // site from the widget origin, so the browser treats the widget's
+          // cookies there as third-party.
+          allowed_origins: [host, thirdPartyHost],
+          anonymous_enabled: true,
+          allowed_claims: ["plan", "workspace"],
+          greeting: "Hi, ask me anything about Lumen Notes.",
+        },
+      },
+      id,
+    ),
+    setUpCompany(
+      {
+        slug: "parcelwise",
+        name: "Parcelwise",
+        widget: {
+          // The signed-in dashboard: chat only with a token its server signs.
+          allowed_origins: [host],
+          anonymous_enabled: false,
+          allowed_claims: ["plan", "account"],
+          greeting: "Hi, ask me about shipping, labels, or the Parcelwise API.",
+        },
+      },
+      id,
+    ),
+  ]);
 
-  // Teach the agent one public article and wait until it is searchable.
-  const form = new FormData();
-  form.append("file", new Blob([ARTICLE], { type: "text/markdown" }), "exporting-notes.md");
-  form.append("audience", "public");
-  const source = (await expectOk(await api("POST", "/v1/knowledge/uploads", form), "Upload")) as { id: string };
-  await waitFor("the uploaded article to be ready (is the worker running?)", 120_000, async () => {
-    const detail = (await expectOk(await api("GET", `/v1/knowledge/sources/${source.id}`), "Read source")) as {
-      source: { status: string; last_error: string | null };
-    };
-    if (detail.source.status === "failed") throw new Error(`Indexing failed: ${detail.source.last_error}`);
-    return detail.source.status === "ready" ? true : null;
-  });
-
-  // The widget allows the demo host by name and by IP. The IP origin is a
-  // different site from the widget origin, so the browser treats the widget's
-  // cookies there as third-party.
-  const widget = (await expectOk(
-    await api("POST", "/v1/widgets", {
-      name: "Help center",
-      allowed_origins: [host, thirdPartyHost],
-      anonymous_enabled: true,
-      anonymous_daily_cap: 200,
-      allowed_claims: ["plan", "workspace"],
-      greeting: "Hi, ask me anything about Lumen Notes.",
-    }),
-    "Create widget",
-  )) as { id: string; public_id: string; embed_origin: string };
-
-  // The tenant keeps the private key; Docent only ever sees the public half.
-  const { publicKey, privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
-  const key = (await expectOk(
-    await api("POST", `/v1/widgets/${widget.id}/keys`, { public_jwk: publicKey.export({ format: "jwk" }) }),
-    "Add signing key",
-  )) as { kid: string };
-
-  const dir = process.env.DOCENT_E2E_DIR as string;
-  writeFileSync(
-    join(dir, "lumen-notes.json"),
-    JSON.stringify({
-      company: "Lumen Notes",
-      widget: widget.public_id,
-      kid: key.kid,
-      private_jwk: privateKey.export({ format: "jwk" }),
-      widget_origin: widget.embed_origin,
-    }),
-    { mode: 0o600 },
-  );
-  const state: E2EState = { widget: widget.public_id, widgetOrigin: widget.embed_origin };
+  const state: E2EState = {
+    widgetOrigin: lumen.widgetOrigin,
+    widgets: { "lumen-notes": lumen.widget, parcelwise: parcelwise.widget },
+  };
   writeFileSync(statePath(), JSON.stringify(state));
 
-  // Teardown: the folder holds a private key, so do not leave it behind.
-  return () => rmSync(dir, { recursive: true, force: true });
+  // Teardown: the folder holds private keys, so do not leave it behind.
+  return () => rmSync(process.env.DOCENT_E2E_DIR as string, { recursive: true, force: true });
 }

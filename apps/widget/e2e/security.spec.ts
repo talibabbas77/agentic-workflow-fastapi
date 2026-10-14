@@ -1,12 +1,15 @@
 // Phase 4 checks 2 and 4: where the widget may run, and who may talk to it.
+// Plus: the signed-in site's widget (anonymous chat off) refuses a session
+// that has no signed token, however it is asked for.
 import { expect, test, type Frame, type Page } from "@playwright/test";
-import { fakeClientIp, hosts, openWidget, readState, recordWidgetCalls, shape, widgetFrame } from "./support";
+import { API, fakeClientIp, hosts, openWidget, readState, recordWidgetCalls, shape, widgetFrame } from "./support";
 
 test.use({ extraHTTPHeaders: { "x-forwarded-for": fakeClientIp() } });
 
 test("check 2: the same snippet on a site that is not allowed shows no chat", async ({ page, request }) => {
   const { host, thirdPartyHost, other } = hosts();
-  const { widget, widgetOrigin } = readState();
+  const { widgets, widgetOrigin } = readState();
+  const widget = widgets["lumen-notes"];
 
   // The frame page tells the browser exactly which sites may embed it.
   const framePage = await request.get(`${widgetOrigin}/widget/v1/frame/${widget}`);
@@ -51,7 +54,8 @@ async function frameAt(page: Page, prefix: string): Promise<Frame> {
 
 test("check 4: messages from another origin or another window are ignored", async ({ page }) => {
   const { host, other } = hosts();
-  const { widget, widgetOrigin } = readState();
+  const { widgets, widgetOrigin } = readState();
+  const widget = widgets["lumen-notes"];
 
   // The real widget, started by the loader.
   await page.goto(`${host}/lumen-notes`);
@@ -125,4 +129,39 @@ test("check 4: messages from another origin or another window are ignored", asyn
     f?.contentWindow?.postMessage({ source: "docent", type: "init", mode: "anonymous" }, origin, [channel.port2]);
   }, widgetOrigin);
   await expect(probe.locator("#docent .app")).toBeVisible();
+});
+
+test("anonymous chat off: a session without a signed token is refused, in the API and in the frame", async ({
+  page,
+  request,
+}) => {
+  const { host } = hosts();
+  const { widgets, widgetOrigin } = readState();
+
+  // Straight at the API, with every header a browser would send from the frame.
+  const crafted = await request.post(`${API}/v1/widget/sessions`, {
+    headers: { origin: widgetOrigin },
+    data: { widget: widgets.parcelwise, parent_origin: host },
+  });
+  expect(crafted.status()).toBe(403);
+  expect(((await crafted.json()) as { error: { code: string } }).error.code).toBe("anonymous_disabled");
+
+  // And through the real loader: someone adds the snippet without a token to
+  // the signed-out page. The chat opens to a sign-in message, not a session.
+  const calls = recordWidgetCalls(page.context());
+  await page.goto(`${host}/parcelwise`);
+  await page.evaluate(
+    ([src, id]) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.dataset.widget = id;
+      document.body.appendChild(script);
+    },
+    [`${widgetOrigin}/widget/v1/loader.js`, widgets.parcelwise],
+  );
+  await openWidget(page);
+  const frame = await widgetFrame(page);
+  await expect(frame.locator(".state-title")).toHaveText("Chat is available after you sign in.");
+  expect(shape(calls).filter((c) => c === "POST /v1/widget/conversations")).toEqual([]);
+  expect(calls.filter((c) => c.path === "/v1/widget/sessions" && c.status === 201)).toEqual([]);
 });

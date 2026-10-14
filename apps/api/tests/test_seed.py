@@ -134,3 +134,60 @@ async def test_seed_installs_widget_the_demo_host_can_sign_for(
     )
     assert session.status_code == 201, session.text
     assert session.json()["mode"] == "identified"
+
+
+async def test_seed_widget_settings_follow_the_catalog(
+    settings: Settings,
+    client_factory: ClientFactory,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("SEED_OWNER_PASSWORD", OWNER_PASSWORD)
+    await seed(settings, OWNER, "Demo Owner")
+    parcelwise = next(ws for ws in WORKSPACES if ws.slug == "parcelwise")
+    # Parcelwise is a signed-in dashboard; the other help centers take anonymous visitors.
+    assert parcelwise.anonymous_enabled is False
+    assert all(ws.anonymous_enabled for ws in WORKSPACES if ws is not parcelwise)
+
+    api = client_factory()
+    login = await api.post("/v1/auth/login", json={"email": OWNER, "password": OWNER_PASSWORD})
+    tenant = next(t for t in login.json()["tenants"] if t["name"] == "Parcelwise")
+    switched = await api.post("/v1/auth/switch-tenant", json={"tenant_id": tenant["id"]})
+    assert switched.status_code == 200
+
+    await install_widget(api, parcelwise, tmp_path)
+    (widget,) = (await api.get("/v1/widgets")).json()
+    assert widget["anonymous_enabled"] is False
+    assert widget["allowed_claims"] == list(parcelwise.claims)
+
+    # An admin turns anonymous chat on, edits the greeting, renames the widget,
+    # and adds an origin. A rerun puts back what the catalog owns and keeps the rest.
+    drifted = {
+        "name": "Dashboard chat",
+        "allowed_origins": ["https://app.parcelwise.example"],
+        "anonymous_enabled": True,
+        "anonymous_daily_cap": 50,
+        "allowed_claims": ["plan"],
+        "greeting": "Hello there",
+    }
+    assert (await api.put(f"/v1/widgets/{widget['id']}", json=drifted)).status_code == 200
+    line = await install_widget(api, parcelwise, tmp_path)
+    assert line.endswith("settings updated, already installed on the demo host")
+    (widget,) = (await api.get("/v1/widgets")).json()
+    assert widget["anonymous_enabled"] is False
+    assert widget["allowed_claims"] == list(parcelwise.claims)
+    assert widget["greeting"] == parcelwise.greeting
+    assert sorted(widget["allowed_origins"]) == [DEMO_HOST_ORIGIN, "https://app.parcelwise.example"]
+    assert (widget["name"], widget["anonymous_daily_cap"]) == ("Dashboard chat", 50)
+
+    # Converged: the next run changes nothing.
+    line = await install_widget(api, parcelwise, tmp_path)
+    assert line == f"Parcelwise: widget {widget['public_id']} already installed on the demo host"
+
+    # Even a session asked for directly, without a signed token, is refused.
+    session = await client_factory(origin=settings.widget_origin).post(
+        "/v1/widget/sessions",
+        json={"widget": widget["public_id"], "parent_origin": DEMO_HOST_ORIGIN},
+    )
+    assert session.status_code == 403
+    assert session.json()["error"]["code"] == "anonymous_disabled"

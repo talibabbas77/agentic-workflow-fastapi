@@ -22,7 +22,7 @@ with handoffs, and the embeddable widget with signed identity. See
 | `apps/api` | FastAPI API and job worker (Python 3.14, uv). Alembic migrations. |
 | `apps/web` | Next.js landing site (`/`) and admin app (`/app`). |
 | `apps/widget` | The embeddable widget: `loader.js` for customer sites and the chat frame. Served by the API. |
-| `apps/demo-host` | A pretend customer website for trying the widget, on an allowed and a not-allowed origin. |
+| `apps/demo-host` | The live showcase: two fictional customer sites with the widget installed, on an allowed and a not-allowed origin. |
 | `packages/api-client` | TypeScript client generated from the API's OpenAPI schema. |
 | `examples/signing` | Identity token signing in Node, Python, Ruby, PHP, and Go, verified against the API. |
 | `fixtures` | Golden help centers and questions for retrieval and agent evals. |
@@ -51,7 +51,7 @@ pnpm dev               # API :8000, worker :8001, web :3000
 |---|---|
 | http://localhost:3000 | Landing site |
 | http://localhost:3000/app | Admin app |
-| http://localhost:5173 | Demo customer site with the widget (`pnpm demo-host`, after the seed) |
+| http://localhost:5173 | Live showcase: Lumen Notes and Parcelwise with the widget (`pnpm demo-host`, after the seed) |
 | http://localhost:8000/docs | API reference (local only) |
 | http://localhost:8025 | Mailpit, catches every email sent locally |
 
@@ -92,9 +92,32 @@ earlier months get usage history, and signed-in customers get their memory.
 This takes a few minutes; `--no-conversations` skips it. `--reset` rebuilds
 from scratch. Local and test environments only.
 
-The widget's private signing key is saved to `.data/demo-host/` (git-ignored,
-owner-only). Run `pnpm demo-host` and open http://localhost:5173 to chat as an
-anonymous visitor or sign in as one of the demo customers.
+Each widget's private signing key is saved to `.data/demo-host/` (git-ignored,
+owner-only). Parcelwise's widget has anonymous chat turned off; the others allow
+it. Rerunning the seed puts each widget's anonymous setting, claims, and greeting
+back to the catalog.
+
+### Live showcase
+
+`pnpm demo-host` serves two sites we built to show the widget working, linked
+from "See it live" on the landing page:
+
+| URL | Site | Widget |
+|---|---|---|
+| http://localhost:5173/lumen-notes | Lumen Notes, a notes app's public site and help center. The help articles are the ones the agent was taught (`fixtures/golden/lumen-notes`). | Anonymous for every visitor: cited answers, and a handoff that asks for an email. |
+| http://localhost:5173/parcelwise | Parcelwise, a shipping dashboard. Signed out, only a sign-in page with the demo customers Chloe Dubois (Scale), Diego Ramos (Starter), and Emma Wright (Growth), and no chat. | Identified only. The site's server signs a token with the customer's plan, so "What's my per-label fee?" is answered from that plan. Sign-out calls `await Docent.reset()` first. |
+
+Both have a "Try asking" panel: a click copies the question and opens the chat
+(the loader cannot type into the chat, and a host page never reaches into the
+widget's frame). Many visitors share each demo customer, so the token's `sub` is
+the customer id plus a random id kept in a cookie for that browser: a visitor
+resumes only their own chat. The same pages on http://localhost:5174 are on an
+origin the widgets do not allow, so the browser refuses to show the chat there.
+`DOCENT_URL` sets the "About Docent" link (default http://localhost:3000).
+
+On a deployed landing page, point the buttons at the hosted showcase with
+`NEXT_PUBLIC_SHOWCASE_PUBLIC_URL` and `NEXT_PUBLIC_SHOWCASE_APP_URL` (see
+`.env.example`). The Tallyfox workspace stays in the seed but has no site here.
 
 ### Payments
 

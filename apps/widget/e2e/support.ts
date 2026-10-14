@@ -9,8 +9,9 @@ export const WEB_ORIGIN = process.env.E2E_WEB_ORIGIN ?? "http://localhost:3000";
 export const MAILPIT = process.env.MAILPIT_URL ?? "http://localhost:8025";
 
 export interface E2EState {
-  widget: string;
   widgetOrigin: string;
+  /** Public widget id per demo host site. */
+  widgets: { "lumen-notes": string; parcelwise: string };
 }
 
 export function hosts() {

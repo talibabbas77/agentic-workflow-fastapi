@@ -22,6 +22,7 @@ import { FeatureBento } from "@/components/marketing/feature-bento";
 import { HeroDemo } from "@/components/marketing/hero-demo";
 import { HowItWorksExplorer } from "@/components/marketing/how-it-works";
 import { IdentityChecks } from "@/components/marketing/identity-section";
+import { LiveShowcase } from "@/components/marketing/live-showcase";
 import { PricingBlock } from "@/components/marketing/pricing-block";
 import { ProblemContrast } from "@/components/marketing/problem-contrast";
 import { container, Section } from "@/components/marketing/section";
@@ -96,6 +97,17 @@ export default function HomePage() {
         intro="A customer asks something your help center does not cover. A typical bot writes an answer anyway, in the same confident tone it uses when it is right, and nobody can tell the difference until the customer holds your team to it."
       >
         <ProblemContrast />
+      </Section>
+
+      {/* Right after the problem: the reader has just seen a bot guess, so the next step is to watch
+          Docent cite or hand off on a real site, before the four-step explanation. */}
+      <Section
+        id="live"
+        eyebrow="See it live"
+        title="Try it on two sites we built"
+        intro="Two fictional companies with the Docent widget installed, each taught from its own help center. Ask your own questions: one site is for anonymous visitors, the other for signed-in customers."
+      >
+        <LiveShowcase />
       </Section>
 
       <Section

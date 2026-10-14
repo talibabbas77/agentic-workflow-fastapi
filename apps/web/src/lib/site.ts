@@ -9,6 +9,13 @@ export const WIDGET_ORIGIN = (process.env.NEXT_PUBLIC_WIDGET_ORIGIN || "https://
 );
 export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "hello@docent.example";
 
+/**
+ * The live showcase: two demo sites we built with the widget installed (apps/demo-host).
+ * One for anonymous visitors, one for signed-in customers. Locally, run `pnpm demo-host`.
+ */
+export const SHOWCASE_PUBLIC_URL = process.env.NEXT_PUBLIC_SHOWCASE_PUBLIC_URL || "http://localhost:5173/lumen-notes";
+export const SHOWCASE_APP_URL = process.env.NEXT_PUBLIC_SHOWCASE_APP_URL || "http://localhost:5173/parcelwise";
+
 /** Marketing pages, in navigation order. Used by the header, footer, and sitemap. */
 export const marketingNav = [
   { href: "/how-it-works", label: "How it works" },

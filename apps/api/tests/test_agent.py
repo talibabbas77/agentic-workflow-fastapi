@@ -491,9 +491,9 @@ async def test_quiet_streams_get_a_heartbeat() -> None:
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("Hi, who are you?", "I'm Lumen Notes assistant, an AI assistant for Lumen Notes."),
-        ("hello there", "Hi! I'm Lumen Notes assistant"),
-        ("Hola", "¡Hola! Soy Lumen Notes assistant"),
+        ("Hi, who are you?", "I'm an AI assistant for Lumen Notes."),
+        ("hello there", "Hi! I'm the Lumen Notes assistant."),
+        ("Hola", "¡Hola! Soy el asistente de Lumen Notes."),
         ("ok thanks!", "You're welcome!"),
         ("Merci beaucoup", "Avec plaisir"),
     ],

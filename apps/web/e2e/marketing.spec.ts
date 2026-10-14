@@ -100,6 +100,26 @@ test("hero demo changes the conversation with the mouse and the keyboard", async
   await expect(shown).toContainText("On Personal, ask from Settings, then Account");
 });
 
+test("see it live opens each showcase site in a new tab", async ({ page }) => {
+  await page.goto("/");
+  const live = page.locator("section#live");
+  await expect(live.getByRole("heading", { name: "Try it on two sites we built" })).toBeVisible();
+
+  const hrefs: string[] = [];
+  for (const name of ["Open the public help site", "Open the customer app"]) {
+    // The accessible name also says "(opens in a new tab)".
+    const link = live.getByRole("link", { name: new RegExp(`^${name}`) });
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    await expect(link).toHaveAccessibleName(`${name} (opens in a new tab)`);
+    const href = await link.getAttribute("href");
+    expect(href).toMatch(/^https?:\/\/\S+$/);
+    hrefs.push(href ?? "");
+  }
+  // One site for anonymous visitors, one for signed-in customers.
+  expect(new Set(hrefs).size).toBe(2);
+});
+
 test("workflow explorer tabs work with the arrow keys", async ({ page }) => {
   await page.goto("/");
   const tablist = page.getByRole("tablist", { name: "How Docent works" });

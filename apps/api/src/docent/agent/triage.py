@@ -285,6 +285,9 @@ _REPLIES: dict[str, dict[str, str]] = {
 def reply(kind: str, lang: str, profile: AgentProfile) -> str:
     templates = _REPLIES[kind]
     text = templates.get(lang, templates["en"])
+    if _normalize(profile.company) in _normalize(profile.agent_name):
+        # "Lumen Notes assistant" (the default) is not a name; say "I'm the Lumen Notes assistant".
+        text = text.replace("{agent}, ", "").replace("{agent}، ", "")
     if profile.tone != "friendly":
         text = text.replace("Hi! ", "Hello. ").replace("You're welcome!", "You're welcome.")
     return text.format(agent=profile.agent_name, company=profile.company)

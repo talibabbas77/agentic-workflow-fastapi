@@ -105,25 +105,29 @@ async def _team_answers(api: httpx.AsyncClient, ws: Workspace) -> str:
 
 
 async def install_widget(api: httpx.AsyncClient, ws: Workspace, demo_keys: Path | None) -> str:
-    """One widget per company, allowed on the demo host, with a signing key the host can use."""
+    """One widget per company, allowed on the demo host, with a signing key the host can use.
+
+    An existing widget is brought back to the catalog's settings with a PUT, so a
+    rerun converges after a catalog change or an edit in the admin app.
+    """
     widgets = (await api.get("/v1/widgets")).json()
     widget = widgets[0] if widgets else None
+    updated = ""
     if widget is None:
-        created = await api.post(
-            "/v1/widgets",
-            json={
-                "name": "Help center",
-                "allowed_origins": [DEMO_HOST_ORIGIN],
-                "anonymous_enabled": True,
-                "anonymous_daily_cap": 200,
-                "allowed_claims": list(ws.claims),
-                "greeting": ws.greeting,
-            },
-        )
+        created = await api.post("/v1/widgets", json=_widget_settings(ws, None))
         created.raise_for_status()
         widget = created.json()
+    else:
+        wanted = _widget_settings(ws, widget)
+        if any(widget[key] != value for key, value in wanted.items()):
+            replaced = await api.put(f"/v1/widgets/{widget['id']}", json=wanted)
+            replaced.raise_for_status()
+            widget = replaced.json()
+            updated = "settings updated, "
     if demo_keys is None:
-        return f"{ws.name}: widget {widget['public_id']} ready (no folder for the demo key)"
+        return (
+            f"{ws.name}: widget {widget['public_id']} {updated}ready (no folder for the demo key)"
+        )
 
     key_file = demo_keys / f"{ws.slug}.json"
     active = [k for k in widget["keys"] if k["status"] == "active"]
@@ -133,7 +137,9 @@ async def install_widget(api: httpx.AsyncClient, ws: Workspace, demo_keys: Path 
         and saved["widget"] == widget["public_id"]
         and saved["kid"] in {k["kid"] for k in active}
     ):
-        return f"{ws.name}: widget {widget['public_id']} already installed on the demo host"
+        return (
+            f"{ws.name}: widget {widget['public_id']} {updated}already installed on the demo host"
+        )
 
     if len(active) >= 2:
         oldest = min(active, key=lambda k: k["created_at"])
@@ -155,7 +161,30 @@ async def install_widget(api: httpx.AsyncClient, ws: Workspace, demo_keys: Path 
             "widget_origin": widget["embed_origin"],
         },
     )
-    return f"{ws.name}: widget {widget['public_id']} installed on {DEMO_HOST_ORIGIN}"
+    return f"{ws.name}: widget {widget['public_id']} {updated}installed on {DEMO_HOST_ORIGIN}"
+
+
+def _widget_settings(ws: Workspace, current: dict[str, Any] | None) -> dict[str, Any]:
+    """The widget body for POST and PUT /v1/widgets.
+
+    The catalog owns anonymous mode, the allowed claims, and the greeting, and
+    the demo host must stay an allowed origin. The name, the daily cap, and any
+    other origins keep what an admin set. The name is the chat header, so the
+    seed names the widget after the company; "Help center" was the old seed
+    default, not an admin's choice.
+    """
+    origins = list(current["allowed_origins"]) if current else []
+    if DEMO_HOST_ORIGIN not in origins:
+        origins.append(DEMO_HOST_ORIGIN)
+    kept = current["name"] if current and current["name"] != "Help center" else None
+    return {
+        "name": kept or f"{ws.name} help",
+        "allowed_origins": origins,
+        "anonymous_enabled": ws.anonymous_enabled,
+        "anonymous_daily_cap": current["anonymous_daily_cap"] if current else 200,
+        "allowed_claims": list(ws.claims),
+        "greeting": ws.greeting,
+    }
 
 
 def _help_articles(folder: Path) -> list[tuple[str, bytes, str]] | None:

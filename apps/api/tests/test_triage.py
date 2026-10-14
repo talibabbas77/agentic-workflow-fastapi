@@ -57,3 +57,20 @@ def test_replies_use_the_agent_name_language_and_tone() -> None:
         company="Lumen Notes", agent_name="Lumen helper", tone="formal", restricted_topics=()
     )
     assert reply("greeting", "en", formal).startswith("Hello. I'm Lumen helper")
+
+
+def test_the_default_agent_name_is_not_repeated() -> None:
+    unnamed = AgentProfile(
+        company="Lumen Notes",
+        agent_name="Lumen Notes assistant",
+        tone="friendly",
+        restricted_topics=(),
+    )
+    assert reply("greeting", "en", unnamed).startswith("Hi! I'm the Lumen Notes assistant. Ask")
+    assert reply("about", "en", unnamed).startswith("I'm an AI assistant for Lumen Notes.")
+    assert reply("greeting", "fr", unnamed).startswith(
+        "Bonjour ! Je suis l'assistant de Lumen Notes."
+    )
+    for lang in ("es", "de", "pt", "it", "ar"):
+        for kind in ("greeting", "about"):
+            assert "Lumen Notes assistant" not in reply(kind, lang, unnamed)

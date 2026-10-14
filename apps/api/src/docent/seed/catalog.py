@@ -73,6 +73,9 @@ class Workspace:
     docs: str | None = None  # folder under fixtures/
     greeting: str = ""
     claims: tuple[str, ...] = ()
+    # Off for a product only signed-in customers use: the widget then refuses
+    # anonymous sessions, even one a script asks for directly.
+    anonymous_enabled: bool = True
     tone: str = "friendly"
     restricted_topics: tuple[str, ...] = ()
     ticket_types: tuple[TicketType, ...] = ()
@@ -222,6 +225,7 @@ PARCELWISE = Workspace(
     docs="golden/parcelwise",
     greeting="Hi, ask me about shipping, labels, or the Parcelwise API.",
     claims=("plan", "account"),
+    anonymous_enabled=False,  # the demo host shows it only inside the signed-in dashboard
     tone="neutral",
     ticket_types=(
         TicketType(
