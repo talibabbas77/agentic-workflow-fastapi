@@ -1,4 +1,5 @@
-"""Command line entry point: `docent api | worker | db migrate | openapi | admin grant <email>`."""
+"""Command line entry point: `docent api | worker | db migrate | openapi | admin grant <email>`,
+and `docent loadtest caps` for Phase 7 acceptance check 1 against a live stack."""
 
 import argparse
 import json
@@ -62,6 +63,21 @@ def main(argv: list[str] | None = None) -> None:
     billing_sub = billing.add_subparsers(dest="billing_command", required=True)
     billing_sub.add_parser(
         "sync-stripe", help="Create the Stripe products and monthly prices for every paid plan"
+    )
+
+    loadtest = sub.add_parser("loadtest", help="Load tests against the configured database")
+    loadtest_sub = loadtest.add_subparsers(dest="loadtest_command", required=True)
+    caps = loadtest_sub.add_parser(
+        "caps",
+        help="Many messages at once with a few replies left: the cap must hold exactly",
+    )
+    caps.add_argument("--workspace", help="Slug of the workspace to use (default: a new one)")
+    caps.add_argument("--messages", type=int, default=50)
+    caps.add_argument("--left", type=int, default=10, help="Replies left when the messages arrive")
+    caps.add_argument(
+        "--keep-at-cap",
+        action="store_true",
+        help="Leave the workspace at its cap afterwards, to try the widget by hand",
     )
 
     admin = sub.add_parser("admin", help="Platform admin console access")
@@ -146,6 +162,23 @@ def main(argv: list[str] | None = None) -> None:
             command.current(cfg)  # type: ignore[arg-type]
         else:
             command.downgrade(cfg, args.revision)  # type: ignore[arg-type]
+    elif args.command == "loadtest":
+        import asyncio
+
+        from docent.agent import loadtest as load
+
+        passed = asyncio.run(
+            load.run(
+                get_settings(),
+                workspace=args.workspace,
+                messages=args.messages,
+                left=args.left,
+                keep_at_cap=args.keep_at_cap,
+                say=lambda line: print(line, flush=True),
+            )
+        )
+        if not passed:
+            raise SystemExit(1)
     elif args.command == "admin":
         import asyncio
 

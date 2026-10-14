@@ -448,6 +448,92 @@ async def test_widget_sessions_are_tenant_scoped(
     assert (await other.get(f"/v1/widgets/{tenant.widget['id']}")).status_code == 404
 
 
+def final_message(sent: httpx.Response) -> dict[str, Any]:
+    assert "event: message" in sent.text, sent.text
+    block = sent.text.strip().split("\n\n")[-1]
+    message: dict[str, Any] = json.loads(block.split("data: ", 1)[1])
+    return message
+
+
+async def test_at_the_cap_every_widget_message_is_a_handoff_and_asks_for_an_email(
+    frame: httpx.AsyncClient, tenant: Tenant, admin_pool: Pool, chat: Any
+) -> None:
+    """Phase 7 acceptance check 3, through the API the widget frame uses.
+
+    The frame shows its contact form under the latest handoff while the handoff is
+    open and the team has no email for it (apps/widget/src/frame/app.ts, contactFor).
+    """
+    tenant_id = uuid.UUID((await tenant.admin.get("/v1/tenant")).json()["id"])
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            """
+            insert into usage_periods (tenant_id, period_start, period_end, replies_cap,
+                                       replies_used)
+            values ($1, date_trunc('month', now())::date,
+                    (date_trunc('month', now()) + interval '1 month')::date, 100, 100)
+            """,
+            tenant_id,
+        )
+    calls = len(chat.calls)
+
+    headers = await anonymous(frame, tenant)
+    conversation = await start(frame, headers)
+    url = f"/v1/widget/conversations/{conversation['id']}"
+    for text in ("how are annual plans refunded", "can I get a refund on a monthly plan"):
+        reply = final_message(
+            await frame.post(f"{url}/messages", json={"content": text}, headers=headers)
+        )
+        assert (reply["decision"]["type"], reply["decision"]["reason"]) == (
+            "escalate",
+            "cap_reached",
+        )
+        assert reply["content"].endswith("Leave your email below so they can reply.")
+    resumed = await frame.post(
+        "/v1/widget/conversations", json={"resume_id": conversation["id"]}, headers=headers
+    )
+    assert resumed.json()["handoff"] == {"status": "open", "contact_given": False}  # the form
+    contact = await frame.post(
+        f"{url}/contact", json={"email": "visitor@example.com"}, headers=headers
+    )
+    assert contact.status_code == 204
+    after = final_message(
+        await frame.post(
+            f"{url}/messages", json={"content": "any news on my refund"}, headers=headers
+        )
+    )
+    assert after["decision"]["reason"] == "cap_reached"
+    assert after["content"].endswith("They will reply to visitor@example.com by email.")
+
+    # A signed-in customer at the cap: a handoff too, and the team already has their email.
+    signed_in = await identified(frame, tenant)
+    theirs = await start(frame, signed_in)
+    reply = final_message(
+        await frame.post(
+            f"/v1/widget/conversations/{theirs['id']}/messages",
+            json={"content": "how are annual plans refunded"},
+            headers=signed_in,
+        )
+    )
+    assert reply["decision"]["reason"] == "cap_reached"
+    assert reply["content"].endswith("They will reply to sam@example.com by email.")
+
+    assert len(chat.calls) == calls  # no model call past the cap
+    async with admin_pool.acquire() as conn:
+        handoffs = await conn.fetch(
+            "select reason, contact_email from escalations"
+            " where tenant_id = $1 order by created_at",
+            tenant_id,
+        )
+        used = await conn.fetchval(
+            "select replies_used from usage_periods where tenant_id = $1", tenant_id
+        )
+    assert [(h["reason"], h["contact_email"]) for h in handoffs] == [
+        ("cap_reached", "visitor@example.com"),
+        ("cap_reached", "sam@example.com"),
+    ]
+    assert used == 100  # nothing billed past the cap
+
+
 # Suggested questions, new chats, and recent chats
 
 
