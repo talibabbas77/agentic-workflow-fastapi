@@ -1,5 +1,6 @@
 """Runtime settings, read from environment variables and the repo root .env file."""
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -159,6 +160,12 @@ class Settings(BaseSettings):
                 raise ValueError("SECRET_KEY must be set outside local and test")
             if self.internal_token.get_secret_value() in weak:
                 raise ValueError("INTERNAL_TOKEN must be set outside local and test")
+            # Uvicorn reads this itself. "*" would let any client pick the address that
+            # rate limits key on; list the proxy in front of the API instead.
+            if os.environ.get("FORWARDED_ALLOW_IPS", "").strip() == "*":
+                raise ValueError(
+                    "FORWARDED_ALLOW_IPS must list the proxies in front of the API, not *"
+                )
         return self
 
     @property

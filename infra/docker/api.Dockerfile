@@ -37,10 +37,14 @@ RUN useradd --create-home --uid 10001 docent \
 WORKDIR /app
 COPY --from=build --chown=docent:docent /app /app
 COPY --from=widget /repo/apps/widget/dist /app/apps/widget/dist
+# Production unless told otherwise: an image deployed without DOCENT_ENV refuses the
+# default secrets and sets Secure cookies, instead of running as a laptop would.
+# compose.yaml sets DOCENT_ENV=local for development.
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    LOG_JSON=true
+    LOG_JSON=true \
+    DOCENT_ENV=production
 USER docent
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \

@@ -245,6 +245,20 @@ and grade the weekly review):
 `EVAL_JUDGE_MODEL` picks the judge's model (default: the chat model; use a
 different one in production).
 
+## Deploying
+
+The API image runs as `DOCENT_ENV=production` unless told otherwise, and in
+production it refuses to start until these are set:
+
+| Variable | Why |
+|---|---|
+| `SECRET_KEY`, `INTERNAL_TOKEN` | Long random values. `SECRET_KEY` also derives the key that encrypts Slack and webhook secrets, so changing it means entering those again. |
+| `FORWARDED_ALLOW_IPS` | The addresses of the proxy in front of the API (never `*`), so rate limits key on the real client address. The proxy must set `X-Forwarded-For` itself rather than pass the client's along. |
+
+Cookies are `Secure` in staging and production, the API docs are not served,
+webhook and widget URLs must be https, and the demo seed will not run. Local
+development keeps `DOCENT_ENV=local` (set in `compose.yaml`).
+
 ## Dependencies
 
 Add packages only through the package manager so versions are resolved and
