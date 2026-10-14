@@ -17,6 +17,7 @@ type GetPath =
   | "/v1/agent/settings"
   | "/v1/ticket-types"
   | "/v1/widgets"
+  | "/v1/public/plans"
   | "/v1/billing"
   | "/v1/memory"
   | "/v1/memory/answers"
@@ -80,6 +81,8 @@ export const getTicketTypes = () => getOrThrow("/v1/ticket-types");
 export const getWidgets = () => getOrThrow("/v1/widgets");
 
 export const getBilling = () => getOrThrow("/v1/billing");
+/** The plan catalog, read fresh: the marketing pages' cached copy may hold a failed fetch from build time. */
+export const getPlanCatalog = () => getOrThrow("/v1/public/plans");
 
 export const getMemory = () => getOrThrow("/v1/memory");
 
