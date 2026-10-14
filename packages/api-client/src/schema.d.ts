@@ -191,8 +191,31 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Update Tenant */
+        /**
+         * Update Tenant
+         * @description Rename the workspace or set its time zone. Send only what changes.
+         */
         patch: operations["update_tenant"];
+        trace?: never;
+    };
+    "/v1/tenant/timezones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Timezones
+         * @description Time zones a workspace can pick: UTC, then IANA names such as Europe/Berlin.
+         */
+        get: operations["list_timezones"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/onboarding": {
@@ -874,6 +897,57 @@ export interface paths {
         post: operations["flag_message"];
         /** Unflag Message */
         delete: operations["unflag_message"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notifications */
+        get: operations["list_notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read Notification */
+        post: operations["read_notification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read All Notifications */
+        post: operations["read_all_notifications"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1664,6 +1738,28 @@ export interface paths {
         /** Set Contact */
         post: operations["set_contact"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/widget/conversations/{conversation_id}/messages/{message_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rate Answer
+         * @description Was this helpful? One vote per answer; voting again changes it. A note on what
+         *     was wrong is kept with a thumbs down only.
+         */
+        put: operations["rate_answer"];
+        post?: never;
+        /** Take Back Vote */
+        delete: operations["take_back_vote"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3591,6 +3687,20 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /** FeedbackIn */
+        FeedbackIn: {
+            /**
+             * Vote
+             * @enum {string}
+             */
+            vote: "up" | "down";
+            /**
+             * Comment
+             * @description What was wrong. Kept with a thumbs down only
+             * @default
+             */
+            comment: string;
+        };
         /** FlagIn */
         FlagIn: {
             /** Reason */
@@ -3881,6 +3991,8 @@ export interface components {
             flag: components["schemas"]["MessageFlagOut"] | null;
             /** @description The email that carried a human reply */
             delivery: components["schemas"]["EmailDeliveryOut"] | null;
+            /** @description The customer's own vote on this answer, from the widget */
+            feedback?: components["schemas"]["MessageFeedbackOut"] | null;
         };
         /** InboxPageOut */
         InboxPageOut: {
@@ -3932,7 +4044,7 @@ export interface components {
             answers_30d: number;
             /**
              * Wrong Answers 30D
-             * @description Agent answers the team marked wrong
+             * @description Agent answers the team marked wrong or the customer voted down
              */
             wrong_answers_30d: number;
             /** Wrong Answer Rate 30D */
@@ -4133,6 +4245,24 @@ export interface components {
             /** Citations 30D */
             citations_30d: number;
         };
+        /** MessageFeedbackOut */
+        MessageFeedbackOut: {
+            /**
+             * Vote
+             * @enum {string}
+             */
+            vote: "up" | "down";
+            /**
+             * Comment
+             * @description What was wrong, from a thumbs down; empty otherwise
+             */
+            comment: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** MessageFlagOut */
         MessageFlagOut: {
             /** Reason */
@@ -4169,6 +4299,8 @@ export interface components {
             citations: components["schemas"]["CitationOut"][];
             /** Created At */
             created_at?: string | null;
+            /** @description The visitor's own vote on this answer (widget only) */
+            feedback?: components["schemas"]["MessageFeedbackOut"] | null;
         };
         /** MetricDeltaOut */
         MetricDeltaOut: {
@@ -4211,6 +4343,41 @@ export interface components {
             /** Can Delete */
             can_delete: boolean;
         };
+        /** NotificationOut */
+        NotificationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "new_handoff" | "assigned";
+            /**
+             * Escalation Id
+             * Format: uuid
+             */
+            escalation_id: string;
+            /**
+             * Issue
+             * @description The handoff's issue, as the inbox shows it
+             */
+            issue: string;
+            /**
+             * Detail
+             * @description Who assigned it, or the rule that routed it
+             */
+            detail: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Read At */
+            read_at: string | null;
+        };
         /** NotificationPrefs */
         NotificationPrefs: {
             /**
@@ -4247,6 +4414,24 @@ export interface components {
             created_at: string;
             /** Sent At */
             sent_at: string | null;
+        };
+        /** NotificationsOut */
+        NotificationsOut: {
+            /**
+             * Items
+             * @description Your latest notifications, newest first
+             */
+            items: components["schemas"]["NotificationOut"][];
+            /**
+             * Unread
+             * @description Your unread notifications
+             */
+            unread: number;
+            /**
+             * Inbox Unread
+             * @description Unread handoffs that are not resolved, as in the inbox
+             */
+            inbox_unread: number;
         };
         /** OnboardingOut */
         OnboardingOut: {
@@ -4383,8 +4568,26 @@ export interface components {
             escalated: number;
             /** Answers */
             answers: number;
-            /** Marked Wrong */
+            /**
+             * Marked Wrong
+             * @description Answers the team marked wrong, in the inbox or review
+             */
             marked_wrong: number;
+            /**
+             * Voted Up
+             * @description Answers a customer said helped
+             */
+            voted_up: number;
+            /**
+             * Voted Down
+             * @description Answers a customer said did not help
+             */
+            voted_down: number;
+            /**
+             * Wrong Answers
+             * @description Marked wrong or voted down, each answer once
+             */
+            wrong_answers: number;
             /** Reviewed */
             reviewed: number;
             /** Reviewed Wrong */
@@ -4648,6 +4851,8 @@ export interface components {
              * Format: date-time
              */
             sampled_at: string;
+            /** @description The customer's vote on the graded answer */
+            feedback?: components["schemas"]["MessageFeedbackOut"] | null;
         };
         /** ReviewQueueOut */
         ReviewQueueOut: {
@@ -5191,6 +5396,11 @@ export interface components {
             /** Slug */
             slug: string;
             /**
+             * Timezone
+             * @description IANA time zone. The daily digest goes out at 08:00 there
+             */
+            timezone: string;
+            /**
              * Created At
              * Format: date-time
              */
@@ -5218,10 +5428,18 @@ export interface components {
              */
             role: "owner" | "admin" | "agent";
         };
-        /** TenantUpdateIn */
+        /**
+         * TenantUpdateIn
+         * @description Send only what changes.
+         */
         TenantUpdateIn: {
             /** Name */
-            name: string;
+            name?: string | null;
+            /**
+             * Timezone
+             * @description IANA time zone, such as Europe/Berlin. The daily digest goes out at 08:00
+             */
+            timezone?: string | null;
         };
         /** TicketField */
         TicketField: {
@@ -6103,6 +6321,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_timezones: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };
@@ -8893,6 +9140,120 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    list_notifications: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_notification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_all_notifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12012,6 +12373,148 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    rate_answer: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                conversation_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageFeedbackOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    take_back_vote: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                conversation_id: string;
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

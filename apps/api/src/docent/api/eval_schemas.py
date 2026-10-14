@@ -7,7 +7,14 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
-from docent.api.schemas import ClaimKey, ClaimValue, HandoffReason, InboxMessageOut, Model
+from docent.api.schemas import (
+    ClaimKey,
+    ClaimValue,
+    HandoffReason,
+    InboxMessageOut,
+    MessageFeedbackOut,
+    Model,
+)
 
 Expected = Literal["answer", "escalate", "clarify"]
 CaseStatus = Literal["draft", "active"]
@@ -423,7 +430,10 @@ class ProductionMetricsOut(BaseModel):
     confirmed_resolved: int
     escalated: int
     answers: int
-    marked_wrong: int
+    marked_wrong: int = Field(description="Answers the team marked wrong, in the inbox or review")
+    voted_up: int = Field(description="Answers a customer said helped")
+    voted_down: int = Field(description="Answers a customer said did not help")
+    wrong_answers: int = Field(description="Marked wrong or voted down, each answer once")
     reviewed: int
     reviewed_wrong: int
     auto_resolution_rate: float | None
@@ -455,6 +465,9 @@ class ReviewItemOut(BaseModel):
     graded_by: str | None
     graded_at: datetime | None
     sampled_at: datetime
+    feedback: MessageFeedbackOut | None = Field(
+        default=None, description="The customer's vote on the graded answer"
+    )
 
 
 class ReviewWeekOut(BaseModel):

@@ -510,6 +510,112 @@ def test_digest_runs_at_eight_utc() -> None:
     late = datetime(2026, 10, 14, 15, 0, tzinfo=UTC)
     assert notify.digest_run_at(early) == datetime(2026, 10, 14, 8, 0, tzinfo=UTC)
     assert notify.digest_run_at(late) == late
+    assert notify.digest_run_at(early, "UTC") == datetime(2026, 10, 14, 8, 0, tzinfo=UTC)
+
+
+def test_digest_runs_at_eight_in_the_workspace_time_zone() -> None:
+    # Berlin is UTC+2 in October: 08:00 there is 06:00 UTC.
+    at = datetime(2026, 10, 14, 5, 0, tzinfo=UTC)
+    assert notify.digest_run_at(at, "Europe/Berlin") == datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+    # Auckland is UTC+13: at 18:00 UTC it is already 07:00 on the 15th there, and 08:00 on
+    # the 15th is 19:00 UTC on the 14th, the previous UTC day.
+    evening = datetime(2026, 10, 14, 18, 0, tzinfo=UTC)
+    assert notify.digest_day(evening, "Pacific/Auckland").isoformat() == "2026-10-15"
+    assert notify.digest_run_at(evening, "Pacific/Auckland") == datetime(
+        2026, 10, 14, 19, 0, tzinfo=UTC
+    )
+    # Los Angeles at 03:00 UTC on the 15th is 20:00 on the 14th: that day's 08:00 has
+    # passed, so a digest queued late goes now, never twice.
+    night = datetime(2026, 10, 15, 3, 0, tzinfo=UTC)
+    assert notify.digest_day(night, "America/Los_Angeles").isoformat() == "2026-10-14"
+    assert notify.digest_run_at(night, "America/Los_Angeles") == night
+    # A stored zone that no longer loads falls back to UTC.
+    assert notify.digest_run_at(at, "Mars/Olympus_Mons") == datetime(2026, 10, 14, 8, 0, tzinfo=UTC)
+
+
+async def test_digest_goes_out_once_per_member_per_local_day(
+    owner: httpx.AsyncClient,
+    client_factory: ClientFactory,
+    drain: Drain,
+    worker_pool: Pool,
+    admin_pool: Pool,
+) -> None:
+    me = (await owner.get("/v1/auth/me")).json()["user"]
+    zone = await owner.patch("/v1/tenant", json={"timezone": "Pacific/Auckland"})
+    assert zone.status_code == 200, zone.text
+    assert zone.json()["timezone"] == "Pacific/Auckland"
+    other = client_factory()
+    await verified_owner(other, drain, "Parcelwise")  # stays on UTC
+    await handoff(owner)
+    await handoff(other)
+    await drain()
+    tenant_id = uuid.UUID((await owner.get("/v1/tenant")).json()["id"])
+
+    evening = datetime(2026, 10, 14, 18, 0, tzinfo=UTC)  # 07:00 on the 15th in Auckland
+    assert await notify.schedule_digests(worker_pool, evening) == 2
+    async with admin_pool.acquire() as conn:
+        jobs = {
+            r["tenant_id"]: r
+            for r in await conn.fetch(
+                "select tenant_id, payload, run_at, dedupe_key from jobs where kind = $1",
+                notify.SEND_DIGEST,
+            )
+        }
+    auckland = jobs.pop(tenant_id)
+    assert auckland["payload"] == {"day": "2026-10-15", "timezone": "Pacific/Auckland"}
+    assert auckland["run_at"] == datetime(2026, 10, 14, 19, 0, tzinfo=UTC)
+    assert auckland["dedupe_key"] == f"digest:{tenant_id}:2026-10-15"
+    (utc,) = jobs.values()
+    assert utc["payload"] == {"day": "2026-10-14", "timezone": "UTC"}
+    assert utc["run_at"] == evening  # 08:00 UTC has passed: now
+
+    async with admin_pool.acquire() as conn:
+        await conn.execute("update jobs set run_at = now() where kind = $1", notify.SEND_DIGEST)
+    sent = await drain()
+    assert me["email"] in [e.to for e in sent]
+    async with admin_pool.acquire() as conn:
+        keys = await conn.fetch(
+            "select dedupe_key from notifications where kind = 'daily_digest' and tenant_id = $1",
+            tenant_id,
+        )
+    assert [k["dedupe_key"] for k in keys] == [f"digest:{me['id']}:2026-10-15"]
+
+    # Later the same local day (09:00 on the 15th): nothing new. The next local day
+    # (00:30 on the 16th, still the 15th in UTC) queues the next one, and the UTC workspace
+    # gets its own 15th.
+    assert await notify.schedule_digests(worker_pool, evening + timedelta(hours=2)) == 0
+    next_day = datetime(2026, 10, 15, 11, 30, tzinfo=UTC)
+    assert await notify.schedule_digests(worker_pool, next_day) == 2
+    async with admin_pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "select payload, run_at from jobs where dedupe_key = $1",
+            f"digest:{tenant_id}:2026-10-16",
+        )
+    assert row is not None
+    assert row["run_at"] == datetime(2026, 10, 15, 19, 0, tzinfo=UTC)
+
+
+async def test_workspace_time_zone_setting(
+    owner: httpx.AsyncClient, client_factory: ClientFactory, drain: Drain
+) -> None:
+    assert (await owner.get("/v1/tenant")).json()["timezone"] == "UTC"
+    zones = (await owner.get("/v1/tenant/timezones")).json()
+    assert zones[0] == "UTC"
+    assert {"Europe/Berlin", "Pacific/Auckland", "America/New_York"} <= set(zones)
+    assert "US/Eastern" not in zones  # legacy aliases are left out
+    for bad in ("Mars/Olympus_Mons", "US/Eastern", "", "x" * 65):
+        response = await owner.patch("/v1/tenant", json={"timezone": bad})
+        assert response.status_code == 422, bad
+    both = await owner.patch(
+        "/v1/tenant", json={"name": "Lumen Notes HQ", "timezone": "Europe/Berlin"}
+    )
+    assert (both.json()["name"], both.json()["timezone"]) == ("Lumen Notes HQ", "Europe/Berlin")
+    # Only the time zone: the name stays.
+    only = await owner.patch("/v1/tenant", json={"timezone": "Asia/Karachi"})
+    assert (only.json()["name"], only.json()["timezone"]) == ("Lumen Notes HQ", "Asia/Karachi")
+    agent, _ = await join(owner, client_factory, drain)
+    assert (await agent.get("/v1/tenant")).json()["timezone"] == "Asia/Karachi"
+    assert (await agent.patch("/v1/tenant", json={"timezone": "UTC"})).status_code == 403
 
 
 async def test_worker_reads_tenants_and_users_only_through_narrow_views(

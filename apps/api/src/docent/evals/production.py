@@ -5,13 +5,15 @@ conversation belongs to the period it started in, and needs at least one
 visitor message.
 
   resolved automatically  quiet for 30 minutes, no handoff, nothing marked wrong,
-                          and its last agent turn (greetings and thanks aside)
-                          was an answer backed by a source or verified details
-  resolved, confirmed     a teammate graded it right in the weekly review. The
-                          widget has no thumbs up yet, so people on the team are
-                          the only ones who confirm.
+                          no thumbs down, and its last agent turn (greetings and
+                          thanks aside) was an answer backed by a source or
+                          verified details
+  resolved, confirmed     a teammate graded it right in the weekly review, or the
+                          customer gave an answer a thumbs up with no thumbs down
+                          and no handoff in the conversation
   wrong-answer rate       agent answers marked wrong (from the inbox or the review
-                          queue) divided by agent answers
+                          queue) or voted down by the customer, divided by agent
+                          answers. An answer with both counts once.
   escalation rate         conversations with a handoff, overall and by reason
   latency                 p50 and p95 of the answer model's time per answer
   cost                    model cost of these conversations
@@ -28,7 +30,11 @@ QUIET = timedelta(minutes=30)
 _COHORT = """
     with cohort as (
       select c.id, c.started_at, c.last_message_at,
-             exists (select 1 from escalations e where e.conversation_id = c.id) as escalated
+             exists (select 1 from escalations e where e.conversation_id = c.id) as escalated,
+             exists (select 1 from message_feedback f
+                     where f.conversation_id = c.id and f.vote = 'up') as voted_up,
+             exists (select 1 from message_feedback f
+                     where f.conversation_id = c.id and f.vote = 'down') as voted_down
       from conversations c
       where c.channel = 'widget' and c.started_at >= $1 and c.started_at < $2
         and exists (select 1 from messages m where m.conversation_id = c.id and m.role = 'visitor')
@@ -55,10 +61,12 @@ _RESOLUTION = (
                or jsonb_array_length(coalesce(t.decision -> 'account_facts', '[]')) > 0)
           and not exists (
             select 1 from messages w where w.conversation_id = c.id and w.flagged_wrong)
+          and not c.voted_down
       ) as auto_resolved,
       count(*) filter (
         where exists (
-          select 1 from review_items r where r.conversation_id = c.id and r.grade = 'right')
+            select 1 from review_items r where r.conversation_id = c.id and r.grade = 'right')
+          or (c.voted_up and not c.voted_down and not c.escalated)
       ) as confirmed_resolved
     from cohort c left join last_turn t on t.conversation_id = c.id
 """
@@ -69,9 +77,13 @@ _ANSWERS = (
     + """
     select count(*) as answers,
            count(*) filter (where m.flagged_wrong) as marked_wrong,
+           count(*) filter (where f.vote = 'up') as voted_up,
+           count(*) filter (where f.vote = 'down') as voted_down,
+           count(*) filter (where m.flagged_wrong or f.vote = 'down') as wrong_answers,
            percentile_cont(0.5) within group (order by m.latency_ms) as p50,
            percentile_cont(0.95) within group (order by m.latency_ms) as p95
     from messages m join cohort c on c.id = m.conversation_id
+    left join message_feedback f on f.message_id = m.id
     where m.role = 'agent' and m.decision ->> 'type' = 'answer'
 """
 )
@@ -125,7 +137,10 @@ class Production:
     confirmed_resolved: int = 0
     escalated: int = 0
     answers: int = 0
-    marked_wrong: int = 0
+    marked_wrong: int = 0  # by the team: the inbox or the weekly review
+    voted_up: int = 0
+    voted_down: int = 0
+    wrong_answers: int = 0  # marked wrong or voted down, each answer once
     reviewed: int = 0
     reviewed_wrong: int = 0
     latency_p50_ms: int | None = None
@@ -144,7 +159,7 @@ class Production:
             "auto_resolution_rate": self._rate(self.auto_resolved, n),
             "confirmed_resolution_rate": self._rate(self.confirmed_resolved, n),
             "escalation_rate": self._rate(self.escalated, n),
-            "wrong_answer_rate": self._rate(self.marked_wrong, self.answers),
+            "wrong_answer_rate": self._rate(self.wrong_answers, self.answers),
             "review_wrong_rate": self._rate(self.reviewed_wrong, self.reviewed),
             "cost_per_conversation_micros": round(self.cost_micros / n) if n else None,
         }
@@ -166,6 +181,9 @@ async def production_metrics(
     assert answers is not None
     out.answers = answers["answers"]
     out.marked_wrong = answers["marked_wrong"]
+    out.voted_up = answers["voted_up"]
+    out.voted_down = answers["voted_down"]
+    out.wrong_answers = answers["wrong_answers"]
     out.latency_p50_ms = round(answers["p50"]) if answers["p50"] is not None else None
     out.latency_p95_ms = round(answers["p95"]) if answers["p95"] is not None else None
     out.reasons = {r["reason"]: r["conversations"] for r in await conn.fetch(_REASONS, start, end)}

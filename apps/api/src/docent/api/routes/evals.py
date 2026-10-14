@@ -60,7 +60,7 @@ from docent.api.eval_schemas import (
     RunSummaryOut,
 )
 from docent.api.routes.inbox import _messages as transcript
-from docent.api.schemas import ErrorOut
+from docent.api.schemas import ErrorOut, MessageFeedbackOut
 from docent.billing import subscriptions
 from docent.db.pool import Connection, transaction
 from docent.evals import production, repo, review, scoring
@@ -921,6 +921,9 @@ async def production_metrics(
         escalated=found.escalated,
         answers=found.answers,
         marked_wrong=found.marked_wrong,
+        voted_up=found.voted_up,
+        voted_down=found.voted_down,
+        wrong_answers=found.wrong_answers,
         reviewed=found.reviewed,
         reviewed_wrong=found.reviewed_wrong,
         latency_p50_ms=found.latency_p50_ms,
@@ -962,6 +965,15 @@ def _review_item(row: asyncpg.Record) -> ReviewItemOut:
         graded_by=row["graded_by_name"],
         graded_at=row["graded_at"],
         sampled_at=row["sampled_at"],
+        feedback=(
+            MessageFeedbackOut(
+                vote=row["feedback_vote"],
+                comment=row["feedback_comment"],
+                updated_at=row["voted_at"],
+            )
+            if row["feedback_vote"]
+            else None
+        ),
     )
 
 

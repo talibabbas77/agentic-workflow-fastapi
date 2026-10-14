@@ -241,6 +241,7 @@ async def get_item(
 async def mark_read(
     conn: Connection, tenant_id: uuid.UUID, me: uuid.UUID, escalation_id: uuid.UUID
 ) -> None:
+    """Opening a handoff reads it, and reads the member's notifications about it."""
     await conn.execute(
         """
         insert into escalation_reads (tenant_id, user_id, escalation_id, read_at)
@@ -251,6 +252,27 @@ async def mark_read(
         me,
         escalation_id,
     )
+    await conn.execute(
+        """
+        update notifications set read_at = now()
+        where user_id = $1 and escalation_id = $2 and channel = 'in_app' and read_at is null
+        """,
+        me,
+        escalation_id,
+    )
+
+
+async def unread_count(conn: Connection, me: uuid.UUID) -> int:
+    """Unread handoffs that are not resolved: the inbox's own unread rule."""
+    count: int = await conn.fetchval(
+        """
+        select count(*) from escalations e
+        left join escalation_reads r on r.escalation_id = e.id and r.user_id = $1
+        where e.status <> 'resolved' and (r.read_at is null or r.read_at < e.updated_at)
+        """,
+        me,
+    )
+    return count
 
 
 async def touch(conn: Connection, escalation_id: uuid.UUID) -> None:
@@ -262,6 +284,7 @@ async def messages(conn: Connection, conversation_id: uuid.UUID) -> list[asyncpg
         """
         select m.id, m.role, m.content, m.decision, m.created_at, m.flagged_wrong, m.flag_reason,
                m.flagged_at, fu.name as flagged_by_name, m.author_user_id, au.name as author_name,
+               f.vote, f.comment as feedback_comment, f.updated_at as voted_at,
                coalesce(json_agg(json_build_object(
                  'marker', c.marker, 'document_title', c.document_title,
                  'heading_path', c.heading_path, 'url', c.url, 'excerpt', c.excerpt
@@ -270,8 +293,9 @@ async def messages(conn: Connection, conversation_id: uuid.UUID) -> list[asyncpg
         left join message_citations c on c.message_id = m.id
         left join users au on au.id = m.author_user_id
         left join users fu on fu.id = m.flagged_by
+        left join message_feedback f on f.message_id = m.id
         where m.conversation_id = $1
-        group by m.id, au.name, fu.name
+        group by m.id, au.name, fu.name, f.id
         order by m.created_at, m.id
         """,
         conversation_id,

@@ -20,6 +20,7 @@ PRIORITY_BY_KIND = {
     "summarize_escalation": 30,
     "deliver_webhook": 40,
     "send_digest": 60,
+    "purge_retention": 200,
 }
 
 

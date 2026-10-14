@@ -7,6 +7,8 @@ visitor is. Nothing in a request body or a chat message can change that.
 
 Every conversation read or write is scoped to the session's widget and visitor:
 the verified end user in identified mode, the visitor id in anonymous mode.
+That includes "Was this helpful?" votes: only answers in the visitor's own
+conversations can be rated.
 """
 
 import uuid
@@ -25,6 +27,8 @@ from docent.api.errors import AppError, not_found, unauthenticated
 from docent.api.schemas import (
     ContactIn,
     ErrorOut,
+    FeedbackIn,
+    MessageFeedbackOut,
     MessageIn,
     MessageOut,
     WidgetConversationIn,
@@ -38,7 +42,7 @@ from docent.api.schemas import (
 )
 from docent.api.streaming import stream_turn
 from docent.db.pool import Connection, transaction
-from docent.ids import hash_token, new_token
+from docent.ids import hash_token, new_id, new_token
 from docent.security.ratelimit import Limit
 from docent.widget import repo
 from docent.widget.identity import IdentityError, normalize_origin, verify_token
@@ -311,6 +315,92 @@ async def set_contact(
         )
 
 
+@router.put(
+    "/conversations/{conversation_id}/messages/{message_id}/feedback",
+    responses={404: {"model": ErrorOut}, 422: {"model": ErrorOut}},
+)
+async def rate_answer(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    body: FeedbackIn,
+    request: Request,
+    session: Session,
+    state: State,
+) -> MessageFeedbackOut:
+    """Was this helpful? One vote per answer; voting again changes it. A note on what
+    was wrong is kept with a thumbs down only."""
+    await _limit_feedback(request, session, state)
+    comment = body.comment if body.vote == "down" else ""
+    async with transaction(state.pool, tenant_id=session.tenant_id) as conn:
+        await _owned(conn, session, conversation_id)
+        await _answer(conn, conversation_id, message_id)
+        row = await conn.fetchrow(
+            """
+            insert into message_feedback (id, tenant_id, conversation_id, message_id,
+                                          end_user_id, visitor_id, vote, comment)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)
+            on conflict (message_id) do update
+              set vote = excluded.vote, comment = excluded.comment, updated_at = now()
+            returning vote, comment, updated_at
+            """,
+            new_id(),
+            session.tenant_id,
+            conversation_id,
+            message_id,
+            session.end_user_id,
+            session.visitor_id,
+            body.vote,
+            comment,
+        )
+    assert row is not None
+    return MessageFeedbackOut(**dict(row))
+
+
+@router.delete(
+    "/conversations/{conversation_id}/messages/{message_id}/feedback",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"model": ErrorOut}},
+)
+async def take_back_vote(
+    conversation_id: uuid.UUID,
+    message_id: uuid.UUID,
+    request: Request,
+    session: Session,
+    state: State,
+) -> None:
+    await _limit_feedback(request, session, state)
+    async with transaction(state.pool, tenant_id=session.tenant_id) as conn:
+        await _owned(conn, session, conversation_id)
+        await _answer(conn, conversation_id, message_id)
+        await conn.execute("delete from message_feedback where message_id = $1", message_id)
+
+
+async def _limit_feedback(request: Request, session: WidgetSession, state: State) -> None:
+    """Votes are limited like messages: per customer, or per address when anonymous."""
+    per_hour = state.settings.widget_feedback_per_hour
+    if session.mode == "identified":
+        await enforce(state, Limit("widget-vote-user", per_hour, 3600), str(session.end_user_id))
+    else:
+        await enforce(state, Limit("widget-vote-anon", per_hour, 3600), ip_key(request, state))
+
+
+async def _answer(conn: Connection, conversation_id: uuid.UUID, message_id: uuid.UUID) -> None:
+    """The message must be an agent answer in this conversation: not a greeting, a
+    clarifying question, a handoff, or a message from anyone else."""
+    row = await conn.fetchrow(
+        """
+        select role, decision ->> 'type' as kind from messages
+        where id = $1 and conversation_id = $2
+        """,
+        message_id,
+        conversation_id,
+    )
+    if row is None:
+        raise not_found("Message")
+    if row["role"] != "agent" or row["kind"] != "answer":
+        raise AppError(422, "not_an_answer", "Only the agent's answers can be rated.")
+
+
 async def _owned(conn: Connection, session: WidgetSession, conversation_id: uuid.UUID) -> str:
     """A widget session may only touch its own visitor's conversations. Returns the status."""
     status_: str | None = await conn.fetchval(
@@ -391,6 +481,13 @@ async def _conversation_out(conn: Connection, conversation_id: uuid.UUID) -> Wid
                 decision=m["decision"],
                 citations=m["citations"],
                 created_at=m["created_at"],
+                feedback=(
+                    MessageFeedbackOut(
+                        vote=m["vote"], comment=m["feedback_comment"], updated_at=m["voted_at"]
+                    )
+                    if m["vote"]
+                    else None
+                ),
             )
             for m in messages
         ],

@@ -17,6 +17,7 @@ from pydantic import (
 from docent.billing.plans import Plan
 from docent.billing.subscriptions import SubscriptionStatus
 from docent.config import get_settings
+from docent.timezones import known_timezones
 
 Role = Literal["owner", "admin", "agent"]
 InviteRole = Literal["admin", "agent"]
@@ -76,7 +77,22 @@ class SwitchTenantIn(Model):
 
 
 class TenantUpdateIn(Model):
-    name: Name
+    """Send only what changes."""
+
+    name: Name | None = None
+    timezone: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)] | None
+    ) = Field(
+        default=None,
+        description="IANA time zone, such as Europe/Berlin. The daily digest goes out at 08:00",
+    )
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_zone(cls, value: str | None) -> str | None:
+        if value is not None and value not in known_timezones():
+            raise ValueError("Pick a time zone from the list, such as Europe/Berlin.")
+        return value
 
 
 class InviteIn(Model):
@@ -129,6 +145,7 @@ class TenantOut(BaseModel):
     id: uuid.UUID
     name: str
     slug: str
+    timezone: str = Field(description="IANA time zone. The daily digest goes out at 08:00 there")
     created_at: datetime
     your_role: Role
 
@@ -345,6 +362,15 @@ class DecisionOut(BaseModel):
     )
 
 
+FeedbackVote = Literal["up", "down"]
+
+
+class MessageFeedbackOut(BaseModel):
+    vote: FeedbackVote
+    comment: str = Field(description="What was wrong, from a thumbs down; empty otherwise")
+    updated_at: datetime
+
+
 class MessageOut(BaseModel):
     id: uuid.UUID
     role: Literal["visitor", "agent", "human", "system"]
@@ -352,6 +378,9 @@ class MessageOut(BaseModel):
     decision: DecisionOut | None
     citations: list[CitationOut]
     created_at: datetime | None = None
+    feedback: MessageFeedbackOut | None = Field(
+        default=None, description="The visitor's own vote on this answer (widget only)"
+    )
 
 
 class EscalationSummaryOut(BaseModel):
@@ -577,6 +606,13 @@ class WidgetConversationSummaryOut(BaseModel):
 
 class ContactIn(Model):
     email: EmailStr
+
+
+class FeedbackIn(Model):
+    vote: FeedbackVote
+    comment: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] = Field(
+        default="", description="What was wrong. Kept with a thumbs down only"
+    )
 
 
 # Billing
@@ -855,6 +891,9 @@ class InboxMessageOut(BaseModel):
     author: PersonOut | None = Field(description="The team member who wrote a human reply")
     flag: MessageFlagOut | None = Field(description="Marked as a wrong answer, and why")
     delivery: EmailDeliveryOut | None = Field(description="The email that carried a human reply")
+    feedback: MessageFeedbackOut | None = Field(
+        default=None, description="The customer's own vote on this answer, from the widget"
+    )
 
 
 class NoteOut(BaseModel):
@@ -938,7 +977,9 @@ class InboxStatsOut(BaseModel):
     resolved_7d: int
     median_first_response_minutes: float | None = Field(description="Last 30 days")
     answers_30d: int
-    wrong_answers_30d: int = Field(description="Agent answers the team marked wrong")
+    wrong_answers_30d: int = Field(
+        description="Agent answers the team marked wrong or the customer voted down"
+    )
     wrong_answer_rate_30d: float | None
 
 
@@ -956,6 +997,25 @@ class InboxSettingsOut(BaseModel):
 
 class InboxSettingsIn(Model):
     support_email: EmailStr | None
+
+
+NotificationKind = Literal["new_handoff", "assigned"]
+
+
+class NotificationOut(BaseModel):
+    id: uuid.UUID
+    kind: NotificationKind
+    escalation_id: uuid.UUID
+    issue: str = Field(description="The handoff's issue, as the inbox shows it")
+    detail: str | None = Field(description="Who assigned it, or the rule that routed it")
+    created_at: datetime
+    read_at: datetime | None
+
+
+class NotificationsOut(BaseModel):
+    items: list[NotificationOut] = Field(description="Your latest notifications, newest first")
+    unread: int = Field(description="Your unread notifications")
+    inbox_unread: int = Field(description="Unread handoffs that are not resolved, as in the inbox")
 
 
 class NotificationPrefs(Model):
