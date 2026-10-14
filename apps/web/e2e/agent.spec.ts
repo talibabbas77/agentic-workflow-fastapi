@@ -90,6 +90,46 @@ test("a question with no supporting source hands off without asking the model", 
   await expect(conversation).toContainText("<img src=x>");
 });
 
+test("a greeting gets a plain reply, and an anonymous handoff asks where the team should reply", async ({
+  page,
+}) => {
+  await signUp(page, "Katherine Johnson", "Contact");
+  await page.goto("/app/agent");
+  const conversation = page.getByRole("log", { name: "Conversation" });
+  const message = page.getByRole("textbox", { name: "Message" });
+
+  // Small talk is answered by a rule: a plain bubble, with no sources and no confidence.
+  await message.fill("Hello!");
+  await message.press("Enter");
+  const greeting = conversation.getByRole("listitem").filter({ hasText: "Hi! I'm" });
+  await expect(greeting).toBeVisible(HANDOFF);
+  await expect(greeting.getByRole("button", { name: /source/ })).toHaveCount(0);
+  await expect(greeting).not.toContainText("confidence");
+  await expect(conversation.getByRole("region", { name: "Handoff to your team" })).toHaveCount(0);
+
+  // Asking for a person hands off at once. The anonymous visitor is asked for an email.
+  await message.fill("I want to talk to a person");
+  await message.press("Enter");
+  const handoff = conversation.getByRole("region", { name: "Handoff to your team" });
+  await expect(handoff).toContainText("Asked for a person", HANDOFF);
+  await expect(handoff).toContainText("Waiting for an email");
+  await expect(conversation).toContainText("Leave your email below so they can reply.");
+
+  const email = page.getByLabel("Where should the team reply?");
+  await email.fill("not-an-email");
+  await page.getByRole("form").getByRole("button", { name: "Send" }).click();
+  await expect(conversation).toContainText("Enter an email address like name@example.com.");
+  await email.fill("ada@example.com");
+  await email.press("Enter");
+
+  // The email goes to the agent as the visitor's next message, and the agent confirms it.
+  await expect(conversation).toContainText("Thanks. The team will reply to ada@example.com.", HANDOFF);
+  await expect(email).toHaveCount(0);
+  await expect(handoff).toContainText("Reply to");
+  await expect(handoff).toContainText("ada@example.com");
+  await expect(handoff).not.toContainText("Waiting for an email");
+});
+
 const CITED_REPLY = {
   id: "00000000-0000-4000-8000-000000000001",
   role: "agent",

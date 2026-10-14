@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "../components/workflow/workflow.css";
 @import "../components/brand/logo-loader.css";
+/* Admin app: the memory map on /app/memory. */
+@import "../components/memory/memory-map.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

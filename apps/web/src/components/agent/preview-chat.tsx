@@ -15,6 +15,7 @@ import { formatCount } from "@/lib/format";
 import { usePoll } from "@/lib/use-poll";
 import { ChatMessageItem } from "./chat-message";
 import { claimProblems, claimsObject, ClaimsEditor, type ClaimRow } from "./claims-editor";
+import { ContactForm } from "./contact-form";
 import { HandoffCard, HandoffNote } from "./handoff-card";
 
 const MAX_LENGTH = 2000;
@@ -28,6 +29,8 @@ const modes = [
 ] as const satisfies readonly { value: ConversationMode; label: string }[];
 
 type Stage = "sending" | TurnStage;
+
+/** The pattern the agent uses to find an email in a visitor's message. */
 
 const stageText: Record<Stage, string> = {
   sending: "Sending your message",
@@ -64,6 +67,10 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
   const waiting = Boolean(escalation && !escalation.summary);
   const late = waiting && lateFor !== null && lateFor === escalation?.id;
   const lastHandoff = messages.findLastIndex((m) => m.decision?.type === "escalate");
+  const anonymous = (conversation?.mode ?? mode) === "anonymous";
+  // The API stores the contact on the handoff: the signed-in customer's email, or the
+  // one an anonymous visitor typed after the handoff.
+  const contact = escalation?.contact_email ?? conversation?.claims.email ?? null;
 
   const load = useCallback(async (id: string) => {
     const result = await request(
@@ -99,9 +106,9 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
 
   useEffect(() => () => turn.current?.abort(), []);
 
-  async function send(event?: FormEvent) {
-    event?.preventDefault();
-    const content = draft.trim();
+  /** Send a message. One typed in the box goes back there if it could not be sent. */
+  async function send(text: string, fromDraft: boolean) {
+    const content = text.trim();
     if (!content || running) return;
     if (!conversation && mode === "identified" && claimProblems(claims).size > 0) {
       setError("Fix the customer details above, then send again.");
@@ -121,7 +128,7 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
     setError(null);
     setElapsed(0);
     setStage("sending");
-    setDraft("");
+    if (fromDraft) setDraft("");
     setMessages((list) => [...list, visitor]);
 
     const fail = (message: string, stored: boolean) => {
@@ -131,7 +138,7 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
       // Nothing was saved, so put the question back for another try.
       if (!stored) {
         setMessages((list) => list.filter((m) => m.id !== visitor.id));
-        setDraft(content);
+        if (fromDraft) setDraft(content);
       }
     };
 
@@ -164,10 +171,13 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
       turn.current = null;
       setStage(null);
       setMessages((list) => [...list, result.message]);
-      if (result.message.decision?.type === "escalate") {
+      const type = result.message.decision?.type;
+      if (type === "escalate") {
         // Drop an earlier handoff so its summary never shows on this one while it loads.
         setConversation((c) => (c ? { ...c, escalation: null } : c));
         await load(current.id);
+      } else if (type === "reply" && escalation && !escalation.contact_email) {
+        await load(current.id); // the reply may have been the agent confirming an email
       }
     }
     requestAnimationFrame(() => input.current?.focus());
@@ -186,10 +196,15 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
     input.current?.focus();
   }
 
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    void send(draft, true);
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
-    void send();
+    void send(draft, true);
   }
 
   return (
@@ -241,16 +256,23 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
             {messages.map((message, index) => (
               <ChatMessageItem key={message.id} message={message}>
                 {message.decision?.type !== "escalate" ? null : index === lastHandoff ? (
-                  <HandoffCard
-                    reason={message.decision.reason}
-                    escalation={escalation}
-                    ticketTypes={ticketTypes}
-                    late={late}
-                    onCheckAgain={() => {
-                      setLateFor(null);
-                      if (conversation) void load(conversation.id);
-                    }}
-                  />
+                  <>
+                    {anonymous && !contact ? (
+                      <ContactForm busy={running} onSend={(email) => void send(email, false)} />
+                    ) : null}
+                    <HandoffCard
+                      reason={message.decision.reason}
+                      contact={contact}
+                      asksForEmail={anonymous}
+                      escalation={escalation}
+                      ticketTypes={ticketTypes}
+                      late={late}
+                      onCheckAgain={() => {
+                        setLateFor(null);
+                        if (conversation) void load(conversation.id);
+                      }}
+                    />
+                  </>
                 ) : (
                   <HandoffNote reason={message.decision.reason} />
                 )}
@@ -272,7 +294,7 @@ export function PreviewChat({ ticketTypes }: { ticketTypes: TicketType[] }) {
         {error ? <FormAlert>{error}</FormAlert> : null}
       </div>
 
-      <form onSubmit={send} noValidate className="flex flex-col gap-2 border-t border-line px-6 py-4">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-2 border-t border-line px-6 py-4">
         <label htmlFor={inputId} className="sr-only">
           Message
         </label>

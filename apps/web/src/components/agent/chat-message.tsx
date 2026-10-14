@@ -51,14 +51,16 @@ export function ChatMessageItem({ message, children }: { message: ChatMessage; c
   const confidence = message.decision?.type === "answer" ? message.decision.confidence : null;
   // Claims from the signed token that the answer relies on, rather than a source.
   const facts = message.decision?.account_facts ?? [];
+  // Conversation such as a greeting states no facts, so it shows no sources or confidence.
+  const conversational = message.decision?.type === "reply";
 
   return (
     <li className="flex flex-col items-start gap-2">
       <span className="sr-only">{message.role === "human" ? "Your team" : "Agent"}: </span>
       <div className="flex max-w-[85%] flex-col gap-2 rounded-md border border-line bg-paper px-3.5 py-2.5 text-base break-words text-ink">
-        <MessageText text={message.content} citations={message.citations} onCite={cite} />
+        <MessageText text={message.content} citations={conversational ? [] : message.citations} onCite={cite} />
       </div>
-      {message.citations.length > 0 || facts.length > 0 ? (
+      {!conversational && (message.citations.length > 0 || facts.length > 0) ? (
         <div className="flex w-full max-w-[85%] flex-col gap-2">
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-muted">
             {message.citations.length > 0 ? (

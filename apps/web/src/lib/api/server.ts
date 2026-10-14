@@ -16,7 +16,12 @@ type GetPath =
   | "/v1/knowledge/sources"
   | "/v1/agent/settings"
   | "/v1/ticket-types"
-  | "/v1/widgets";
+  | "/v1/widgets"
+  | "/v1/billing"
+  | "/v1/memory"
+  | "/v1/memory/answers"
+  | "/v1/memory/gaps"
+  | "/v1/memory/customers";
 type GetData<P extends GetPath> = paths[P]["get"]["responses"][200]["content"]["application/json"];
 
 /**
@@ -73,6 +78,16 @@ export const getAgentSettings = () => getOrThrow("/v1/agent/settings");
 export const getTicketTypes = () => getOrThrow("/v1/ticket-types");
 
 export const getWidgets = () => getOrThrow("/v1/widgets");
+
+export const getBilling = () => getOrThrow("/v1/billing");
+
+export const getMemory = () => getOrThrow("/v1/memory");
+
+export const getTeamAnswers = () => getOrThrow("/v1/memory/answers");
+
+export const getGaps = () => getOrThrow("/v1/memory/gaps");
+
+export const getRememberedCustomers = () => getOrThrow("/v1/memory/customers");
 
 /** One widget. A missing widget, or an id that is not one, shows the 404 page. */
 export async function getWidget(widgetId: string) {

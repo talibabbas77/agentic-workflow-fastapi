@@ -1,0 +1,236 @@
+/*
+ * Memory map: flat nodes and 1px lines in SVG, sized in SVG units so text and
+ * strokes scale with the map. Rust marks only the knowledge gaps and focus.
+ * Motion is a short fade in, a slow halo on the agent, and a dot that travels
+ * each branch into the agent; none of it runs under reduced motion.
+ */
+
+@layer components {
+  .mm {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Edges */
+  .mm-edge {
+    fill: none;
+    stroke: var(--line-strong);
+    stroke-linecap: round;
+    transition:
+      stroke 150ms ease-out,
+      opacity 150ms ease-out;
+    animation: mm-fade 600ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 24ms + 80ms);
+  }
+  .mm-edge[data-branch="gaps"]:not([data-trunk]) {
+    stroke: var(--rust);
+    stroke-dasharray: 2 4;
+    opacity: 0.7;
+  }
+  .mm-edge[data-lit] {
+    stroke: var(--ink-muted);
+  }
+  .mm [data-dim] {
+    opacity: 0.3;
+  }
+  /* Hubs dim by color: their pills stay opaque so no line shows through. */
+  .mm .mm-hub[data-dim] {
+    opacity: 1;
+  }
+
+  /* A dot that travels from a hub into the agent. */
+  .mm-flow {
+    fill: none;
+    stroke: var(--ink-muted);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-dasharray: 0 101;
+    stroke-dashoffset: -100;
+    opacity: 0;
+    animation: mm-flow 6s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * 1.5s + 1s);
+  }
+
+  /* Nodes */
+  .mm-node {
+    cursor: pointer;
+    outline: none;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: opacity 150ms ease-out;
+    animation: mm-in 520ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 24ms);
+  }
+  .mm-focus {
+    fill: none;
+    stroke: var(--rust);
+    stroke-width: 2;
+    opacity: 0;
+  }
+  .mm-node:focus-visible .mm-focus {
+    opacity: 1;
+  }
+  .mm-hit {
+    fill: transparent;
+  }
+
+  .mm-pill {
+    fill: var(--surface);
+    stroke: var(--line-strong);
+    transition:
+      fill 150ms ease-out,
+      stroke 150ms ease-out;
+  }
+  .mm-node:hover .mm-pill,
+  .mm-node[data-lit] .mm-pill {
+    fill: var(--surface-2);
+    stroke: var(--ink-subtle);
+  }
+  .mm-node[data-empty] .mm-pill {
+    stroke-dasharray: 3 3;
+  }
+  .mm-node[data-branch="gaps"]:not([data-empty]) .mm-pill {
+    stroke: var(--rust);
+  }
+  .mm-label {
+    fill: var(--ink);
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .mm-count {
+    fill: var(--ink-muted);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .mm-node[data-branch="gaps"]:not([data-empty]) .mm-count {
+    fill: var(--rust);
+    font-weight: 600;
+  }
+  .mm-node[data-empty] .mm-label {
+    fill: var(--ink-muted);
+  }
+  .mm-icon {
+    color: var(--ink-muted);
+  }
+  .mm-node[data-branch="gaps"]:not([data-empty]) .mm-icon {
+    color: var(--rust);
+  }
+  .mm .mm-hub[data-dim] .mm-pill {
+    stroke: var(--line);
+  }
+  .mm .mm-hub[data-dim] .mm-label,
+  .mm .mm-hub[data-dim] .mm-count {
+    fill: var(--ink-subtle);
+  }
+  .mm .mm-hub[data-dim] .mm-icon {
+    color: var(--line-strong);
+  }
+
+  .mm-leaf {
+    stroke-width: 1;
+    transition:
+      stroke 150ms ease-out,
+      stroke-width 150ms ease-out;
+  }
+  .mm-leaf[data-branch="knowledge"] {
+    fill: var(--ink);
+    stroke: var(--ink);
+  }
+  .mm-leaf[data-branch="answers"] {
+    fill: var(--surface);
+    stroke: var(--ink);
+  }
+  .mm-leaf[data-branch="customers"] {
+    fill: var(--surface-2);
+    stroke: var(--ink-muted);
+  }
+  .mm-leaf[data-branch="gaps"] {
+    fill: var(--rust-soft);
+    stroke: var(--rust);
+  }
+  .mm-node:hover .mm-leaf,
+  .mm-node[data-lit] .mm-leaf {
+    stroke-width: 2;
+  }
+
+  .mm-more {
+    fill: var(--ink-muted);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The agent */
+  .mm-core {
+    fill: var(--ink);
+  }
+  .mm-core-text {
+    fill: var(--paper);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .mm-ring {
+    fill: none;
+    stroke: var(--line-strong);
+  }
+  .mm-halo {
+    fill: none;
+    stroke: var(--ink-subtle);
+    transform-box: fill-box;
+    transform-origin: center;
+    opacity: 0;
+    animation: mm-halo 6s var(--ease-out) infinite 600ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mm-flow,
+    .mm-halo {
+      display: none;
+    }
+  }
+}
+
+@keyframes mm-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes mm-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes mm-flow {
+  0% {
+    stroke-dashoffset: -100;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes mm-halo {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  60%,
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}

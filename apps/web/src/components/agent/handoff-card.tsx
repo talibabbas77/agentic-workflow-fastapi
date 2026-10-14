@@ -1,7 +1,7 @@
 "use client";
 
 import type { Escalation, EscalationSummary, TicketType } from "@docent/api-client";
-import { HeadsetIcon } from "@phosphor-icons/react";
+import { EnvelopeSimpleIcon, HeadsetIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/ui/loading";
@@ -45,12 +45,18 @@ const rowClasses = "grid gap-x-6 gap-y-1 sm:grid-cols-[9rem_minmax(0,1fr)] sm:ga
  */
 export function HandoffCard({
   reason: code,
+  contact,
+  asksForEmail,
   escalation,
   ticketTypes,
   late,
   onCheckAgain,
 }: {
   reason: string | null;
+  /** The email the team replies to, once known. */
+  contact: string | null;
+  /** The visitor was asked to leave an email: anonymous, with none given yet. */
+  asksForEmail: boolean;
   /** Null for the moment between the reply and loading the handoff. */
   escalation: Escalation | null;
   ticketTypes: TicketType[];
@@ -79,6 +85,16 @@ export function HandoffCard({
           </p>
         </div>
       </div>
+
+      <p className="flex min-w-0 items-center gap-2 border-b border-line px-4 py-2.5 text-sm">
+        <EnvelopeSimpleIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+        <span className="shrink-0 text-ink-muted">Reply to</span>
+        {contact ? (
+          <span className="min-w-0 truncate font-medium text-ink">{contact}</span>
+        ) : (
+          <span className="text-ink">{asksForEmail ? "Waiting for an email" : "No email in the customer details"}</span>
+        )}
+      </p>
 
       {escalation && summary ? (
         <dl className="fade-in flex flex-col gap-3 px-4 py-4 text-base">

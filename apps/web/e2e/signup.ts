@@ -4,11 +4,18 @@ import { uniqueEmail } from "./mailpit";
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 const PASSWORD = "correct horse battery";
 
+/**
+ * A made-up client address for one signup. Signups are limited per address per
+ * hour, and the suite makes more of them than one run's address allows; see the
+ * note in playwright.config.ts.
+ */
+const signupIp = () => `10.${Array.from({ length: 3 }, () => Math.floor(Math.random() * 254) + 1).join(".")}`;
+
 /** A new owner of a new, empty workspace, signed in on this page. */
 export async function signUp(page: Page, name: string, workspace: string) {
   const email = uniqueEmail(name.split(" ")[0]!.toLowerCase());
   const response = await page.request.post("/api/v1/auth/signup", {
-    headers: { origin: BASE },
+    headers: { origin: BASE, "x-forwarded-for": signupIp() },
     data: { name, email, password: PASSWORD, workspace_name: `${workspace} ${Date.now().toString(36)}` },
   });
   expect(response.status(), await response.text()).toBe(201);

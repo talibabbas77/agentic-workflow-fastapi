@@ -1,8 +1,9 @@
 import {
   BookOpenTextIcon,
-  ChartBarIcon,
+  BrainIcon,
   ChatCircleTextIcon,
   CodeIcon,
+  CreditCardIcon,
   ExamIcon,
   GearSixIcon,
   HeadsetIcon,
@@ -17,12 +18,14 @@ export const mainNav: NavItem[] = [
   { href: "/app", label: "Overview", icon: HouseIcon },
   { href: "/app/inbox", label: "Inbox", icon: TrayIcon },
   // Setup order: teach the agent, try it, decide what a handoff collects, then install.
+  // Memory sits next to Knowledge: both are what the agent knows.
   { href: "/app/knowledge", label: "Knowledge", icon: BookOpenTextIcon },
+  { href: "/app/memory", label: "Memory", icon: BrainIcon },
   { href: "/app/agent", label: "Agent", icon: ChatCircleTextIcon },
   { href: "/app/handoffs", label: "Handoffs", icon: HeadsetIcon },
   { href: "/app/widgets", label: "Widgets", icon: CodeIcon },
   { href: "/app/evals", label: "Evals", icon: ExamIcon },
-  { href: "/app/usage", label: "Usage", icon: ChartBarIcon },
+  { href: "/app/billing", label: "Billing", icon: CreditCardIcon },
 ];
 
 export const settingsNav: NavItem = { href: "/app/settings", label: "Settings", icon: GearSixIcon };
