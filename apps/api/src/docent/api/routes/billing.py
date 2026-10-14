@@ -2,6 +2,7 @@
 
 Everyone in a workspace can see its plan and usage; only owners change billing.
 Checkout and the portal are hosted by Stripe, so card data never reaches us.
+Top-up packs are bought through Checkout too, and credited only by its webhook.
 """
 
 import logging
@@ -15,6 +16,7 @@ from docent.api.deps import CurrentMember, Member, OwnerMember, State
 from docent.api.errors import AppError
 from docent.api.schemas import (
     BillingOut,
+    BillingTopups,
     BillingUsage,
     ChargeLine,
     CheckoutIn,
@@ -23,12 +25,15 @@ from docent.api.schemas import (
     PlanChangePreviewOut,
     RedirectOut,
     RefundOut,
+    TopupCheckoutIn,
+    TopupOut,
     UsageMeter,
 )
-from docent.billing import changes, refunds, subscriptions, webhooks
+from docent.billing import changes, refunds, subscriptions, topups, webhooks
 from docent.billing.changes import PlanChangeError
 from docent.billing.gateway import BillingError, BillingGateway, InvalidSignature
 from docent.billing.plans import PLAN_BY_ID
+from docent.billing.topups import TopupError
 from docent.db.pool import Connection, transaction
 from docent.services import audit
 
@@ -47,6 +52,7 @@ async def get_billing(member: CurrentMember, state: State) -> BillingOut:
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         current = await subscriptions.entitlement(conn, member.tenant_id)
         counts = await subscriptions.usage_counts(conn)
+        topup_replies, bought = await topups.this_month(conn)
         period = await conn.fetchrow(
             """
             select date_trunc('month', now())::date as period_start,
@@ -78,11 +84,15 @@ async def get_billing(member: CurrentMember, state: State) -> BillingOut:
             period_start=period["period_start"],
             period_end=period["period_end"],
             replies=UsageMeter(
-                used=period["used"], limit=plan.replies_per_month if current.active else 0
+                used=period["used"],
+                limit=plan.replies_per_month + topup_replies if current.active else 0,
             ),
             documents=UsageMeter(used=counts["documents"], limit=plan.pages),
             widgets=UsageMeter(used=counts["widgets"], limit=plan.widgets),
             seats=UsageMeter(used=counts["seats"], limit=plan.seats),
+        ),
+        topups=BillingTopups(
+            replies=topup_replies, bought=[TopupOut(**dict(row)) for row in bought]
         ),
     )
 
@@ -123,6 +133,39 @@ async def checkout(body: CheckoutIn, member: OwnerMember, state: State) -> Redir
             target_id=member.tenant_id,
             metadata={"plan_id": plan.id},
         )
+    return RedirectOut(url=url)
+
+
+@router.post(
+    "/topups/checkout",
+    responses={409: {"model": ErrorOut}, 422: {"model": ErrorOut}, 502: {"model": ErrorOut}},
+)
+async def topup_checkout(body: TopupCheckoutIn, member: OwnerMember, state: State) -> RedirectOut:
+    """Start Stripe Checkout for one top-up pack. The replies arrive with its webhook."""
+    gateway = _gateway(state)
+    web = state.settings.web_origin.rstrip("/")
+    async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
+        # One checkout at a time per workspace, so a double click makes one customer.
+        await conn.execute(
+            "select 1 from subscriptions where tenant_id = $1 for update", member.tenant_id
+        )
+        current = await subscriptions.entitlement(conn, member.tenant_id)
+        try:
+            pack = topups.pack_to_buy(current, body.pack_id)
+        except TopupError as exc:
+            raise AppError(exc.status, exc.code, exc.message) from None
+        customer_id = current.customer_id or await _new_customer(conn, gateway, member)
+        try:
+            url = await gateway.topup_checkout_url(
+                customer_id=customer_id,
+                metadata=topups.metadata(member.tenant_id, pack),
+                pack=pack,
+                success_url=f"{web}/app/billing?topup=success",
+                cancel_url=f"{web}/app/billing?topup=canceled",
+            )
+        except BillingError as exc:
+            raise _upstream(exc) from None
+        await _audit(conn, member, "billing.topup_checkout_started", {"pack_id": pack.id})
     return RedirectOut(url=url)
 
 

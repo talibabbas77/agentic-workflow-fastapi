@@ -3,9 +3,26 @@
 Prices and limits are the starting proposal in docs/ARCHITECTURE.md section 10.
 `docent billing sync-stripe` creates the matching Stripe products and prices,
 found again by their lookup key, so Stripe never becomes a second catalog.
+
+Top-up packs come from the same numbers. Each paid plan offers two: half a
+month's replies for half the monthly price, and a whole month's for the whole
+price. A pack costs exactly the plan's own price per reply, so it is never a
+worse deal than the plan, and never a better one than upgrading for a team that
+needs more every month. A pack is bought by hand, adds its replies to the
+current month only, and ends with it (ARCHITECTURE section 10).
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
+
+# A pack is the plan's monthly replies and price divided by one of these.
+TOPUP_DIVISORS = (2, 1)
+
+
+class TopupPack(BaseModel):
+    id: str
+    plan_id: str
+    replies: int
+    price_cents: int
 
 
 class Plan(BaseModel):
@@ -20,6 +37,22 @@ class Plan(BaseModel):
     identified_mode: bool
     trial_days: int | None = None
     summary: str
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def topup_packs(self) -> list[TopupPack]:
+        """Extra replies an owner can buy for the current month. None on the trial."""
+        if self.price_usd_month <= 0:
+            return []
+        return [
+            TopupPack(
+                id=f"{self.id}_{self.replies_per_month // divisor}",
+                plan_id=self.id,
+                replies=self.replies_per_month // divisor,
+                price_cents=self.price_usd_month * 100 // divisor,
+            )
+            for divisor in TOPUP_DIVISORS
+        ]
 
 
 PLANS: tuple[Plan, ...] = (
@@ -85,3 +118,11 @@ def price_lookup_key(plan: Plan) -> str:
 
 def plan_for_lookup_key(key: str | None) -> Plan | None:
     return next((plan for plan in PAID_PLANS if price_lookup_key(plan) == key), None)
+
+
+TOPUP_PACKS: tuple[TopupPack, ...] = tuple(pack for plan in PAID_PLANS for pack in plan.topup_packs)
+TOPUP_PACK_BY_ID: dict[str, TopupPack] = {pack.id: pack for pack in TOPUP_PACKS}
+
+
+def topup_lookup_key(pack: TopupPack) -> str:
+    return f"docent_topup_{pack.id}"

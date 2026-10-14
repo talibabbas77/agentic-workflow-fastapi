@@ -10,8 +10,9 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from docent.billing import topups
 from docent.billing.gateway import StripeGateway
-from docent.billing.plans import PLAN_BY_ID
+from docent.billing.plans import PLAN_BY_ID, TOPUP_PACK_BY_ID, TOPUP_PACKS
 
 STRIPE_MOCK_URL = os.environ.get("STRIPE_MOCK_URL")
 
@@ -43,7 +44,28 @@ async def test_checkout_portal_and_catalog_requests_are_valid(automatic_tax: boo
     )
     assert portal.startswith("https://")
     lines = await gateway.sync_catalog()
-    assert len(lines) == 3
+    assert len(lines) == 3 + len(TOPUP_PACKS)  # a monthly price per plan, one per pack
+
+
+@pytest.mark.parametrize("automatic_tax", [False, True])
+async def test_top_up_checkout_requests_are_valid(automatic_tax: bool) -> None:
+    gateway = StripeGateway(
+        "sk_test_123", None, api_base=STRIPE_MOCK_URL, automatic_tax=automatic_tax
+    )
+    await gateway.sync_catalog()
+    tenant_id = uuid.uuid4()
+    customer = await gateway.create_customer(
+        tenant_id=tenant_id, name="Lumen Notes", email="owner@example.com"
+    )
+    pack = TOPUP_PACK_BY_ID["growth_2500"]
+    url = await gateway.topup_checkout_url(
+        customer_id=customer,
+        metadata=topups.metadata(tenant_id, pack),
+        pack=pack,
+        success_url="http://localhost:3000/app/billing?topup=success",
+        cancel_url="http://localhost:3000/app/billing?topup=canceled",
+    )
+    assert url.startswith("https://")
 
 
 async def test_plan_change_requests_are_valid() -> None:

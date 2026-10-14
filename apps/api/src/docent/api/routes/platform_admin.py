@@ -40,6 +40,7 @@ from docent.api.schemas import (
     AdminPersonWorkspaceOut,
     AdminPlanStateCount,
     AdminReasonIn,
+    AdminRedisOut,
     AdminSubscriptionOut,
     AdminUsageMonthOut,
     AdminWidgetOut,
@@ -58,6 +59,8 @@ from docent.billing.subscriptions import Entitlement
 from docent.console import figures, operations, people, workspace
 from docent.console.figures import Figures
 from docent.db.pool import Connection, set_context, transaction
+from docent.redis_budget import ALERT_PERCENTS, LOCAL_ONLY_PERCENT, month_of
+from docent.redis_budget import read as read_redis_budget
 from docent.services import audit
 from docent.services.accounts import SessionUser
 
@@ -75,8 +78,10 @@ Page = Annotated[int, Query(ge=1, le=10_000)]
 
 @router.get("/overview")
 async def admin_overview(admin: PlatformAdmin, state: State) -> AdminOverviewOut:
+    budget = state.settings.redis_monthly_command_budget
     async with transaction(state.pool, platform_admin=True) as conn:
         data = await figures.overview(conn)
+        redis = await read_redis_budget(conn, month_of(datetime.now(UTC)), budget)
     median = data.median_cost_per_reply_micros
     return AdminOverviewOut(
         period_start=data.period_start,
@@ -87,6 +92,7 @@ async def admin_overview(admin: PlatformAdmin, state: State) -> AdminOverviewOut
         ],
         paying_workspaces=data.paying_workspaces,
         mrr_micros=data.mrr_micros,
+        topups_this_month_micros=data.topups_micros,
         new_workspaces_30d=data.new_workspaces_30d,
         new_accounts_30d=data.new_accounts_30d,
         replies_this_month=data.replies_this_month,
@@ -105,6 +111,18 @@ async def admin_overview(admin: PlatformAdmin, state: State) -> AdminOverviewOut
             )
             for r in data.anomalies
         ],
+        redis=AdminRedisOut(
+            status=state.redis.status(),
+            month=redis.month,
+            commands=redis.commands + state.redis.unflushed,
+            budget=redis.budget if redis.updated_at else budget,
+            alert_percents=list(ALERT_PERCENTS),
+            local_only_percent=LOCAL_ONLY_PERCENT,
+            alerted_80_at=redis.alerted_80_at,
+            alerted_90_at=redis.alerted_90_at,
+            local_only_since=redis.local_only_since,
+            counted_at=redis.updated_at,
+        ),
     )
 
 

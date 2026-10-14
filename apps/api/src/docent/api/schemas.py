@@ -189,7 +189,7 @@ class OnboardingOut(BaseModel):
 class HealthOut(BaseModel):
     status: Literal["ok", "degraded"]
     db: Literal["ok", "down"]
-    redis: Literal["ok", "degraded", "disabled"]
+    redis: Literal["ok", "degraded", "disabled", "local_only"]
     version: str
 
 
@@ -590,10 +590,25 @@ class UsageMeter(BaseModel):
 class BillingUsage(BaseModel):
     period_start: date
     period_end: date
-    replies: UsageMeter = Field(description="AI replies this month against the plan's cap")
+    replies: UsageMeter = Field(
+        description="AI replies this month against the plan's cap plus this month's top-ups"
+    )
     documents: UsageMeter = Field(description="Indexed documents against the plan's pages")
     widgets: UsageMeter
     seats: UsageMeter = Field(description="Members plus open invitations")
+
+
+class TopupOut(BaseModel):
+    id: uuid.UUID
+    pack_id: str
+    replies: int
+    amount_cents: int = Field(description="The pack's price, before any tax")
+    created_at: datetime
+
+
+class BillingTopups(BaseModel):
+    replies: int = Field(description="Replies this month's top-up packs added to the cap")
+    bought: list[TopupOut] = Field(description="Packs paid for this month, oldest first")
 
 
 class BillingOut(BaseModel):
@@ -618,6 +633,13 @@ class BillingOut(BaseModel):
     billing_enabled: bool = Field(description="Stripe keys are configured on this server")
     can_manage: bool = Field(description="The current member may change billing")
     usage: BillingUsage
+    topups: BillingTopups
+
+
+class TopupCheckoutIn(Model):
+    pack_id: Annotated[str, StringConstraints(min_length=1, max_length=40)] = Field(
+        description="A pack from the current plan's topup_packs"
+    )
 
 
 class CheckoutIn(Model):
@@ -1171,19 +1193,44 @@ class AdminAnomalyOut(BaseModel):
     times_median: float
 
 
+class AdminRedisOut(BaseModel):
+    status: Literal["ok", "degraded", "disabled", "local_only"] = Field(
+        description="Redis as this API process sees it now; local_only once the budget is "
+        "nearly spent"
+    )
+    month: date
+    commands: int = Field(
+        description="Commands sent this month: what every process added up, plus what this "
+        "process has not added yet"
+    )
+    budget: int = Field(description="Commands a month Docent allows itself")
+    alert_percents: list[int] = Field(description="Platform admins get an email at each")
+    local_only_percent: int = Field(description="From here, no command until the month ends")
+    alerted_80_at: datetime | None
+    alerted_90_at: datetime | None
+    local_only_since: datetime | None
+    counted_at: datetime | None = Field(description="When a process last added its count")
+
+
 class AdminOverviewOut(BaseModel):
     period_start: date
     workspaces: int
     by_plan_state: list[AdminPlanStateCount]
     paying_workspaces: int = Field(description="Active Stripe subscriptions")
     mrr_micros: int = Field(description="Monthly price of every active Stripe subscription")
+    topups_this_month_micros: int = Field(
+        description="Top-up packs paid for this month, before tax"
+    )
     new_workspaces_30d: int
     new_accounts_30d: int
     replies_this_month: int
     cost_this_month_micros: int
-    gross_margin: float | None = Field(description="(MRR - model cost) / MRR; null without MRR")
+    gross_margin: float | None = Field(
+        description="(MRR + top-ups - model cost) / (MRR + top-ups); null without revenue"
+    )
     median_cost_per_reply_micros: float | None
     anomalies: list[AdminAnomalyOut]
+    redis: AdminRedisOut
 
 
 class AdminWorkspaceRowOut(BaseModel):
@@ -1231,7 +1278,9 @@ class AdminSubscriptionOut(BaseModel):
 class AdminUsageMonthOut(BaseModel):
     month: date
     replies_used: int
-    replies_cap: int | None = Field(description="The cap that month; null with no usage row")
+    replies_cap: int | None = Field(
+        description="The cap that month, top-ups included; null with no usage row"
+    )
     cost_micros: int
     tokens_in: int
     tokens_out: int

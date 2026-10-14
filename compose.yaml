@@ -167,7 +167,7 @@ services:
       - --forward-to
       - http://api:8000/v1/webhooks/stripe
       - --events
-      - customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,customer.subscription.paused,customer.subscription.resumed,invoice.paid,invoice.payment_failed,charge.refunded
+      - customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,customer.subscription.paused,customer.subscription.resumed,invoice.paid,invoice.payment_failed,charge.refunded,checkout.session.completed,checkout.session.async_payment_succeeded
     environment:
       STRIPE_API_KEY: ${STRIPE_SECRET_KEY:-}
     depends_on:

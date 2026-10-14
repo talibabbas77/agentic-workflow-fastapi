@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from docent.billing.gateway import verify_event
-from docent.billing.plans import Plan
+from docent.billing.plans import Plan, TopupPack
 from docent.knowledge.embeddings import EmbeddingError
 
 DIMS = 768
@@ -141,6 +141,20 @@ class FakeBilling:
         cancel_url: str,
     ) -> str:
         self.checkouts.append({"customer_id": customer_id, "plan": plan.id})
+        return f"https://checkout.stripe.test/c/{len(self.checkouts)}"
+
+    async def topup_checkout_url(
+        self,
+        *,
+        customer_id: str,
+        metadata: dict[str, str],
+        pack: TopupPack,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        self.checkouts.append(
+            {"customer_id": customer_id, "pack": pack.id, "metadata": metadata, "mode": "payment"}
+        )
         return f"https://checkout.stripe.test/c/{len(self.checkouts)}"
 
     async def portal_url(self, *, customer_id: str, return_url: str) -> str:

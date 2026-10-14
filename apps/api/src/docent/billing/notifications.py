@@ -1,5 +1,7 @@
 """Tell a tenant's owners when usage crosses 80 percent and 100 percent of the cap.
 
+The cap here is the month's whole allowance: the plan's replies plus any top-ups.
+
 80 percent goes to owners and admins, 100 percent to owners (ARCHITECTURE section
 10). One email job per person and threshold per month, deduplicated in the queue.
 """
@@ -18,7 +20,7 @@ async def enqueue_usage_emails(
     rows = await conn.fetch(
         """
         select u.id as user_id, u.email, u.name, t.name as workspace,
-               p.period_start, p.replies_used, p.replies_cap
+               p.period_start, p.replies_used, p.replies_cap + p.replies_topup as allowance
         from memberships m
         join users u on u.id = m.user_id
         join tenants t on t.id = m.tenant_id
@@ -41,7 +43,7 @@ async def enqueue_usage_emails(
                     "workspace": row["workspace"],
                     "percent": percent,
                     "used": row["replies_used"],
-                    "cap": row["replies_cap"],
+                    "cap": row["allowance"],
                     "url": f"{web_origin.rstrip('/')}/app/billing",
                 },
             },

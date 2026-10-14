@@ -15,6 +15,7 @@ _BUILDERS: dict[str, Callable[..., OutgoingEmail]] = {
     "reset_password": templates.reset_password,
     "invitation": templates.invitation,
     "usage_threshold": templates.usage_threshold,
+    "redis_budget": templates.redis_budget,
     "inbox_reply": templates.inbox_reply,
     "new_handoff": templates.new_handoff,
     "handoff_assigned": templates.handoff_assigned,
