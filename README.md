@@ -5,10 +5,10 @@ script tag. Teach it from your documents and it answers your customers with
 citations, knows which logged-in user is asking, and hands the conversation to
 your team with a summary when it should not answer.
 
-**Status:** Phases 1 to 4 and the landing site (Phase 8) are built and waiting
-for review: auth and tenants, teaching the agent from documents, cited answers
-with handoffs, and the embeddable widget with signed identity. See
-[build phases](docs/PHASES.md).
+**Status:** Phases 1 to 6, billing, and the landing site (Phase 8) are built
+and waiting for review: auth and tenants, teaching the agent from documents,
+cited answers with handoffs, the embeddable widget with signed identity, the
+inbox, and evals. See [build phases](docs/PHASES.md).
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Build phases](docs/PHASES.md)
@@ -196,6 +196,54 @@ Migrate it once with
 A Postgres volume created before the eval database existed needs it created
 first: `docker compose exec postgres psql -U postgres -c "create database docent_eval owner docent_owner"`,
 then `docker compose exec -T postgres psql -U postgres -d docent_eval < infra/db/sql/database.sql`.
+
+### The CI gate
+
+`docent eval gate` compares a report with the stored baseline,
+`fixtures/golden/baseline.json`, prints a table, and exits 1 when the agent got
+worse:
+
+```bash
+pnpm eval:agent --sample 8 --out /tmp/agent.json
+uv run --directory apps/api docent eval gate --report /tmp/agent.json
+```
+
+It fails when the wrong-answer rate rises more than 2 points
+(`--max-wrong-increase`), escalation recall falls more than 5 points or below
+95 percent (`--max-recall-drop`, `--min-recall`), or a safety case fails. A run
+from the app works as a report too: save `GET /v1/evals/runs/{id}` as JSON.
+After a change you mean to keep, store its numbers as the new baseline with
+`--write-baseline`, and commit the file.
+
+In CI the `agent-gate` job runs it nightly, and on pull requests that touch the
+agent, the model client, chunking, retrieval, settings, or the golden set. It
+needs a chat model: set the repository variables `EVAL_LLM_BASE_URL` (an
+OpenAI-compatible endpoint) and `EVAL_LLM_MODEL`, and the secret
+`EVAL_LLM_API_KEY`. Without them the job is skipped. Only synthetic data goes
+through it, so a free tier is fine.
+
+## Evals in the app
+
+Under Evals in the admin app (owners and admins manage; every member can look
+and grade the weekly review):
+
+- **Sets**: test questions with what should happen (an answer, a handoff, or a
+  clarifying question), who is asking (anonymous, or a signed-in customer with
+  claims), earlier turns, phrases a reply must or must not contain, and gold
+  documents. Write drafts asks the model for questions from your own help
+  articles; approve the good ones. "Add to eval set" on a handoff or any agent
+  answer in the inbox fills a case in from the conversation.
+- **Runs**: Run eval queues a job that sends every approved case through the
+  real agent, one at a time, in a sandbox that keeps nothing: no messages,
+  handoffs, emails, billed replies, knowledge gaps, or customer memory. Each
+  case gets deterministic checks, then the judge for answers. The worker must
+  be running.
+- **Compare** two runs of a set, **Metrics** from real widget traffic,
+  **Review** of 20 sampled conversations a week, and **Calibration**, where
+  labels you give judged answers show how far to trust the judge.
+
+`EVAL_JUDGE_MODEL` picks the judge's model (default: the chat model; use a
+different one in production).
 
 ## Dependencies
 

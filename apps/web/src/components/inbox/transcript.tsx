@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { useId, useState, type FormEvent } from "react";
 import { confidenceLabel, MessageText, Source } from "@/components/agent/chat-message";
+import { AddToEvalSet } from "@/components/evals/add-to-eval-set";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Field, Textarea } from "@/components/ui/field";
@@ -27,18 +28,21 @@ const timeFormat = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "
 /**
  * The conversation as the customer had it. The customer is on the left; the
  * agent and your team on the right. Agent answers keep their sources, and any
- * of them can be marked as wrong.
+ * of them can be marked as wrong. With `evalConversationId`, owners and admins
+ * can also turn any agent answer into a test case.
  */
 export function Transcript({
   messages,
   customer,
   reason,
   onChange,
+  evalConversationId,
 }: {
   messages: InboxMessage[];
   customer: string;
   reason: HandoffReason;
   onChange: (message: InboxMessage) => void;
+  evalConversationId?: string;
 }) {
   const [flagging, setFlagging] = useState<InboxMessage | null>(null);
   // The handoff happened at the first agent message that escalated.
@@ -55,6 +59,7 @@ export function Transcript({
             handoff={message.id === handoffAt ? reason : null}
             onFlag={() => setFlagging(message)}
             onChange={onChange}
+            evalConversationId={evalConversationId}
           />
         ))}
       </ol>
@@ -81,12 +86,14 @@ function MessageRow({
   handoff,
   onFlag,
   onChange,
+  evalConversationId,
 }: {
   message: InboxMessage;
   customer: string;
   handoff: HandoffReason | null;
   onFlag: () => void;
   onChange: (message: InboxMessage) => void;
+  evalConversationId?: string;
 }) {
   if (message.role === "system") {
     return (
@@ -124,7 +131,12 @@ function MessageRow({
   }
   return (
     <>
-      <AgentMessage message={message} onFlag={onFlag} onChange={onChange} />
+      <AgentMessage
+        message={message}
+        onFlag={onFlag}
+        onChange={onChange}
+        evalConversationId={evalConversationId}
+      />
       {handoff ? (
         <li role="separator" className="flex items-center gap-3 text-sm text-ink-muted">
           <span aria-hidden="true" className="h-px flex-1 bg-line" />
@@ -143,10 +155,12 @@ function AgentMessage({
   message,
   onFlag,
   onChange,
+  evalConversationId,
 }: {
   message: InboxMessage;
   onFlag: () => void;
   onChange: (message: InboxMessage) => void;
+  evalConversationId?: string;
 }) {
   const now = useNow();
   const sourcesId = useId();
@@ -218,6 +232,9 @@ function AgentMessage({
               Mark as wrong
             </button>
           )}
+          {evalConversationId && !conversational ? (
+            <AddToEvalSet compact conversationId={evalConversationId} messageId={message.id} />
+          ) : null}
         </div>
         {citations.length > 0 ? (
           <ol id={sourcesId} aria-label="Sources" hidden={!open} className="flex w-full flex-col gap-2">

@@ -12,8 +12,9 @@ from fastapi.responses import JSONResponse
 
 from docent.agent.escalation import make_escalation_handlers
 from docent.config import Settings, get_settings
-from docent.db.pool import create_pool
+from docent.db.pool import Pool, create_pool
 from docent.email.sender import SmtpEmailSender
+from docent.evals.runner import EvalDeps, make_eval_handlers
 from docent.inbox.jobs import inbox_schedules, make_inbox_handlers
 from docent.inbox.outbound import OutboundDeps
 from docent.jobs.handlers import make_handlers
@@ -74,12 +75,38 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             )
         )
         ingest = make_knowledge_handlers(knowledge)
+
+        @asynccontextmanager
+        async def agent_pool() -> AsyncIterator[Pool]:
+            # Eval turns run the agent loop as docent_app, the role it is written for.
+            app_pool = await create_pool(settings.database_url, min_size=1, max_size=1)
+            try:
+                yield app_pool
+            finally:
+                await app_pool.close()
+
+        evals = make_eval_handlers(
+            EvalDeps(
+                settings=settings,
+                embedder=knowledge.embedder,
+                llm=chat_model(settings, ollama, settings.llm_model),
+                judge=chat_model(
+                    settings,
+                    ollama,
+                    settings.eval_judge_model or settings.llm_model,
+                    temperature=0.0,
+                ),
+                agent_pool=agent_pool,
+            )
+        )
         worker = Worker(
             pool,
-            io | ingest,
+            io | ingest | evals,
             lanes=[
                 Lane("io", tuple(io), settings.job_io_slots),
                 Lane("ingest", tuple(ingest), settings.job_ingest_slots),
+                # One slot: eval runs and draft writing never burst against the model.
+                Lane("evals", tuple(evals), 1),
             ],
             idle_poll_seconds=settings.job_idle_poll_seconds,
             lease_seconds=settings.job_lease_seconds,

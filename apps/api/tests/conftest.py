@@ -5,6 +5,7 @@ import os
 import re
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -21,6 +22,7 @@ from docent.cli import API_ROOT
 from docent.config import Settings
 from docent.db.pool import Pool, create_pool
 from docent.email.sender import MemoryEmailSender, OutgoingEmail
+from docent.evals.runner import EvalDeps, make_eval_handlers
 from docent.inbox.jobs import make_inbox_handlers
 from docent.inbox.outbound import OutboundDeps
 from docent.jobs.handlers import make_handlers
@@ -66,6 +68,11 @@ TENANT_TABLES = [
     "webhooks",
     "webhook_deliveries",
     "notification_preferences",
+    "eval_sets",
+    "eval_cases",
+    "eval_runs",
+    "eval_results",
+    "review_items",
 ]
 # Tables the platform admin console reads across tenants, through a select-only policy on
 # the app.platform_admin capability (migration 0011). Content tables are never on it.
@@ -83,6 +90,11 @@ CONSOLE_TABLES = [
     "audit_log",
 ]
 ALL_TABLES = [
+    "review_items",
+    "eval_results",
+    "eval_runs",
+    "eval_cases",
+    "eval_sets",
     "notification_preferences",
     "webhook_deliveries",
     "notifications",
@@ -243,12 +255,27 @@ async def worker(
         outbound = OutboundDeps(
             settings=settings, box=SecretBox(settings.secret_key.get_secret_value()), http=http
         )
+        app_pool: Pool = app.state.docent.pool
+
+        @asynccontextmanager
+        async def agent_pool() -> AsyncIterator[Pool]:
+            yield app_pool  # the API's docent_app pool, shared, so not closed here
+
         handlers = (
             make_handlers(mailbox)
             | make_knowledge_handlers(knowledge)
             | make_escalation_handlers(chat, settings)
             | make_memory_handlers(chat)
             | make_inbox_handlers(outbound)
+            | make_eval_handlers(
+                EvalDeps(
+                    settings=settings,
+                    embedder=embedder,
+                    llm=chat,
+                    judge=chat,
+                    agent_pool=agent_pool,
+                )
+            )
         )
         yield Worker(worker_pool, handlers, idle_poll_seconds=60, lease_seconds=30, worker_id="t1")
 

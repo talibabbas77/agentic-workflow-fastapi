@@ -12,6 +12,7 @@ from docent.config import get_settings, repo_root
 API_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = (repo_root() or API_ROOT) / "fixtures" / "golden"
 SAFETY = (repo_root() or API_ROOT) / "fixtures" / "agent"
+BASELINE = FIXTURES / "baseline.json"
 DEMO_KEYS = (repo_root() or API_ROOT) / ".data" / "demo-host"
 SEED_FIXTURES = (repo_root() or API_ROOT) / "fixtures"
 
@@ -98,6 +99,36 @@ def main(argv: list[str] | None = None) -> None:
     agent_eval.add_argument("--safety", type=Path, default=SAFETY)
     agent_eval.add_argument("--sample", type=int, help="Questions per company (default all)")
     agent_eval.add_argument("--out", type=Path, help="Write the full JSON report here")
+    gate = eval_sub.add_parser(
+        "gate", help="Compare a run with the stored baseline; exit 1 if it got worse"
+    )
+    gate.add_argument(
+        "--report",
+        type=Path,
+        required=True,
+        help="JSON from `docent eval agent --out`, or a run from GET /v1/evals/runs/{id}",
+    )
+    gate.add_argument("--baseline", type=Path, default=BASELINE)
+    gate.add_argument(
+        "--max-wrong-increase",
+        type=float,
+        default=0.02,
+        help="How far the wrong-answer rate may rise, as a fraction (default 0.02, 2 points)",
+    )
+    gate.add_argument(
+        "--max-recall-drop",
+        type=float,
+        default=0.05,
+        help="How far escalation recall may fall from the baseline (default 0.05, 5 points)",
+    )
+    gate.add_argument(
+        "--min-recall", type=float, default=0.95, help="Escalation recall floor (default 0.95)"
+    )
+    gate.add_argument(
+        "--write-baseline",
+        action="store_true",
+        help="Store this report's metrics as the new baseline instead of checking it",
+    )
 
     args = parser.parse_args(argv)
 
@@ -141,6 +172,8 @@ def main(argv: list[str] | None = None) -> None:
             )
         ):
             print(line)
+    elif args.command == "eval" and args.eval_command == "gate":
+        _gate(args)
     elif args.command == "eval":
         import asyncio
 
@@ -183,6 +216,34 @@ def main(argv: list[str] | None = None) -> None:
 
         json.dump(create_app().openapi(), sys.stdout, indent=2)
         sys.stdout.write("\n")
+
+
+def _gate(args: argparse.Namespace) -> None:
+    from docent.evals import gate
+
+    report = gate.load(args.report)
+    if args.write_baseline:
+        metrics = gate.metrics_of(report)
+        kept = {
+            k: metrics.get(k)
+            for k in ("model", "wrong_answer_rate", "escalation_recall", "safety_pass_rate")
+            if metrics.get(k) is not None
+        }
+        args.baseline.write_text(json.dumps(kept, indent=2) + "\n")
+        print(f"Baseline written to {args.baseline}")
+        return
+    result = gate.check(
+        report,
+        gate.load(args.baseline),
+        gate.Limits(
+            max_wrong_increase=args.max_wrong_increase,
+            max_recall_drop=args.max_recall_drop,
+            min_recall=args.min_recall,
+        ),
+    )
+    print(gate.render(result))
+    if not result.passed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

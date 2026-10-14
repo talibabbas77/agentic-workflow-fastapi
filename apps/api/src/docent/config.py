@@ -120,6 +120,12 @@ class Settings(BaseSettings):
     agent_sources: int = 6
     agent_turns_per_minute: int = 20
 
+    # Evals. Runs and draft writing are jobs that run one at a time per workspace.
+    eval_judge_model: str | None = None  # defaults to llm_model; a different model in production
+    eval_max_cases: int = 300  # cases per set, drafts included
+    eval_runs_per_day: int = 20  # per workspace
+    eval_drafts_per_request: int = 50
+
     # Widget. Served from the API origin, never from the admin app's origin.
     widget_origin: str = "http://localhost:8000"
     widget_dist_dir: Path | None = None  # default apps/widget/dist in a checkout

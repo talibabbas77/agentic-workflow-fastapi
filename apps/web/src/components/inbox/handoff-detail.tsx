@@ -4,6 +4,7 @@ import type { Assignee, InboxDetail, InboxMessage, InboxUpdate, TicketType } fro
 import { ArrowLeftIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { AddToEvalSet } from "@/components/evals/add-to-eval-set";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -26,10 +27,13 @@ export function HandoffDetail({
   initial,
   ticketTypes,
   assignees,
+  canManageEvals = false,
 }: {
   initial: InboxDetail;
   ticketTypes: TicketType[];
   assignees: Assignee[];
+  /** Owners and admins can turn the conversation into an eval case. */
+  canManageEvals?: boolean;
 }) {
   const toast = useToast();
   const now = useNow();
@@ -87,9 +91,16 @@ export function HandoffDetail({
           Inbox
         </Link>
         <div className="flex flex-col gap-3">
-          <h1 dir="auto" className="text-2xl break-words text-ink sm:text-3xl">
-            {item.issue}
-          </h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <h1 dir="auto" className="text-2xl break-words text-ink sm:text-3xl">
+              {item.issue}
+            </h1>
+            {canManageEvals ? (
+              <div className="shrink-0 sm:pt-1.5">
+                <AddToEvalSet conversationId={detail.conversation_id} />
+              </div>
+            ) : null}
+          </div>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-muted">
             <StatusBadge status={item.status} />
             <PriorityBadge priority={item.priority} />
@@ -120,6 +131,7 @@ export function HandoffDetail({
                 customer={customer}
                 reason={item.reason}
                 onChange={replaceMessage}
+                evalConversationId={canManageEvals ? detail.conversation_id : undefined}
               />
             </div>
             <ReplyComposer

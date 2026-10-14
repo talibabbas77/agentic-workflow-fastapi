@@ -28,6 +28,16 @@ log = logging.getLogger(__name__)
 
 GRACE = timedelta(days=7)
 
+# Inside an eval sandbox (docent.evals.sandbox) every write of the turn is rolled
+# back, so a reply there is never counted. The cap would only turn eval cases into
+# handoffs, so it is lifted. The setting is transaction-local and set only by the
+# sandbox, on a transaction that always ends in a rollback.
+SANDBOX_REPLY_CAP = 1_000_000_000
+_SELECT = """
+    select s.*, coalesce(current_setting('app.sandbox', true) = 'eval', false) as eval_sandbox
+    from subscriptions s where s.tenant_id = $1
+"""
+
 type Limit = Literal["widgets", "seats", "documents"]
 SubscriptionStatus = Literal[
     "trialing",
@@ -61,6 +71,7 @@ class Entitlement:
     customer_id: str | None
     subscription_id: str | None
     comped_until: datetime | None = None
+    eval_sandbox: bool = False
 
 
 async def start_trial(conn: Connection, tenant_id: uuid.UUID) -> None:
@@ -76,7 +87,7 @@ async def start_trial(conn: Connection, tenant_id: uuid.UUID) -> None:
 
 
 async def entitlement(conn: Connection, tenant_id: uuid.UUID) -> Entitlement:
-    row = await conn.fetchrow("select * from subscriptions where tenant_id = $1", tenant_id)
+    row = await conn.fetchrow(_SELECT, tenant_id)
     if row is None:
         # Every tenant gets a row at creation. If one is ever missing, start its trial
         # instead of failing every reply and billing page for that workspace.
@@ -93,7 +104,7 @@ async def entitlement(conn: Connection, tenant_id: uuid.UUID) -> Entitlement:
             TRIAL.id,
             timedelta(days=TRIAL.trial_days or 14),
         )
-        row = await conn.fetchrow("select * from subscriptions where tenant_id = $1", tenant_id)
+        row = await conn.fetchrow(_SELECT, tenant_id)
         assert row is not None
     return from_row(row)
 
@@ -136,11 +147,14 @@ def _entitlement(row: asyncpg.Record, now: datetime) -> Entitlement:
         customer_id=row["provider_customer_id"],
         subscription_id=row["provider_subscription_id"],
         comped_until=comped_until,
+        eval_sandbox=bool(row.get("eval_sandbox")),
     )
 
 
 async def reply_cap(conn: Connection, tenant_id: uuid.UUID) -> int:
     current = await entitlement(conn, tenant_id)
+    if current.eval_sandbox:
+        return SANDBOX_REPLY_CAP
     return current.plan.replies_per_month if current.active else 0
 
 
