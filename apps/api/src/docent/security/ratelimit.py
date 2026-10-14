@@ -1,7 +1,11 @@
-"""Fixed-window rate limiting with a Redis backend and an in-process fallback.
+"""Rate limiting with GCRA, in Redis when it is there and in process when it is not.
 
-Redis gives limits shared across instances. Without it, each instance keeps its
-own counters: exact with one instance, looser with several, never unlimited.
+GCRA (the generic cell rate algorithm) keeps one number per key: the time the
+next request is "due". It allows a burst of up to the limit, then one request
+per window / limit, so there is no doubling at a window edge the way fixed
+windows allow. One key and one script call per check, which keeps Redis usage
+inside a free tier's command budget. Without Redis, each instance keeps the
+same state in memory: exact with one instance, looser with several, never off.
 """
 
 import math
@@ -12,12 +16,20 @@ from redis.asyncio import Redis
 
 from docent.redis_hub import RedisHub, RedisUnavailable
 
-# One EVALSHA per hit: increment, set expiry on first hit, return count and ttl.
-_LUA = """
-local count = redis.call('INCR', KEYS[1])
-if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
-local ttl = redis.call('TTL', KEYS[1])
-return {count, ttl}
+# KEYS[1] limiter key. ARGV: now and emission interval in ms, burst tolerance in ms.
+# Returns {allowed, remaining, retry_after_ms}.
+_GCRA = """
+local now = tonumber(ARGV[1])
+local interval = tonumber(ARGV[2])
+local tolerance = tonumber(ARGV[3])
+local tat = tonumber(redis.call('GET', KEYS[1]) or now)
+if tat < now then tat = now end
+if tat - now > tolerance then
+  return {0, 0, tat - now - tolerance}
+end
+local next_tat = tat + interval
+redis.call('SET', KEYS[1], next_tat, 'PX', next_tat - now)
+return {1, math.floor((tolerance + interval - (next_tat - now)) / interval), 0}
 """
 
 
@@ -27,37 +39,52 @@ class Limit:
     max_hits: int
     window_seconds: int
 
+    @property
+    def interval_ms(self) -> int:
+        return max(1, self.window_seconds * 1000 // self.max_hits)
+
+    @property
+    def tolerance_ms(self) -> int:
+        return self.window_seconds * 1000 - self.interval_ms
+
 
 @dataclass(frozen=True, slots=True)
 class RateResult:
     allowed: bool
     remaining: int
-    retry_after: int
+    retry_after: int  # seconds, 0 when allowed
+
+
+def _now_ms() -> int:
+    return time.time_ns() // 1_000_000
+
+
+def _result(allowed: bool, remaining: int, retry_ms: int) -> RateResult:
+    return RateResult(
+        allowed=allowed,
+        remaining=max(0, remaining),
+        retry_after=0 if allowed else max(1, math.ceil(retry_ms / 1000)),
+    )
 
 
 class LocalRateLimiter:
+    """The same algorithm in memory, for when Redis is missing or degraded."""
+
     def __init__(self, max_keys: int = 50_000) -> None:
-        self._windows: dict[str, tuple[float, int]] = {}
+        self._due: dict[str, int] = {}
         self._max_keys = max_keys
 
     def hit(self, key: str, limit: Limit) -> RateResult:
-        now = time.monotonic()
-        start, count = self._windows.get(key, (now, 0))
-        if now - start >= limit.window_seconds:
-            start, count = now, 0
-        count += 1
-        self._windows[key] = (start, count)
-        if len(self._windows) > self._max_keys:
-            self._evict(now)
-        retry_after = max(1, math.ceil(limit.window_seconds - (now - start)))
-        return _result(count, limit, retry_after)
-
-    def _evict(self, now: float) -> None:
-        horizon = 3600
-        for key in [k for k, (s, _) in self._windows.items() if now - s > horizon]:
-            del self._windows[key]
-        if len(self._windows) > self._max_keys:
-            self._windows.clear()
+        now = _now_ms()
+        tat = max(self._due.get(key, now), now)
+        if tat - now > limit.tolerance_ms:
+            return _result(False, 0, tat - now - limit.tolerance_ms)
+        next_tat = tat + limit.interval_ms
+        self._due[key] = next_tat
+        if len(self._due) > self._max_keys:
+            self._due = {k: v for k, v in self._due.items() if v > now}
+        remaining = (limit.tolerance_ms + limit.interval_ms - (next_tat - now)) // limit.interval_ms
+        return _result(True, remaining, 0)
 
 
 class RateLimiter:
@@ -70,31 +97,23 @@ class RateLimiter:
     async def hit(self, limit: Limit, *key_parts: str) -> RateResult:
         key = ":".join((self._prefix, limit.name, *key_parts))
         try:
-            count, ttl = await self._hub.call(lambda r: self._eval(r, key, limit.window_seconds))
+            allowed, remaining, retry_ms = await self._hub.call(lambda r: self._eval(r, key, limit))
         except RedisUnavailable:
             return self._local.hit(key, limit)
-        return _result(count, limit, max(1, ttl))
+        return _result(bool(allowed), remaining, retry_ms)
 
-    async def _eval(self, client: Redis, key: str, window: int) -> tuple[int, int]:
+    async def _eval(self, client: Redis, key: str, limit: Limit) -> tuple[int, int, int]:
+        args = (_now_ms(), limit.interval_ms, limit.tolerance_ms)
         if self._sha is None:
-            self._sha = await client.script_load(_LUA)
+            self._sha = await client.script_load(_GCRA)
         try:
-            raw = await client.evalsha(self._sha, 1, key, window)
+            raw = await client.evalsha(self._sha, 1, key, *args)
         except Exception as exc:
             if "NOSCRIPT" not in str(exc):
                 raise
-            self._sha = await client.script_load(_LUA)
-            raw = await client.evalsha(self._sha, 1, key, window)
-        return int(raw[0]), int(raw[1])
-
-
-def _result(count: int, limit: Limit, retry_after: int) -> RateResult:
-    allowed = count <= limit.max_hits
-    return RateResult(
-        allowed=allowed,
-        remaining=max(0, limit.max_hits - count),
-        retry_after=0 if allowed else retry_after,
-    )
+            self._sha = await client.script_load(_GCRA)
+            raw = await client.evalsha(self._sha, 1, key, *args)
+        return int(raw[0]), int(raw[1]), int(raw[2])
 
 
 # Policies used by the auth endpoints.

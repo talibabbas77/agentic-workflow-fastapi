@@ -34,6 +34,27 @@ async def test_local_limiter_when_redis_disabled() -> None:
     assert hub.commands_sent == 0
 
 
+@pytest.mark.parametrize("url", [None, "redis://127.0.0.1:6379/15"])
+async def test_gcra_refills_steadily_with_no_burst_at_a_window_edge(
+    url: str | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if url and not _redis_running():
+        pytest.skip("local Redis not running")
+    clock = [1_000_000]
+    monkeypatch.setattr("docent.security.ratelimit._now_ms", lambda: clock[0])
+    hub = RedisHub(url)
+    limiter = RateLimiter(hub, prefix=f"gcra-{unique_email()}")
+    limit = Limit("edge", 4, 60)  # one request every 15 seconds, bursts of up to 4
+    assert [(await limiter.hit(limit, "k")).allowed for _ in range(5)] == [True] * 4 + [False]
+    clock[0] += 14_000
+    denied = await limiter.hit(limit, "k")
+    assert not denied.allowed
+    assert denied.retry_after == 1
+    clock[0] += 1_000  # a fixed window would now allow four more at its edge
+    assert [(await limiter.hit(limit, "k")).allowed for _ in range(2)] == [True, False]
+    await hub.close()
+
+
 async def test_unreachable_redis_falls_back_and_opens_circuit() -> None:
     hub = RedisHub("redis://127.0.0.1:6390/0", timeout_seconds=0.05)
     limiter = RateLimiter(hub)
