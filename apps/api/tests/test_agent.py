@@ -647,11 +647,16 @@ async def test_the_about_reply_names_the_most_cited_help_topics(
     assert about["content"].endswith("What can I help you with?")
 
 
-def test_line_breaks_escaped_twice_by_the_model_are_restored() -> None:
-    from docent.agent.loop import _unescape_newlines
+def test_text_escaped_twice_by_the_model_is_restored() -> None:
+    from docent.agent.loop import _unescape_model_text
 
-    assert _unescape_newlines("Carriers:\\n- Ridgeway: 30 days\\n- Kestrel: 24 hours") == (
-        "Carriers:\n- Ridgeway: 30 days\n- Kestrel: 24 hours"
+    escaped = 'Steps:\\n\\n1. Select **... \\u003e Move to** [1].\\n2. Say \\"done\\".'
+    assert (
+        _unescape_model_text(escaped)
+        == 'Steps:\n\n1. Select **... > Move to** [1].\n2. Say "done".'
     )
     code = 'Use this:\n```\nprintf("a\\n");\n```'
-    assert _unescape_newlines(code) == code  # real line breaks: leave the code sample alone
+    assert _unescape_model_text(code) == code  # real line breaks: leave the code sample alone
+    assert _unescape_model_text("Settings \\u003e Keyboard") == "Settings > Keyboard"
+    assert _unescape_model_text("odd \\ud83d and \\u0007") == "odd \\ud83d and \\u0007"
+    assert _unescape_model_text("Plain answer.") == "Plain answer."

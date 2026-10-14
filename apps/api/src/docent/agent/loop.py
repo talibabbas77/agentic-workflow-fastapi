@@ -320,7 +320,7 @@ def validate(
     """Turn the model's decision into what the visitor sees, failing toward a person."""
     if decision.type == "escalate":
         return _escalate(decision.escalation_reason or "no_source", low_turns)
-    answer = _unescape_newlines(decision.answer).strip()
+    answer = _unescape_model_text(decision.answer).strip()
     if not answer:
         return _escalate("low_confidence", low_turns)
     if decision.type == "clarify":
@@ -408,15 +408,29 @@ def _route(
             return _escalate("no_source", low_turns)
 
 
-def _unescape_newlines(text: str) -> str:
-    """Undo a model that escaped its line breaks twice, so a list shows as a list.
+def _unescape_model_text(text: str) -> str:
+    """Undo JSON escapes a model wrote as text, so a list shows as a list and > as >.
 
-    Only when the text has no real line break: then every backslash-n came from
-    the model's JSON, not from a code sample in the answer.
+    Line breaks and quotes are restored only when the text has no real line
+    break: then every backslash-n came from the model's JSON, not from a code
+    sample in the answer. Unicode escapes are decoded except control characters
+    and surrogate halves, which are left as written.
     """
-    if "\n" in text or "\\n" not in text:
+    if "\\" not in text:
         return text
-    return text.replace("\\r\\n", "\n").replace("\\n", "\n")
+    if "\n" not in text:
+        text = text.replace("\\r\\n", "\n").replace("\\n", "\n").replace('\\"', '"')
+    return _UNICODE_ESCAPE.sub(_decode_escape, text)
+
+
+_UNICODE_ESCAPE = re.compile(r"\\u([0-9a-fA-F]{4})")
+
+
+def _decode_escape(match: re.Match[str]) -> str:
+    code = int(match.group(1), 16)
+    if 0xD800 <= code <= 0xDFFF or (code < 0x20 and code not in (0x09, 0x0A)):
+        return match.group(0)
+    return chr(code)
 
 
 def _orient(sorted_as: Structured[triage.Triage] | None, asked_to_clarify: bool, text: str) -> bool:
