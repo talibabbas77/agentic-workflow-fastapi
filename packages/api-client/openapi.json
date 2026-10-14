@@ -4236,6 +4236,689 @@
           }
         }
       }
+    },
+    "/v1/admin/overview": {
+      "get": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Overview",
+        "operationId": "admin_overview",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/workspaces": {
+      "get": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Workspaces",
+        "operationId": "admin_workspaces",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "plan",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "trial",
+                    "starter",
+                    "growth",
+                    "scale"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Plan"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "trial",
+                    "trial_ended",
+                    "paying",
+                    "comped",
+                    "comp_ended",
+                    "past_due",
+                    "canceled",
+                    "other"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "newest",
+                "name",
+                "cost",
+                "margin"
+              ],
+              "type": "string",
+              "default": "newest",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkspacesOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/admin/workspaces/{tenant_id}": {
+      "get": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Workspace",
+        "description": "One workspace. Opening it is written to its audit log, like any action.",
+        "operationId": "admin_workspace",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkspaceDetailOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/admin/workspaces/{tenant_id}/trial": {
+      "post": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Extend Trial",
+        "operationId": "admin_extend_trial",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminExtendTrialIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkspaceDetailOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/admin/workspaces/{tenant_id}/comp": {
+      "post": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Give Comp",
+        "description": "A paid plan, free of charge, until the start of a chosen day (UTC).",
+        "operationId": "admin_give_comp",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCompIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkspaceDetailOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/admin/workspaces/{tenant_id}/comp/end": {
+      "post": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin End Comp",
+        "operationId": "admin_end_comp",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminReasonIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkspaceDetailOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/admin/people": {
+      "get": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin People",
+        "operationId": "admin_people",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPeopleOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/admin/jobs": {
+      "get": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Jobs",
+        "operationId": "admin_jobs",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminJobsOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/admin/jobs/{job_id}/retry": {
+      "post": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Retry Job",
+        "description": "Put a dead job back in the queue with fresh attempts, and wake the worker.",
+        "operationId": "admin_retry_job",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminJobsOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/admin/billing-events": {
+      "get": {
+        "tags": [
+          "platform admin"
+        ],
+        "summary": "Admin Billing Events",
+        "operationId": "admin_billing_events",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminBillingEventsOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4279,6 +4962,1477 @@
           "token"
         ],
         "title": "AcceptInviteIn"
+      },
+      "AdminActionsOut": {
+        "properties": {
+          "extend_trial": {
+            "type": "boolean",
+            "title": "Extend Trial"
+          },
+          "give_comp": {
+            "type": "boolean",
+            "title": "Give Comp"
+          },
+          "end_comp": {
+            "type": "boolean",
+            "title": "End Comp"
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal",
+            "description": "Why no plan action applies to this workspace"
+          }
+        },
+        "type": "object",
+        "required": [
+          "extend_trial",
+          "give_comp",
+          "end_comp",
+          "refusal"
+        ],
+        "title": "AdminActionsOut"
+      },
+      "AdminActivityOut": {
+        "properties": {
+          "conversations": {
+            "type": "integer",
+            "title": "Conversations",
+            "description": "Started this month, widget and preview"
+          },
+          "widget_conversations": {
+            "type": "integer",
+            "title": "Widget Conversations"
+          },
+          "handoffs": {
+            "type": "integer",
+            "title": "Handoffs",
+            "description": "Handoffs to the team this month"
+          },
+          "open_handoffs": {
+            "type": "integer",
+            "title": "Open Handoffs",
+            "description": "Not resolved yet, any month"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversations",
+          "widget_conversations",
+          "handoffs",
+          "open_handoffs"
+        ],
+        "title": "AdminActivityOut"
+      },
+      "AdminAnomalyOut": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "replies_used": {
+            "type": "integer",
+            "title": "Replies Used"
+          },
+          "cost_micros": {
+            "type": "integer",
+            "title": "Cost Micros"
+          },
+          "cost_per_reply_micros": {
+            "type": "number",
+            "title": "Cost Per Reply Micros"
+          },
+          "times_median": {
+            "type": "number",
+            "title": "Times Median"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "name",
+          "plan_id",
+          "replies_used",
+          "cost_micros",
+          "cost_per_reply_micros",
+          "times_median"
+        ],
+        "title": "AdminAnomalyOut"
+      },
+      "AdminAuditEntryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "actor_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Email"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Type"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "actor_name",
+          "actor_email",
+          "target_type",
+          "target_id",
+          "metadata",
+          "created_at"
+        ],
+        "title": "AdminAuditEntryOut"
+      },
+      "AdminBillingEventOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "applied",
+                  "ignored",
+                  "stale",
+                  "unknown_customer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome",
+            "description": "Null for events from before it was kept"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "workspace_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "outcome",
+          "tenant_id",
+          "workspace_name",
+          "created_at",
+          "received_at"
+        ],
+        "title": "AdminBillingEventOut"
+      },
+      "AdminBillingEventsOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBillingEventOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "per_page"
+        ],
+        "title": "AdminBillingEventsOut"
+      },
+      "AdminCompIn": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "enum": [
+              "starter",
+              "growth",
+              "scale"
+            ],
+            "title": "Plan Id"
+          },
+          "until": {
+            "type": "string",
+            "format": "date",
+            "title": "Until",
+            "description": "The comp ends at the start of this day, UTC"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_id",
+          "until",
+          "reason"
+        ],
+        "title": "AdminCompIn"
+      },
+      "AdminDeadJobOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Id"
+          },
+          "workspace_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Name"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "title": "Max Attempts"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "tenant_id",
+          "workspace_name",
+          "attempts",
+          "max_attempts",
+          "last_error",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "AdminDeadJobOut"
+      },
+      "AdminExtendTrialIn": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Days"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "days",
+          "reason"
+        ],
+        "title": "AdminExtendTrialIn"
+      },
+      "AdminFiguresOut": {
+        "properties": {
+          "replies_used": {
+            "type": "integer",
+            "title": "Replies Used",
+            "description": "Billed AI replies, as the cap counts them"
+          },
+          "replies_cap": {
+            "type": "integer",
+            "title": "Replies Cap",
+            "description": "The plan's cap while it is active, else 0"
+          },
+          "cost_micros": {
+            "type": "integer",
+            "title": "Cost Micros",
+            "description": "Model cost from usage_events"
+          },
+          "revenue_micros": {
+            "type": "integer",
+            "title": "Revenue Micros",
+            "description": "The plan's monthly price if it is paid through Stripe"
+          },
+          "margin_micros": {
+            "type": "integer",
+            "title": "Margin Micros",
+            "description": "Revenue less model cost"
+          },
+          "cost_per_reply_micros": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Per Reply Micros"
+          },
+          "anomaly": {
+            "type": "boolean",
+            "title": "Anomaly",
+            "description": "Cost per reply is more than 3 times the median"
+          }
+        },
+        "type": "object",
+        "required": [
+          "replies_used",
+          "replies_cap",
+          "cost_micros",
+          "revenue_micros",
+          "margin_micros",
+          "cost_per_reply_micros",
+          "anomaly"
+        ],
+        "title": "AdminFiguresOut",
+        "description": "One workspace this calendar month. Money is in micro dollars (1 USD = 1,000,000)."
+      },
+      "AdminJobCountOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "dead"
+            ],
+            "title": "Status"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "status",
+          "count"
+        ],
+        "title": "AdminJobCountOut"
+      },
+      "AdminJobsOut": {
+        "properties": {
+          "counts": {
+            "items": {
+              "$ref": "#/components/schemas/AdminJobCountOut"
+            },
+            "type": "array",
+            "title": "Counts",
+            "description": "Kept jobs by kind and status"
+          },
+          "ready": {
+            "type": "integer",
+            "title": "Ready",
+            "description": "Queued and due now"
+          },
+          "scheduled": {
+            "type": "integer",
+            "title": "Scheduled",
+            "description": "Queued for later: retries and scheduled work"
+          },
+          "running": {
+            "type": "integer",
+            "title": "Running"
+          },
+          "dead": {
+            "type": "integer",
+            "title": "Dead"
+          },
+          "oldest_ready_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Ready Seconds",
+            "description": "How long the oldest due job has waited"
+          },
+          "dead_jobs": {
+            "items": {
+              "$ref": "#/components/schemas/AdminDeadJobOut"
+            },
+            "type": "array",
+            "title": "Dead Jobs",
+            "description": "The 50 most recent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "counts",
+          "ready",
+          "scheduled",
+          "running",
+          "dead",
+          "oldest_ready_seconds",
+          "dead_jobs"
+        ],
+        "title": "AdminJobsOut"
+      },
+      "AdminKnowledgeOut": {
+        "properties": {
+          "sources": {
+            "type": "integer",
+            "title": "Sources",
+            "description": "Uploads, pages, and sitemaps; team answers not included"
+          },
+          "failed_sources": {
+            "type": "integer",
+            "title": "Failed Sources"
+          },
+          "team_answers": {
+            "type": "integer",
+            "title": "Team Answers"
+          },
+          "documents": {
+            "type": "integer",
+            "title": "Documents",
+            "description": "Pages of docs, as the plan counts them"
+          },
+          "documents_cap": {
+            "type": "integer",
+            "title": "Documents Cap"
+          },
+          "passages": {
+            "type": "integer",
+            "title": "Passages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sources",
+          "failed_sources",
+          "team_answers",
+          "documents",
+          "documents_cap",
+          "passages"
+        ],
+        "title": "AdminKnowledgeOut"
+      },
+      "AdminMemberOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "agent"
+            ],
+            "title": "Role"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Joined At"
+          },
+          "last_active_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Active At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "name",
+          "email",
+          "role",
+          "email_verified",
+          "joined_at",
+          "last_active_at"
+        ],
+        "title": "AdminMemberOut"
+      },
+      "AdminOverviewOut": {
+        "properties": {
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Start"
+          },
+          "workspaces": {
+            "type": "integer",
+            "title": "Workspaces"
+          },
+          "by_plan_state": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPlanStateCount"
+            },
+            "type": "array",
+            "title": "By Plan State"
+          },
+          "paying_workspaces": {
+            "type": "integer",
+            "title": "Paying Workspaces",
+            "description": "Active Stripe subscriptions"
+          },
+          "mrr_micros": {
+            "type": "integer",
+            "title": "Mrr Micros",
+            "description": "Monthly price of every active Stripe subscription"
+          },
+          "new_workspaces_30d": {
+            "type": "integer",
+            "title": "New Workspaces 30D"
+          },
+          "new_accounts_30d": {
+            "type": "integer",
+            "title": "New Accounts 30D"
+          },
+          "replies_this_month": {
+            "type": "integer",
+            "title": "Replies This Month"
+          },
+          "cost_this_month_micros": {
+            "type": "integer",
+            "title": "Cost This Month Micros"
+          },
+          "gross_margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Margin",
+            "description": "(MRR - model cost) / MRR; null without MRR"
+          },
+          "median_cost_per_reply_micros": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Cost Per Reply Micros"
+          },
+          "anomalies": {
+            "items": {
+              "$ref": "#/components/schemas/AdminAnomalyOut"
+            },
+            "type": "array",
+            "title": "Anomalies"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period_start",
+          "workspaces",
+          "by_plan_state",
+          "paying_workspaces",
+          "mrr_micros",
+          "new_workspaces_30d",
+          "new_accounts_30d",
+          "replies_this_month",
+          "cost_this_month_micros",
+          "gross_margin",
+          "median_cost_per_reply_micros",
+          "anomalies"
+        ],
+        "title": "AdminOverviewOut"
+      },
+      "AdminPeopleOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPersonOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "per_page"
+        ],
+        "title": "AdminPeopleOut"
+      },
+      "AdminPersonOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "email_verified": {
+            "type": "boolean",
+            "title": "Email Verified"
+          },
+          "is_platform_admin": {
+            "type": "boolean",
+            "title": "Is Platform Admin"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPersonWorkspaceOut"
+            },
+            "type": "array",
+            "title": "Workspaces"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email",
+          "email_verified",
+          "is_platform_admin",
+          "created_at",
+          "last_login_at",
+          "workspaces"
+        ],
+        "title": "AdminPersonOut"
+      },
+      "AdminPersonWorkspaceOut": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Tenant Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "agent"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "name",
+          "role"
+        ],
+        "title": "AdminPersonWorkspaceOut"
+      },
+      "AdminPlanStateCount": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "trial",
+              "trial_ended",
+              "paying",
+              "comped",
+              "comp_ended",
+              "past_due",
+              "canceled",
+              "other"
+            ],
+            "title": "State"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan_id",
+          "state",
+          "count"
+        ],
+        "title": "AdminPlanStateCount"
+      },
+      "AdminReasonIn": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "AdminReasonIn"
+      },
+      "AdminSubscriptionOut": {
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/Plan"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "trial",
+              "trial_ended",
+              "paying",
+              "comped",
+              "comp_ended",
+              "past_due",
+              "canceled",
+              "other"
+            ],
+            "title": "State"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "trialing",
+              "active",
+              "past_due",
+              "canceled",
+              "unpaid",
+              "incomplete",
+              "incomplete_expired",
+              "paused"
+            ],
+            "title": "Status"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "stripe"
+            ],
+            "title": "Provider"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "description": "False means escalate-only mode"
+          },
+          "trial_ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Ends At"
+          },
+          "current_period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period Start"
+          },
+          "current_period_end": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period End"
+          },
+          "cancel_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancel At"
+          },
+          "cancel_at_period_end": {
+            "type": "boolean",
+            "title": "Cancel At Period End"
+          },
+          "scheduled_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Plan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduled_change_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled Change At"
+          },
+          "grace_ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grace Ends At"
+          },
+          "comped_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comped Until"
+          },
+          "first_paid_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Paid At"
+          },
+          "refunded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refunded At"
+          },
+          "refund_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Until"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id",
+            "description": "Stripe customer id"
+          },
+          "subscription_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subscription Id",
+            "description": "Stripe subscription id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "plan",
+          "state",
+          "status",
+          "provider",
+          "active",
+          "trial_ends_at",
+          "current_period_start",
+          "current_period_end",
+          "cancel_at",
+          "cancel_at_period_end",
+          "scheduled_plan",
+          "scheduled_change_at",
+          "grace_ends_at",
+          "comped_until",
+          "first_paid_at",
+          "refunded_at",
+          "refund_until",
+          "customer_id",
+          "subscription_id"
+        ],
+        "title": "AdminSubscriptionOut"
+      },
+      "AdminUsageMonthOut": {
+        "properties": {
+          "month": {
+            "type": "string",
+            "format": "date",
+            "title": "Month"
+          },
+          "replies_used": {
+            "type": "integer",
+            "title": "Replies Used"
+          },
+          "replies_cap": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replies Cap",
+            "description": "The cap that month; null with no usage row"
+          },
+          "cost_micros": {
+            "type": "integer",
+            "title": "Cost Micros"
+          },
+          "tokens_in": {
+            "type": "integer",
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "type": "integer",
+            "title": "Tokens Out"
+          }
+        },
+        "type": "object",
+        "required": [
+          "month",
+          "replies_used",
+          "replies_cap",
+          "cost_micros",
+          "tokens_in",
+          "tokens_out"
+        ],
+        "title": "AdminUsageMonthOut"
+      },
+      "AdminWidgetOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "public_id": {
+            "type": "string",
+            "title": "Public Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "anonymous_enabled": {
+            "type": "boolean",
+            "title": "Anonymous Enabled"
+          },
+          "allowed_origins": {
+            "type": "integer",
+            "title": "Allowed Origins",
+            "description": "How many origins may embed it"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "public_id",
+          "name",
+          "anonymous_enabled",
+          "allowed_origins",
+          "created_at"
+        ],
+        "title": "AdminWidgetOut"
+      },
+      "AdminWorkspaceDetailOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "suspended",
+              "deleted"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "subscription": {
+            "$ref": "#/components/schemas/AdminSubscriptionOut"
+          },
+          "this_month": {
+            "$ref": "#/components/schemas/AdminFiguresOut"
+          },
+          "activity": {
+            "$ref": "#/components/schemas/AdminActivityOut"
+          },
+          "usage": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUsageMonthOut"
+            },
+            "type": "array",
+            "title": "Usage",
+            "description": "The last 6 months, oldest first"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/AdminMemberOut"
+            },
+            "type": "array",
+            "title": "Members"
+          },
+          "widgets": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWidgetOut"
+            },
+            "type": "array",
+            "title": "Widgets"
+          },
+          "knowledge": {
+            "$ref": "#/components/schemas/AdminKnowledgeOut"
+          },
+          "billing_events": {
+            "items": {
+              "$ref": "#/components/schemas/AdminBillingEventOut"
+            },
+            "type": "array",
+            "title": "Billing Events"
+          },
+          "audit": {
+            "items": {
+              "$ref": "#/components/schemas/AdminAuditEntryOut"
+            },
+            "type": "array",
+            "title": "Audit"
+          },
+          "actions": {
+            "$ref": "#/components/schemas/AdminActionsOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status",
+          "created_at",
+          "subscription",
+          "this_month",
+          "activity",
+          "usage",
+          "members",
+          "widgets",
+          "knowledge",
+          "billing_events",
+          "audit",
+          "actions"
+        ],
+        "title": "AdminWorkspaceDetailOut"
+      },
+      "AdminWorkspaceRowOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/Plan"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "trial",
+              "trial_ended",
+              "paying",
+              "comped",
+              "comp_ended",
+              "past_due",
+              "canceled",
+              "other"
+            ],
+            "title": "State"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "stripe"
+            ],
+            "title": "Provider"
+          },
+          "members": {
+            "type": "integer",
+            "title": "Members"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "figures": {
+            "$ref": "#/components/schemas/AdminFiguresOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "plan",
+          "state",
+          "provider",
+          "members",
+          "created_at",
+          "figures"
+        ],
+        "title": "AdminWorkspaceRowOut"
+      },
+      "AdminWorkspacesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWorkspaceRowOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "median_cost_per_reply_micros": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Cost Per Reply Micros"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "per_page",
+          "median_cost_per_reply_micros"
+        ],
+        "title": "AdminWorkspacesOut"
       },
       "AgentSettingsIn": {
         "properties": {
@@ -4484,6 +6638,19 @@
             ],
             "title": "Grace Ends At"
           },
+          "comped_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comped Until",
+            "description": "A paid plan Docent gave free of charge, until this time"
+          },
           "refund_until": {
             "anyOf": [
               {
@@ -4525,6 +6692,7 @@
           "scheduled_plan",
           "scheduled_change_at",
           "grace_ends_at",
+          "comped_until",
           "refund_until",
           "billing_enabled",
           "can_manage",
@@ -5488,6 +7656,12 @@
             },
             "type": "array",
             "title": "Tenants"
+          },
+          "platform_admin": {
+            "type": "boolean",
+            "title": "Platform Admin",
+            "description": "A platform admin with a verified email: /admin is open",
+            "default": false
           }
         },
         "type": "object",

@@ -544,7 +544,7 @@ class BillingOut(BaseModel):
     scheduled_change_at: datetime | None
     grace_ends_at: datetime | None
     comped_until: datetime | None = Field(
-        default=None, description="A paid plan Docent gave free of charge, until this time"
+        description="A paid plan Docent gave free of charge, until this time"
     )
     refund_until: datetime | None = Field(
         description="End of the 14 day money-back window, while the workspace can still use it"

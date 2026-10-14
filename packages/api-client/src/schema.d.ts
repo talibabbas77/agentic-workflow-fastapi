@@ -992,6 +992,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Overview */
+        get: operations["admin_overview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workspaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Workspaces */
+        get: operations["admin_workspaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workspaces/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Workspace
+         * @description One workspace. Opening it is written to its audit log, like any action.
+         */
+        get: operations["admin_workspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workspaces/{tenant_id}/trial": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin Extend Trial */
+        post: operations["admin_extend_trial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workspaces/{tenant_id}/comp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Give Comp
+         * @description A paid plan, free of charge, until the start of a chosen day (UTC).
+         */
+        post: operations["admin_give_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/workspaces/{tenant_id}/comp/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admin End Comp */
+        post: operations["admin_end_comp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin People */
+        get: operations["admin_people"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Jobs */
+        get: operations["admin_jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admin Retry Job
+         * @description Put a dead job back in the queue with fresh attempts, and wake the worker.
+         */
+        post: operations["admin_retry_job"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/billing-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin Billing Events */
+        get: operations["admin_billing_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1004,6 +1183,593 @@ export interface components {
             name?: string | null;
             /** Password */
             password?: string | null;
+        };
+        /** AdminActionsOut */
+        AdminActionsOut: {
+            /** Extend Trial */
+            extend_trial: boolean;
+            /** Give Comp */
+            give_comp: boolean;
+            /** End Comp */
+            end_comp: boolean;
+            /**
+             * Refusal
+             * @description Why no plan action applies to this workspace
+             */
+            refusal: string | null;
+        };
+        /** AdminActivityOut */
+        AdminActivityOut: {
+            /**
+             * Conversations
+             * @description Started this month, widget and preview
+             */
+            conversations: number;
+            /** Widget Conversations */
+            widget_conversations: number;
+            /**
+             * Handoffs
+             * @description Handoffs to the team this month
+             */
+            handoffs: number;
+            /**
+             * Open Handoffs
+             * @description Not resolved yet, any month
+             */
+            open_handoffs: number;
+        };
+        /** AdminAnomalyOut */
+        AdminAnomalyOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Name */
+            name: string;
+            /** Plan Id */
+            plan_id: string;
+            /** Replies Used */
+            replies_used: number;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Cost Per Reply Micros */
+            cost_per_reply_micros: number;
+            /** Times Median */
+            times_median: number;
+        };
+        /** AdminAuditEntryOut */
+        AdminAuditEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Action */
+            action: string;
+            /** Actor Name */
+            actor_name: string | null;
+            /** Actor Email */
+            actor_email: string | null;
+            /** Target Type */
+            target_type: string | null;
+            /** Target Id */
+            target_id: string | null;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminBillingEventOut */
+        AdminBillingEventOut: {
+            /** Id */
+            id: string;
+            /** Type */
+            type: string;
+            /**
+             * Outcome
+             * @description Null for events from before it was kept
+             */
+            outcome: ("applied" | "ignored" | "stale" | "unknown_customer") | null;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Workspace Name */
+            workspace_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+        };
+        /** AdminBillingEventsOut */
+        AdminBillingEventsOut: {
+            /** Items */
+            items: components["schemas"]["AdminBillingEventOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** AdminCompIn */
+        AdminCompIn: {
+            /**
+             * Plan Id
+             * @enum {string}
+             */
+            plan_id: "starter" | "growth" | "scale";
+            /**
+             * Until
+             * Format: date
+             * @description The comp ends at the start of this day, UTC
+             */
+            until: string;
+            /** Reason */
+            reason: string;
+        };
+        /** AdminDeadJobOut */
+        AdminDeadJobOut: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Tenant Id */
+            tenant_id: string | null;
+            /** Workspace Name */
+            workspace_name: string | null;
+            /** Attempts */
+            attempts: number;
+            /** Max Attempts */
+            max_attempts: number;
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** AdminExtendTrialIn */
+        AdminExtendTrialIn: {
+            /** Days */
+            days: number;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * AdminFiguresOut
+         * @description One workspace this calendar month. Money is in micro dollars (1 USD = 1,000,000).
+         */
+        AdminFiguresOut: {
+            /**
+             * Replies Used
+             * @description Billed AI replies, as the cap counts them
+             */
+            replies_used: number;
+            /**
+             * Replies Cap
+             * @description The plan's cap while it is active, else 0
+             */
+            replies_cap: number;
+            /**
+             * Cost Micros
+             * @description Model cost from usage_events
+             */
+            cost_micros: number;
+            /**
+             * Revenue Micros
+             * @description The plan's monthly price if it is paid through Stripe
+             */
+            revenue_micros: number;
+            /**
+             * Margin Micros
+             * @description Revenue less model cost
+             */
+            margin_micros: number;
+            /** Cost Per Reply Micros */
+            cost_per_reply_micros: number | null;
+            /**
+             * Anomaly
+             * @description Cost per reply is more than 3 times the median
+             */
+            anomaly: boolean;
+        };
+        /** AdminJobCountOut */
+        AdminJobCountOut: {
+            /** Kind */
+            kind: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "dead";
+            /** Count */
+            count: number;
+        };
+        /** AdminJobsOut */
+        AdminJobsOut: {
+            /**
+             * Counts
+             * @description Kept jobs by kind and status
+             */
+            counts: components["schemas"]["AdminJobCountOut"][];
+            /**
+             * Ready
+             * @description Queued and due now
+             */
+            ready: number;
+            /**
+             * Scheduled
+             * @description Queued for later: retries and scheduled work
+             */
+            scheduled: number;
+            /** Running */
+            running: number;
+            /** Dead */
+            dead: number;
+            /**
+             * Oldest Ready Seconds
+             * @description How long the oldest due job has waited
+             */
+            oldest_ready_seconds: number | null;
+            /**
+             * Dead Jobs
+             * @description The 50 most recent
+             */
+            dead_jobs: components["schemas"]["AdminDeadJobOut"][];
+        };
+        /** AdminKnowledgeOut */
+        AdminKnowledgeOut: {
+            /**
+             * Sources
+             * @description Uploads, pages, and sitemaps; team answers not included
+             */
+            sources: number;
+            /** Failed Sources */
+            failed_sources: number;
+            /** Team Answers */
+            team_answers: number;
+            /**
+             * Documents
+             * @description Pages of docs, as the plan counts them
+             */
+            documents: number;
+            /** Documents Cap */
+            documents_cap: number;
+            /** Passages */
+            passages: number;
+        };
+        /** AdminMemberOut */
+        AdminMemberOut: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Name */
+            name: string;
+            /** Email */
+            email: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "agent";
+            /** Email Verified */
+            email_verified: boolean;
+            /**
+             * Joined At
+             * Format: date-time
+             */
+            joined_at: string;
+            /** Last Active At */
+            last_active_at: string | null;
+        };
+        /** AdminOverviewOut */
+        AdminOverviewOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Workspaces */
+            workspaces: number;
+            /** By Plan State */
+            by_plan_state: components["schemas"]["AdminPlanStateCount"][];
+            /**
+             * Paying Workspaces
+             * @description Active Stripe subscriptions
+             */
+            paying_workspaces: number;
+            /**
+             * Mrr Micros
+             * @description Monthly price of every active Stripe subscription
+             */
+            mrr_micros: number;
+            /** New Workspaces 30D */
+            new_workspaces_30d: number;
+            /** New Accounts 30D */
+            new_accounts_30d: number;
+            /** Replies This Month */
+            replies_this_month: number;
+            /** Cost This Month Micros */
+            cost_this_month_micros: number;
+            /**
+             * Gross Margin
+             * @description (MRR - model cost) / MRR; null without MRR
+             */
+            gross_margin: number | null;
+            /** Median Cost Per Reply Micros */
+            median_cost_per_reply_micros: number | null;
+            /** Anomalies */
+            anomalies: components["schemas"]["AdminAnomalyOut"][];
+        };
+        /** AdminPeopleOut */
+        AdminPeopleOut: {
+            /** Items */
+            items: components["schemas"]["AdminPersonOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+        };
+        /** AdminPersonOut */
+        AdminPersonOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Email */
+            email: string;
+            /** Email Verified */
+            email_verified: boolean;
+            /** Is Platform Admin */
+            is_platform_admin: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Last Login At */
+            last_login_at: string | null;
+            /** Workspaces */
+            workspaces: components["schemas"]["AdminPersonWorkspaceOut"][];
+        };
+        /** AdminPersonWorkspaceOut */
+        AdminPersonWorkspaceOut: {
+            /**
+             * Tenant Id
+             * Format: uuid
+             */
+            tenant_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "agent";
+        };
+        /** AdminPlanStateCount */
+        AdminPlanStateCount: {
+            /** Plan Id */
+            plan_id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "trial" | "trial_ended" | "paying" | "comped" | "comp_ended" | "past_due" | "canceled" | "other";
+            /** Count */
+            count: number;
+        };
+        /** AdminReasonIn */
+        AdminReasonIn: {
+            /** Reason */
+            reason: string;
+        };
+        /** AdminSubscriptionOut */
+        AdminSubscriptionOut: {
+            plan: components["schemas"]["Plan"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "trial" | "trial_ended" | "paying" | "comped" | "comp_ended" | "past_due" | "canceled" | "other";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "trialing" | "active" | "past_due" | "canceled" | "unpaid" | "incomplete" | "incomplete_expired" | "paused";
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "manual" | "stripe";
+            /**
+             * Active
+             * @description False means escalate-only mode
+             */
+            active: boolean;
+            /** Trial Ends At */
+            trial_ends_at: string | null;
+            /** Current Period Start */
+            current_period_start: string | null;
+            /** Current Period End */
+            current_period_end: string | null;
+            /** Cancel At */
+            cancel_at: string | null;
+            /** Cancel At Period End */
+            cancel_at_period_end: boolean;
+            scheduled_plan: components["schemas"]["Plan"] | null;
+            /** Scheduled Change At */
+            scheduled_change_at: string | null;
+            /** Grace Ends At */
+            grace_ends_at: string | null;
+            /** Comped Until */
+            comped_until: string | null;
+            /** First Paid At */
+            first_paid_at: string | null;
+            /** Refunded At */
+            refunded_at: string | null;
+            /** Refund Until */
+            refund_until: string | null;
+            /**
+             * Customer Id
+             * @description Stripe customer id
+             */
+            customer_id: string | null;
+            /**
+             * Subscription Id
+             * @description Stripe subscription id
+             */
+            subscription_id: string | null;
+        };
+        /** AdminUsageMonthOut */
+        AdminUsageMonthOut: {
+            /**
+             * Month
+             * Format: date
+             */
+            month: string;
+            /** Replies Used */
+            replies_used: number;
+            /**
+             * Replies Cap
+             * @description The cap that month; null with no usage row
+             */
+            replies_cap: number | null;
+            /** Cost Micros */
+            cost_micros: number;
+            /** Tokens In */
+            tokens_in: number;
+            /** Tokens Out */
+            tokens_out: number;
+        };
+        /** AdminWidgetOut */
+        AdminWidgetOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Public Id */
+            public_id: string;
+            /** Name */
+            name: string;
+            /** Anonymous Enabled */
+            anonymous_enabled: boolean;
+            /**
+             * Allowed Origins
+             * @description How many origins may embed it
+             */
+            allowed_origins: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** AdminWorkspaceDetailOut */
+        AdminWorkspaceDetailOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "suspended" | "deleted";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            subscription: components["schemas"]["AdminSubscriptionOut"];
+            this_month: components["schemas"]["AdminFiguresOut"];
+            activity: components["schemas"]["AdminActivityOut"];
+            /**
+             * Usage
+             * @description The last 6 months, oldest first
+             */
+            usage: components["schemas"]["AdminUsageMonthOut"][];
+            /** Members */
+            members: components["schemas"]["AdminMemberOut"][];
+            /** Widgets */
+            widgets: components["schemas"]["AdminWidgetOut"][];
+            knowledge: components["schemas"]["AdminKnowledgeOut"];
+            /** Billing Events */
+            billing_events: components["schemas"]["AdminBillingEventOut"][];
+            /** Audit */
+            audit: components["schemas"]["AdminAuditEntryOut"][];
+            actions: components["schemas"]["AdminActionsOut"];
+        };
+        /** AdminWorkspaceRowOut */
+        AdminWorkspaceRowOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            plan: components["schemas"]["Plan"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "trial" | "trial_ended" | "paying" | "comped" | "comp_ended" | "past_due" | "canceled" | "other";
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "manual" | "stripe";
+            /** Members */
+            members: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            figures: components["schemas"]["AdminFiguresOut"];
+        };
+        /** AdminWorkspacesOut */
+        AdminWorkspacesOut: {
+            /** Items */
+            items: components["schemas"]["AdminWorkspaceRowOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+            /** Median Cost Per Reply Micros */
+            median_cost_per_reply_micros: number | null;
         };
         /** AgentSettingsIn */
         AgentSettingsIn: {
@@ -1063,6 +1829,11 @@ export interface components {
             scheduled_change_at: string | null;
             /** Grace Ends At */
             grace_ends_at: string | null;
+            /**
+             * Comped Until
+             * @description A paid plan Docent gave free of charge, until this time
+             */
+            comped_until: string | null;
             /**
              * Refund Until
              * @description End of the 14 day money-back window, while the workspace can still use it
@@ -1481,6 +2252,12 @@ export interface components {
             active_tenant: components["schemas"]["TenantSummary"] | null;
             /** Tenants */
             tenants: components["schemas"]["TenantSummary"][];
+            /**
+             * Platform Admin
+             * @description A platform admin with a verified email: /admin is open
+             * @default false
+             */
+            platform_admin: boolean;
         };
         /** MemberOut */
         MemberOut: {
@@ -5844,6 +6621,455 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Plan"][];
+                };
+            };
+        };
+    };
+    admin_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverviewOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_workspaces: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                plan?: ("trial" | "starter" | "growth" | "scale") | null;
+                status?: ("trial" | "trial_ended" | "paying" | "comped" | "comp_ended" | "past_due" | "canceled" | "other") | null;
+                sort?: "newest" | "name" | "cost" | "margin";
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWorkspacesOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_workspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWorkspaceDetailOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_extend_trial: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminExtendTrialIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWorkspaceDetailOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_give_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminCompIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWorkspaceDetailOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_end_comp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminReasonIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminWorkspaceDetailOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_people: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPeopleOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_jobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminJobsOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_retry_job: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminJobsOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_billing_events: {
+        parameters: {
+            query?: {
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminBillingEventsOut"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
         };

@@ -58,6 +58,29 @@ export type GapGroup = Schemas["GapGroupOut"];
 export type RememberedCustomer = Schemas["RememberedCustomerOut"];
 export type RememberedCustomerDetail = Schemas["RememberedCustomerDetailOut"];
 export type CustomerFact = Schemas["CustomerFactOut"];
+// Platform admin console
+export type AdminOverview = Schemas["AdminOverviewOut"];
+export type AdminAnomaly = Schemas["AdminAnomalyOut"];
+export type AdminPlanStateCount = Schemas["AdminPlanStateCount"];
+export type AdminFigures = Schemas["AdminFiguresOut"];
+export type AdminWorkspaces = Schemas["AdminWorkspacesOut"];
+export type AdminWorkspaceRow = Schemas["AdminWorkspaceRowOut"];
+export type AdminWorkspace = Schemas["AdminWorkspaceDetailOut"];
+export type AdminSubscription = Schemas["AdminSubscriptionOut"];
+export type AdminUsageMonth = Schemas["AdminUsageMonthOut"];
+export type AdminMember = Schemas["AdminMemberOut"];
+export type AdminWidget = Schemas["AdminWidgetOut"];
+export type AdminAuditEntry = Schemas["AdminAuditEntryOut"];
+export type AdminBillingEvent = Schemas["AdminBillingEventOut"];
+export type AdminBillingEvents = Schemas["AdminBillingEventsOut"];
+export type AdminPeople = Schemas["AdminPeopleOut"];
+export type AdminPerson = Schemas["AdminPersonOut"];
+export type AdminJobs = Schemas["AdminJobsOut"];
+export type AdminDeadJob = Schemas["AdminDeadJobOut"];
+export type WorkspaceState = Schemas["AdminWorkspaceRowOut"]["state"];
+type WorkspaceQuery = NonNullable<paths["/v1/admin/workspaces"]["get"]["parameters"]["query"]>;
+export type WorkspaceSort = NonNullable<WorkspaceQuery["sort"]>;
+export type PlanId = NonNullable<WorkspaceQuery["plan"]>;
 
 export interface ApiClientOptions {
   baseUrl: string;
