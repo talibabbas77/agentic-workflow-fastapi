@@ -26,6 +26,13 @@ const HOST = process.env.HOST ?? "127.0.0.1";
 const PORT = Number(process.env.PORT ?? 5173);
 const OTHER_PORT = Number(process.env.OTHER_PORT ?? 5174);
 const DOCENT_URL = process.env.DOCENT_URL || "http://localhost:3000";
+/**
+ * Where visitors reach this site when it runs behind a proxy, for example
+ * https://demo.example.com. Unset means the local ports below. A deployment
+ * serves only the allowed origin, so OTHER_PORT=0 turns the second one off.
+ */
+const PUBLIC_URL = (process.env.PUBLIC_URL || "").replace(/\/$/, "");
+const SECURE = PUBLIC_URL.startsWith("https://");
 const KEYS_DIR =
   process.env.DEMO_KEYS_DIR ?? fileURLToPath(new URL("../../../.data/demo-host/", import.meta.url));
 const PUBLIC_DIR = fileURLToPath(new URL("../public/", import.meta.url));
@@ -55,7 +62,8 @@ const ASSETS: Record<string, string> = {
   "docent-icon.svg": "image/svg+xml",
 };
 
-const origin = (port: number) => `http://localhost:${port}`;
+const origin = (port: number) => (port === PORT && PUBLIC_URL ? PUBLIC_URL : `http://localhost:${port}`);
+const ports = OTHER_PORT ? [PORT, OTHER_PORT] : [PORT];
 
 async function readInstall(site: Site): Promise<Install | null> {
   try {
@@ -138,10 +146,10 @@ function redirect(res: ServerResponse, location: string, cookies: string[] = [])
   res.end();
 }
 
+const flags = `Path=${COOKIE_PATH}; HttpOnly; SameSite=Lax${SECURE ? "; Secure" : ""}`;
 const sessionCookie = (value: string, maxAge?: number) =>
-  `${COOKIE}=${value}; Path=${COOKIE_PATH}; HttpOnly; SameSite=Lax${maxAge === undefined ? "" : `; Max-Age=${maxAge}`}`;
-const deviceCookie = (value: string) =>
-  `${DEVICE_COOKIE}=${value}; Path=${COOKIE_PATH}; HttpOnly; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`;
+  `${COOKIE}=${value}; ${flags}${maxAge === undefined ? "" : `; Max-Age=${maxAge}`}`;
+const deviceCookie = (value: string) => `${DEVICE_COOKIE}=${value}; ${flags}; Max-Age=${60 * 60 * 24 * 30}`;
 
 const notFound = (ctx: Context) =>
   `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Page not found</title><link rel="stylesheet" href="/assets/showcase.css"></head><body class="ix-body"><main id="main" class="ix"><h1>Page not found</h1><p class="ix-lead">This showcase has two sites: <a href="/${LUMEN.slug}">Lumen Notes</a> and <a href="/${PARCELWISE.slug}">Parcelwise</a>. <a href="${ctx.docentUrl}">About Docent</a>.</p></main></body></html>`;
@@ -152,14 +160,15 @@ async function handle(req: IncomingMessage, res: ServerResponse, port: number): 
   const ctx: Context = {
     allowed: port === PORT,
     allowedOrigin: origin(PORT),
-    otherOrigin: origin(OTHER_PORT),
+    otherOrigin: OTHER_PORT ? origin(OTHER_PORT) : null,
     docentUrl: DOCENT_URL,
   };
   const html = (body: string, status = 200) => send(res, status, body, "text/html; charset=utf-8");
 
   if (req.method === "POST") {
-    // Forms post only from the page's own origin (localhost or 127.0.0.1, on this port).
-    if (!req.headers.origin || req.headers.origin !== `http://${req.headers.host}`) {
+    // Forms post only from the page's own origin: its public URL, or localhost on this port.
+    const own = port === PORT && PUBLIC_URL ? PUBLIC_URL : `http://${req.headers.host}`;
+    if (!req.headers.origin || req.headers.origin !== own) {
       return send(res, 403, "Forbidden", "text/plain");
     }
     if (path === `${COOKIE_PATH}/sign-out`) return redirect(res, COOKIE_PATH, [sessionCookie("", 0)]);
@@ -212,7 +221,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, port: number): 
   return html(notFound(ctx), 404);
 }
 
-for (const port of [PORT, OTHER_PORT]) {
+for (const port of ports) {
   createServer((req, res) => {
     handle(req, res, port).catch((error: unknown) => {
       console.error(error);

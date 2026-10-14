@@ -1,0 +1,21 @@
+# HTTPS for the three hosts, with certificates from Let's Encrypt, renewed by
+# Caddy on its own. Hosts come from deploy/.env (install.sh writes them).
+# No `encode` here: the chat streams over server-sent events, which must not
+# be buffered, and the app and API compress what they should themselves.
+
+{
+	email {$ACME_EMAIL}
+	{$CADDY_GLOBAL_OPTIONS}
+}
+
+{$APP_HOST} {
+	reverse_proxy web:3000
+}
+
+{$API_HOST} {
+	reverse_proxy api:8000
+}
+
+{$DEMO_HOST} {
+	reverse_proxy demo-host:5173
+}

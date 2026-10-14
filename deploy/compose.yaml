@@ -1,0 +1,211 @@
+# Docent on one server: a public showcase with automatic HTTPS.
+#
+#   https://APP_HOST    the landing page, sign in, the admin app, /admin
+#   https://API_HOST    the API and the embeddable widget
+#   https://DEMO_HOST   the two demo sites with the widget installed
+#
+# install.sh writes deploy/.env (hosts, generated secrets) and runs everything.
+# Only Caddy publishes ports (80 and 443); everything else stays on the
+# internal network. See deploy/README.md.
+
+name: docent-showcase
+
+x-api-env: &api-env
+  DOCENT_ENV: production
+  DOCENT_DEMO: "1" # lets `docent seed` load the fictional demo companies here
+  SECRET_KEY: ${SECRET_KEY:?Run deploy/install.sh to write deploy/.env}
+  INTERNAL_TOKEN: ${INTERNAL_TOKEN:?Run deploy/install.sh to write deploy/.env}
+  DATABASE_URL: postgresql://docent_app:${DB_APP_PASSWORD}@postgres:5432/docent
+  WORKER_DATABASE_URL: postgresql://docent_worker:${DB_WORKER_PASSWORD}@postgres:5432/docent
+  MIGRATION_DATABASE_URL: postgresql://docent_owner:${DB_OWNER_PASSWORD}@postgres:5432/docent
+  REDIS_URL: redis://redis:6379/0
+  WORKER_URL: http://worker:8001
+  WEB_ORIGIN: https://${APP_HOST}
+  SITE_URL: https://${APP_HOST}
+  WIDGET_ORIGIN: https://${API_HOST}
+  DEMO_HOST_ORIGIN: https://${DEMO_HOST}
+  SIGNUPS_OPEN: ${SIGNUPS_OPEN:-false}
+  # Requests reach the API only through Caddy and the web app on this network.
+  FORWARDED_ALLOW_IPS: 172.29.0.0/16
+  OBJECT_STORE_URL: file:///data/objects
+  # One Ollama: embeddinggemma runs here on the CPU, and after `ollama signin`
+  # the chat model runs on Ollama's cloud.
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+  LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
+  LLM_MODEL: ${LLM_MODEL:-gemma4:cloud}
+  # Mail stays inside the server unless an SMTP service is set in deploy/.env.
+  SMTP_HOST: ${SMTP_HOST:-mailpit}
+  SMTP_PORT: ${SMTP_PORT:-1025}
+  SMTP_USERNAME: ${SMTP_USERNAME:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
+  EMAIL_FROM: ${EMAIL_FROM:-Docent <hello@docent.local>}
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  LOG_JSON: "true"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+
+services:
+  caddy:
+    image: caddy:2.10.0-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_HOST: ${APP_HOST}
+      API_HOST: ${API_HOST}
+      DEMO_HOST: ${DEMO_HOST}
+      ACME_EMAIL: ${ACME_EMAIL}
+      CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+      - api
+      - demo-host
+
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+      DOCENT_OWNER_PASSWORD: ${DB_OWNER_PASSWORD}
+      DOCENT_APP_PASSWORD: ${DB_APP_PASSWORD}
+      DOCENT_WORKER_PASSWORD: ${DB_WORKER_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../infra/db/init:/docker-entrypoint-initdb.d:ro
+      - ../infra/db/sql:/docent-sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d docent"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:0.40.3
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: infra/docker/api.Dockerfile
+    image: docent-showcase-api
+    command: ["docent", "db", "migrate"]
+    environment: *api-env
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: docent-showcase-api
+    pull_policy: never # built once by the migrate service
+    restart: unless-stopped
+    command: ["docent", "api", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *api-env
+    volumes:
+      - objects:/data/objects
+      - demo-keys:/data/demo-host
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+
+  worker:
+    image: docent-showcase-api
+    pull_policy: never # built once by the migrate service
+    restart: unless-stopped
+    command: ["docent", "worker", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      <<: *api-env
+      HEALTH_PORT: "8001"
+    volumes:
+      - objects:/data/objects
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:8000
+        NEXT_PUBLIC_SITE_URL: https://${APP_HOST}
+        NEXT_PUBLIC_WIDGET_ORIGIN: https://${API_HOST}
+        NEXT_PUBLIC_CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+        NEXT_PUBLIC_SOCIAL_GITHUB: ${GITHUB_URL:-}
+        NEXT_PUBLIC_SOCIAL_LINKEDIN: ${LINKEDIN_URL:-}
+        NEXT_PUBLIC_SHOWCASE_PUBLIC_URL: https://${DEMO_HOST}/lumen-notes
+        NEXT_PUBLIC_SHOWCASE_APP_URL: https://${DEMO_HOST}/parcelwise
+        NEXT_PUBLIC_SIGNUPS_OPEN: ${SIGNUPS_OPEN:-false}
+    image: docent-showcase-web
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    depends_on:
+      - api
+
+  demo-host:
+    build:
+      context: ..
+      dockerfile: infra/docker/demo-host.Dockerfile
+    image: docent-showcase-demo
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: https://${DEMO_HOST}
+      DOCENT_URL: https://${APP_HOST}
+      # Many visitors share each demo customer: each browser gets its own chats.
+      SHOWCASE_PRIVATE_CHATS: "1"
+    volumes:
+      - demo-keys:/data/demo-host:ro
+
+volumes:
+  postgres-data:
+  ollama-data:
+  objects:
+  demo-keys:
+  caddy-data:
+  caddy-config:

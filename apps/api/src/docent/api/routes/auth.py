@@ -43,6 +43,8 @@ def _verify_url(state: State, token: str) -> str:
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED, responses={409: {"model": ErrorOut}})
 async def signup(body: SignupIn, request: Request, response: Response, state: State) -> MeOut:
+    if not state.settings.signups_open:
+        raise AppError(403, "signups_closed", "Sign-ups are closed on this deployment.")
     await enforce(state, ratelimit.SIGNUP_PER_IP, ip_key(request, state))
     await enforce(state, ratelimit.SIGNUP_PER_EMAIL, email_key(state, str(body.email)))
     password_hash = await hash_password(body.password)

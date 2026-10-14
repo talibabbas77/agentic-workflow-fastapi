@@ -50,8 +50,12 @@ async def seed(
     with_conversations: bool = True,
     say: Callable[[str], None] = lambda _: None,
 ) -> list[str]:
-    if settings.env not in ("local", "test"):
-        raise SystemExit("Refusing to seed demo data outside local and test environments.")
+    # A public showcase is a deliberate exception: DOCENT_DEMO=1 on that deployment only.
+    if settings.env not in ("local", "test") and os.environ.get("DOCENT_DEMO") != "1":
+        raise SystemExit(
+            "Refusing to seed demo data outside local and test environments. "
+            "A showcase deployment sets DOCENT_DEMO=1."
+        )
     owner_password = os.environ.get("SEED_OWNER_PASSWORD")
     if not owner_password or len(owner_password) < settings.password_min_length:
         raise SystemExit(

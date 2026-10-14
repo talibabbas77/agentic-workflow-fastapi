@@ -48,6 +48,10 @@ async def login(api: httpx.AsyncClient, person: Person, password: str, workspace
     except httpx.ConnectError:
         return False
     response.raise_for_status()
+    # On a deployment the session cookie is Secure, and the seed reaches the API over
+    # the internal network in plain HTTP, where a client never sends such a cookie back.
+    for name, value in response.cookies.items():
+        api.cookies.set(name, value)
     tenant = next(t for t in response.json()["tenants"] if t["name"] == workspace)
     switched = await api.post("/v1/auth/switch-tenant", json={"tenant_id": tenant["id"]})
     switched.raise_for_status()

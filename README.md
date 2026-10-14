@@ -279,6 +279,10 @@ different one in production).
 
 ## Deploying
 
+For a public showcase on one server, with HTTPS and the demo companies loaded,
+follow [deploy/README.md](deploy/README.md): one command on a fresh Ubuntu
+server.
+
 The API image runs as `DOCENT_ENV=production` unless told otherwise, and in
 production it refuses to start until these are set:
 

@@ -16,6 +16,9 @@ export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || "hello@doc
 export const SHOWCASE_PUBLIC_URL = process.env.NEXT_PUBLIC_SHOWCASE_PUBLIC_URL || "http://localhost:5173/lumen-notes";
 export const SHOWCASE_APP_URL = process.env.NEXT_PUBLIC_SHOWCASE_APP_URL || "http://localhost:5173/parcelwise";
 
+/** A public showcase turns sign-ups off and points visitors at the live demos instead. */
+export const SIGNUPS_OPEN = process.env.NEXT_PUBLIC_SIGNUPS_OPEN !== "false";
+
 /** Marketing pages, in navigation order. Used by the header, footer, and sitemap. */
 export const marketingNav = [
   { href: "/how-it-works", label: "How it works" },

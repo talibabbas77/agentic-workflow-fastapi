@@ -2,8 +2,17 @@
 
 import httpx
 
+from docent.api.app import create_app
 from docent.db.pool import Pool
-from tests.conftest import PASSWORD, ClientFactory, Drain, signup, token_from, unique_email
+from tests.conftest import (
+    PASSWORD,
+    ClientFactory,
+    Drain,
+    make_settings,
+    signup,
+    token_from,
+    unique_email,
+)
 
 
 async def test_signup_creates_user_workspace_and_session(client: httpx.AsyncClient) -> None:
@@ -228,3 +237,23 @@ async def test_public_plans_are_cacheable(client_factory: ClientFactory) -> None
     assert response.status_code == 200
     assert response.headers["cache-control"] == "public, max-age=3600"
     assert [p["id"] for p in response.json()] == ["trial", "starter", "growth", "scale"]
+
+
+async def test_signups_can_be_closed_for_a_showcase() -> None:
+    application = create_app(make_settings(signups_open=False))
+    async with application.router.lifespan_context(application):
+        client = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=application),
+            base_url="http://testserver",
+            headers={"origin": "http://localhost:3000"},
+        )
+        async with client:
+            body = {
+                "name": "Ada",
+                "email": unique_email(),
+                "password": PASSWORD,
+                "workspace_name": "Closed Co",
+            }
+            refused = await client.post("/v1/auth/signup", json=body)
+    assert refused.status_code == 403
+    assert refused.json()["error"]["code"] == "signups_closed"

@@ -33,10 +33,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.14-slim-bookworm AS runtime
 RUN useradd --create-home --uid 10001 docent \
- && mkdir -p /data/objects && chown docent:docent /data/objects
+ && mkdir -p /data/objects /data/demo-host && chown docent:docent /data/objects /data/demo-host
 WORKDIR /app
 COPY --from=build --chown=docent:docent /app /app
 COPY --from=widget /repo/apps/widget/dist /app/apps/widget/dist
+# The demo help centers, for `docent seed` on a showcase deployment (188 KB).
+COPY --chown=docent:docent fixtures /app/fixtures
 # Production unless told otherwise: an image deployed without DOCENT_ENV refuses the
 # default secrets and sets Secure cookies, instead of running as a laptop would.
 # compose.yaml sets DOCENT_ENV=local for development.

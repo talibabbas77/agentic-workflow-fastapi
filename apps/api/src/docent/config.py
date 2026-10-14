@@ -61,6 +61,8 @@ class Settings(BaseSettings):
 
     # Admin web app
     web_origin: str = "http://localhost:3000"
+    # Off on a public showcase: visitors try the demo sites, nobody makes a workspace.
+    signups_open: bool = True
     # Docent's public website, linked from "Powered by Docent" in the widget.
     # Unset means the web origin, which serves the marketing pages too.
     site_url: str | None = None

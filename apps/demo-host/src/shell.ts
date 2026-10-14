@@ -17,7 +17,8 @@ export interface Context {
   /** False on the second port, which is not on the widget's allowed list. */
   allowed: boolean;
   allowedOrigin: string;
-  otherOrigin: string;
+  /** The same pages on an origin the widgets do not allow; null when not served. */
+  otherOrigin: string | null;
   /** Docent's own website, for the "About Docent" link. */
   docentUrl: string;
 }
@@ -153,9 +154,11 @@ export function indexPage(ctx: Context): string {
   <section class="ix-dev" aria-labelledby="dev-title">
     <h2 id="dev-title">For developers</h2>
     <p>${
-      ctx.allowed
-        ? html`The same pages on <a href="${ctx.otherOrigin}/">${ctx.otherOrigin}</a> are on an origin the widgets do not allow, so the browser refuses to show the chat there.`
-        : html`This origin is not on the widgets' allowed list, so the browser refuses to show the chat. The working demos are on <a href="${ctx.allowedOrigin}/">${ctx.allowedOrigin}</a>.`
+      !ctx.allowed
+        ? html`This origin is not on the widgets' allowed list, so the browser refuses to show the chat. The working demos are on <a href="${ctx.allowedOrigin}/">${ctx.allowedOrigin}</a>.`
+        : ctx.otherOrigin
+          ? html`The same pages on <a href="${ctx.otherOrigin}/">${ctx.otherOrigin}</a> are on an origin the widgets do not allow, so the browser refuses to show the chat there.`
+          : html`The widget runs only on origins each company allowed, and a signed-in customer's identity comes from a token this site's server signs.`
     }</p>
   </section>
 </main>`;

@@ -13,11 +13,13 @@ Teammates use public @mailinator.com inboxes and share one easy password.
 Customers (people chatting in the widget) never log in to Docent.
 """
 
+import os
 from dataclasses import dataclass, field
 
 DEMO_PASSWORD = "Docent@123"  # noqa: S105 - shared by local demo accounts only
 DEMO_DOMAIN = "mailinator.com"
-DEMO_HOST_ORIGIN = "http://localhost:5173"  # apps/demo-host plays the customer's website
+# apps/demo-host plays the customer's website; a showcase deployment sets its public URL.
+DEMO_HOST_ORIGIN = os.environ.get("DEMO_HOST_ORIGIN", "http://localhost:5173").rstrip("/")
 OWNER = "owner"  # the account given on the command line
 
 

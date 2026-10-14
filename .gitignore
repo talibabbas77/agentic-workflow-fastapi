@@ -59,3 +59,7 @@ Thumbs.db
 
 # Agent worktrees made by Claude Code
 /.claude/worktrees/
+
+# Showcase deployment: generated secrets and logins, never committed
+/deploy/.env
+/deploy/credentials.txt
