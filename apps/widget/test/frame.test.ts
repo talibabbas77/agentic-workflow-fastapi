@@ -836,3 +836,131 @@ describe("frame app, recent chats", () => {
     expect($<HTMLButtonElement>('button[aria-label="Recent chats"]')?.hidden).toBe(true);
   });
 });
+
+describe("frame app, was this helpful", () => {
+  const FEEDBACK = `/v1/widget/conversations/${CONV}/messages/a1/feedback`;
+  const voteRoute =
+    (status = 200): Route =>
+    (url, req) => {
+      if (url !== FEEDBACK) return undefined;
+      if (req.method === "DELETE") return new Response(null, { status: 204 });
+      return status === 200
+        ? json(200, { comment: "", ...JSON.parse(String(req.body)), updated_at: new Date().toISOString() })
+        : json(status, { error: { code: "rate_limited", message: "Slow down." } }, { "retry-after": "120" });
+    };
+  const pressed = () => document.querySelectorAll('.rate-btn[aria-pressed="true"]').length;
+  const thumb = (label: "Helpful" | "Not helpful") => $<HTMLButtonElement>(`.rate-btn[aria-label="${label}"]`);
+  const votes = (h: Harness) => h.calls.filter((c) => c.url === FEEDBACK).map((c) => [c.method, c.body]);
+  const messages = (reply: unknown): Route => (url) =>
+    url === `/v1/widget/conversations/${CONV}/messages` ? sse([["message", reply]]) : undefined;
+
+  async function answered(routes: Route[], reply: unknown = answer()): Promise<Harness> {
+    const h = start([sessionRoute(() => session("st_v")), conversationRoute(), messages(reply), ...routes]);
+    h.send({ type: "open" });
+    type("How long do refunds take?");
+    await vi.waitFor(() => expect($(".msg.agent:not(.greeting)")).not.toBeNull());
+    return h;
+  }
+
+  it("only answers get thumbs: not greetings, clarifying questions, or handoffs", async () => {
+    await answered([], escalation());
+    expect($(".rate")).toBeNull();
+    const clarify = answer({
+      id: "c1",
+      citations: [],
+      decision: { type: "clarify", confidence: null, reason: null, citations: [], account_facts: [] },
+    });
+    await answered([], clarify);
+    expect($(".rate")).toBeNull();
+    expect($(".greeting .rate")).toBeNull();
+  });
+
+  it("a thumbs up says thanks; pressing it again takes the vote back", async () => {
+    const h = await answered([voteRoute()]);
+    const group = $(".rate");
+    expect(group?.getAttribute("role")).toBe("group");
+    expect(document.getElementById(group?.getAttribute("aria-labelledby") ?? "")?.textContent).toBe("Was this helpful?");
+    expect(thumb("Helpful")?.getAttribute("aria-pressed")).toBe("false");
+    thumb("Helpful")?.click();
+    expect(thumb("Helpful")?.getAttribute("aria-pressed")).toBe("true");
+    await vi.waitFor(() => expect($(".rate-said")?.textContent).toBe("Thanks for letting us know."));
+    expect($("form.rate-more")).toBeNull();
+    thumb("Helpful")?.click();
+    await vi.waitFor(() => expect(votes(h)).toHaveLength(2));
+    expect(votes(h)).toEqual([
+      ["PUT", { vote: "up" }],
+      ["DELETE", undefined],
+    ]);
+    expect(pressed()).toBe(0);
+  });
+
+  it("a thumbs down asks what was wrong, sends the note, and offers a person", async () => {
+    const h = await answered([voteRoute()]);
+    thumb("Not helpful")?.click();
+    await vi.waitFor(() => expect($("form.rate-more")).not.toBeNull());
+    expect(thumb("Not helpful")?.getAttribute("aria-pressed")).toBe("true");
+    const note = $<HTMLTextAreaElement>(".rate-text");
+    if (!note) throw new Error("no note field");
+    expect(note.getAttribute("maxlength")).toBe("500");
+    expect(document.activeElement).toBe(note);
+    expect($(`label[for="${note.id}"]`)?.textContent).toBe("What was wrong? (optional)");
+    note.value = "  It is 14 days for monthly plans. ";
+    $<HTMLFormElement>("form.rate-more")?.dispatchEvent(new Event("submit", { cancelable: true }));
+    await vi.waitFor(() => expect($(".rate-said")?.textContent).toBe("Thanks. The team will read your note."));
+    expect($("form.rate-more")).toBeNull();
+    expect(votes(h)).toEqual([
+      ["PUT", { vote: "down" }],
+      ["PUT", { vote: "down", comment: "It is 14 days for monthly plans." }],
+    ]);
+
+    // A thumbs up closes the question; down again offers a person, through the normal handoff.
+    thumb("Helpful")?.click();
+    await vi.waitFor(() => expect(votes(h)).toHaveLength(3));
+    expect($("form.rate-more")).toBeNull();
+    thumb("Not helpful")?.click();
+    await vi.waitFor(() => expect($(".rate-person")).not.toBeNull());
+    $<HTMLButtonElement>(".rate-person")?.click();
+    expect(texts(".msg.visitor .plain")).toContain("I would like to talk to a person.");
+    const sent = () => h.calls.filter((c) => c.url === `/v1/widget/conversations/${CONV}/messages`).map((c) => c.body);
+    await vi.waitFor(() => expect(sent()).toHaveLength(2));
+    expect(sent()[1]).toEqual({ content: "I would like to talk to a person." });
+    expect($("form.rate-more")).toBeNull();
+  });
+
+  it("no offer of a person once the conversation was handed off", async () => {
+    await answered([voteRoute()]);
+    // The team was already asked: an escalation note is in the conversation.
+    const handed = document.createElement("li");
+    handed.className = "msg agent";
+    handed.appendChild(Object.assign(document.createElement("div"), { className: "note" }));
+    $(".list")?.appendChild(handed);
+    thumb("Not helpful")?.click();
+    await vi.waitFor(() => expect($("form.rate-more")).not.toBeNull());
+    expect($(".rate-person")).toBeNull();
+  });
+
+  it("a failed vote goes back and says why", async () => {
+    await answered([voteRoute(429)]);
+    thumb("Helpful")?.click();
+    await vi.waitFor(() => expect($(".rate-said")?.textContent).toBe("Too many tries. Try again in 2 minutes."));
+    expect(pressed()).toBe(0);
+  });
+
+  it("history brings back the visitor's own vote", async () => {
+    const h = start(
+      [
+        sessionRoute(() => session("st_v3")),
+        conversationRoute({ messages: [answer({ feedback: { vote: "down", comment: "Wrong plan." } })] }),
+      ],
+      { mode: "anonymous" },
+      config(),
+      { [`docent:visitor:${WID}`]: VISITOR, [`docent:conversation:${WID}`]: CONV },
+    );
+    h.send({ type: "open" });
+    await vi.waitFor(() => expect($(".rate")).not.toBeNull());
+    expect(thumb("Not helpful")?.getAttribute("aria-pressed")).toBe("true");
+    expect(thumb("Helpful")?.getAttribute("aria-pressed")).toBe("false");
+    expect($(".rate-said")?.textContent).toBe("Thanks for letting us know.");
+    expect($("form.rate-more")).toBeNull();
+  });
+});

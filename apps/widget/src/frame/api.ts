@@ -9,11 +9,13 @@ import type {
   ConversationStatus,
   ConversationSummary,
   Decision,
+  Feedback,
   Handoff,
   Message,
   Role,
   SessionOut,
   Stage,
+  Vote,
 } from "./types";
 
 export class ApiError extends Error {
@@ -72,6 +74,8 @@ export interface Api {
     signal?: AbortSignal,
   ): Promise<Message>;
   contact(sessionToken: string, conversationId: string, email: string): Promise<void>;
+  /** "Was this helpful?" on one answer. vote null takes the vote back. */
+  rate(sessionToken: string, conversationId: string, messageId: string, vote: Vote | null, comment?: string): Promise<void>;
   revoke(sessionToken: string): Promise<void>;
 }
 
@@ -80,6 +84,7 @@ const HANDOFF: readonly Handoff["status"][] = ["open", "assigned", "waiting", "r
 const STAGES: readonly Stage[] = ["searching", "writing", "checking"];
 const DECISIONS: readonly Decision["type"][] = ["answer", "clarify", "escalate", "reply"];
 const STATUSES: readonly ConversationStatus[] = ["open", "escalated", "closed"];
+const VOTES: readonly Vote[] = ["up", "down"];
 
 const asStatus = (v: unknown): ConversationStatus => (STATUSES.includes(v as ConversationStatus) ? (v as ConversationStatus) : "open");
 
@@ -100,6 +105,10 @@ function asCitation(v: unknown): Citation | null {
     url: typeof v.url === "string" ? v.url : null,
     excerpt: str(v.excerpt),
   };
+}
+
+function asFeedback(v: unknown): Feedback | null {
+  return isRecord(v) && VOTES.includes(v.vote as Vote) ? { vote: v.vote as Vote, comment: str(v.comment) } : null;
 }
 
 /** Defensive parse of a Message: unknown fields dropped, missing ones defaulted. */
@@ -127,6 +136,7 @@ export function asMessage(v: unknown): Message | null {
       ? v.citations.map(asCitation).filter((c): c is Citation => c !== null)
       : [],
     created_at: typeof v.created_at === "string" ? v.created_at : null,
+    feedback: asFeedback(v.feedback),
   };
 }
 
@@ -327,6 +337,12 @@ export function createApi(base: string, fetchImpl: typeof fetch): Api {
         token,
         body: { email },
       });
+    },
+
+    async rate(token, conversationId, messageId, vote, comment) {
+      const path = `/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/feedback`;
+      if (vote === null) await call(path, { method: "DELETE", token });
+      else await call(path, { method: "PUT", token, body: comment ? { vote, comment } : { vote } });
     },
 
     async revoke(token) {

@@ -21,6 +21,15 @@ export interface Decision {
   account_facts: string[];
 }
 
+export type Vote = "up" | "down";
+
+/** The visitor's own "Was this helpful?" vote on an answer. */
+export interface Feedback {
+  vote: Vote;
+  /** What was wrong, from a thumbs down. */
+  comment: string;
+}
+
 export interface Message {
   id: string;
   role: Role;
@@ -28,6 +37,7 @@ export interface Message {
   decision: Decision | null;
   citations: Citation[];
   created_at: string | null;
+  feedback: Feedback | null;
 }
 
 export interface SessionOut {
