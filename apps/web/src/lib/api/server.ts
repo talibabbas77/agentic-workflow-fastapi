@@ -28,7 +28,10 @@ type GetPath =
   | "/v1/inbox/preferences"
   | "/v1/automation/rules"
   | "/v1/automation/channels"
-  | "/v1/automation/webhooks";
+  | "/v1/automation/webhooks"
+  | "/v1/evals/sets"
+  | "/v1/evals/documents"
+  | "/v1/evals/calibration";
 type GetData<P extends GetPath> = paths[P]["get"]["responses"][200]["content"]["application/json"];
 
 /**
@@ -151,6 +154,69 @@ export async function getInboxBoard(query: BoardQuery) {
 export async function getHandoff(escalationId: string) {
   const result = await call((client) =>
     client.GET("/v1/inbox/{escalation_id}", { params: { path: { escalation_id: escalationId } } }),
+  );
+  if (result.status === 404 || result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+export const getEvalSets = () => getOrThrow("/v1/evals/sets");
+
+export const getEvalDocuments = () => getOrThrow("/v1/evals/documents");
+
+export const getCalibration = () => getOrThrow("/v1/evals/calibration");
+
+/** One eval set with its cases and recent runs. A missing set shows the 404 page. */
+export async function getEvalSet(setId: string) {
+  const result = await call((client) =>
+    client.GET("/v1/evals/sets/{set_id}", { params: { path: { set_id: setId } } }),
+  );
+  if (result.status === 404 || result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+/** Runs of every set, newest first. */
+export async function getEvalRuns() {
+  const result = await call((client) => client.GET("/v1/evals/runs", { params: { query: {} } }));
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+/** One run and its results. A missing run shows the 404 page. */
+export async function getEvalRun(runId: string) {
+  const result = await call((client) =>
+    client.GET("/v1/evals/runs/{run_id}", { params: { path: { run_id: runId } } }),
+  );
+  if (result.status === 404 || result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+/** Two runs of one set side by side, or the API's reason they cannot be compared. */
+export async function getComparison(a: string, b: string) {
+  return call((client) => client.GET("/v1/evals/compare", { params: { query: { a, b } } }));
+}
+
+/** Widget traffic over the last `days` days. */
+export async function getProductionMetrics(days: number) {
+  const result = await call((client) => client.GET("/v1/evals/metrics", { params: { query: { days } } }));
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+/** A week of the review queue; this week's fills itself on the way. */
+export async function getReviewQueue(week?: string) {
+  const result = await call((client) => client.GET("/v1/evals/review", { params: { query: week ? { week } : {} } }));
+  if (result.status === 422) notFound();
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
+
+/** One conversation to grade. A missing one shows the 404 page. */
+export async function getReviewItem(itemId: string) {
+  const result = await call((client) =>
+    client.GET("/v1/evals/review/{item_id}", { params: { path: { item_id: itemId } } }),
   );
   if (result.status === 404 || result.status === 422) notFound();
   if (!result.ok) throw new Error(result.error.message);
