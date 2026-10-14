@@ -4,6 +4,7 @@ import hashlib
 import math
 import re
 import uuid
+from datetime import datetime
 from typing import Any
 
 from docent.billing.gateway import verify_event
@@ -142,6 +143,11 @@ class FakeBilling:
     async def set_cancel_at_period_end(self, *, subscription_id: str, cancel: bool) -> None:
         self.calls.append(("cancel_at_period_end", str(cancel)))
 
-    async def refund_and_cancel(self, *, customer_id: str, subscription_id: str) -> int:
+    async def refundable_cents(self, *, customer_id: str, since: datetime) -> int:
+        return 9900
+
+    async def refund_and_cancel(
+        self, *, customer_id: str, subscription_id: str, since: datetime
+    ) -> int:
         self.calls.append(("refund_and_cancel", customer_id))
         return 9900

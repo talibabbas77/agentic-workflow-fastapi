@@ -1,8 +1,10 @@
 """The money-back guarantee: a full refund within 14 days of the first payment.
 
-After that window there are no refunds for partial months. A downgrade or a
-cancellation takes effect at the end of the paid period instead, so the
-customer keeps what they paid for. A workspace is refunded at most once.
+The refund covers everything paid in that time, so an owner who upgraded in
+the first week gets the upgrade charge back too. After that window there are
+no refunds for partial months. A downgrade or a cancellation takes effect at
+the end of the paid period instead, so the customer keeps what they paid for.
+A workspace is refunded at most once.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -33,6 +35,6 @@ def reason(current: Entitlement) -> str:
             "plan at the end of the period you paid for."
         )
     return (
-        f"Full refund of your first payment until {end:%b} {end.day}. The plan ends right "
-        "away and every message goes to your team."
+        f"Full refund of everything paid so far, until {end:%b} {end.day}. The plan ends "
+        "right away and every message goes to your team."
     )

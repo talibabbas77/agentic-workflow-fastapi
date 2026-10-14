@@ -54,3 +54,36 @@ test("billing shows the trial and this month's usage, and checkout waits for pay
   await expect(page.getByRole("status").filter({ hasText: "Checkout canceled" })).toBeVisible();
   await expect(page).toHaveURL(/\/app\/billing$/);
 });
+
+/*
+ * A plan change on a subscribed workspace is covered by the API tests, which
+ * fake Stripe. Here a trial workspace checks the wiring: the preview explains
+ * the figures and says why the change cannot happen yet.
+ */
+test("plan changes are explained before they are made, and need a paid plan first", async ({ page }) => {
+  await signUp(page, "Grace Hopper", "Plan changes");
+
+  const preview = await page.request.get("/api/v1/billing/preview?plan_id=growth");
+  expect(preview.status()).toBe(200);
+  const body = await preview.json();
+  expect(body.kind).toBe("upgrade");
+  expect(body.blockers).toEqual(["Plan changes need a paid subscription. Choose a plan to start one."]);
+  const total = body.lines.reduce((sum: number, line: { amount_cents: number }) => sum + line.amount_cents, 0);
+  expect(total).toBe(body.due_now_cents);
+  expect(body.explanation.length).toBeGreaterThan(0);
+
+  const refund = await (await page.request.get("/api/v1/billing/refund")).json();
+  expect(refund).toMatchObject({ eligible: false, amount_cents: 0, reason: "There is no payment to refund yet." });
+
+  for (const path of ["/api/v1/billing/change", "/api/v1/billing/cancel", "/api/v1/billing/refund"]) {
+    const refused = await page.request.post(path, { headers: { origin: BASE }, data: { plan_id: "growth" } });
+    expect(refused.status(), path).toBe(503);
+  }
+
+  // A trial has nothing to cancel or refund, so the card offers neither.
+  await page.goto("/app/billing");
+  const plan = page.getByRole("region", { name: "Current plan" });
+  await expect(plan.getByTestId("plan-status")).toHaveText(/^Trial/);
+  await expect(plan.getByRole("button", { name: "Cancel plan" })).toHaveCount(0);
+  await expect(plan.getByRole("button", { name: "Request a refund" })).toHaveCount(0);
+});

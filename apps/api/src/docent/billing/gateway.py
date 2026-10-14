@@ -8,6 +8,7 @@ Prices are found by lookup key (`docent_<plan>_monthly`), which
 import json
 import uuid
 from collections.abc import Awaitable
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 import stripe
@@ -59,8 +60,14 @@ class BillingGateway(Protocol):
 
     async def set_cancel_at_period_end(self, *, subscription_id: str, cancel: bool) -> None: ...
 
-    async def refund_and_cancel(self, *, customer_id: str, subscription_id: str) -> int:
-        """Refund the latest payment in full and end the subscription now. Returns cents."""
+    async def refundable_cents(self, *, customer_id: str, since: datetime) -> int:
+        """What the customer has paid since `since` and not had back, in cents."""
+        ...
+
+    async def refund_and_cancel(
+        self, *, customer_id: str, subscription_id: str, since: datetime
+    ) -> int:
+        """Refund every payment since `since` and end the subscription now. Returns cents."""
         ...
 
 
@@ -235,20 +242,43 @@ class StripeGateway:
             )
         )
 
-    async def refund_and_cancel(self, *, customer_id: str, subscription_id: str) -> int:
-        charges = await self._call(
-            self._client.v1.charges.list_async({"customer": customer_id, "limit": 1})
-        )
-        if not charges.data:
+    async def refundable_cents(self, *, customer_id: str, since: datetime) -> int:
+        return sum(left for _, left in await self._refundable(customer_id, since))
+
+    async def refund_and_cancel(
+        self, *, customer_id: str, subscription_id: str, since: datetime
+    ) -> int:
+        charges = await self._refundable(customer_id, since)
+        if not charges:
             raise BillingError("There is no payment to refund.")
-        charge = charges.data[0]
-        refund = await self._call(
-            self._client.v1.refunds.create_async(
-                {"charge": charge.id, "reason": "requested_by_customer"}
+        total = 0
+        for charge_id, left in charges:  # the first payment, then any upgrade charges
+            refund = await self._call(
+                self._client.v1.refunds.create_async(
+                    {"charge": charge_id, "amount": left, "reason": "requested_by_customer"},
+                    {"idempotency_key": f"docent-refund-{charge_id}"},
+                )
+            )
+            total += int(refund.amount)
+        await self._call(self._client.v1.subscriptions.cancel_async(subscription_id))
+        return total
+
+    async def _refundable(self, customer_id: str, since: datetime) -> list[tuple[str, int]]:
+        """Paid charges since `since`, each with the part not yet refunded."""
+        # The first invoice.paid event lands a moment after its charge, so look a day earlier.
+        start = int((since - timedelta(days=1)).timestamp())
+        charges = await self._call(
+            self._client.v1.charges.list_async(
+                {"customer": customer_id, "created": {"gte": start}, "limit": 100}
             )
         )
-        await self._call(self._client.v1.subscriptions.cancel_async(subscription_id))
-        return int(refund.amount)
+        return [
+            (charge.id, charge.amount - charge.amount_refunded)
+            for charge in charges.data
+            if charge.paid
+            and charge.status == "succeeded"
+            and charge.amount > charge.amount_refunded
+        ]
 
     async def _item_id(self, subscription_id: str) -> str:
         subscription = await self._call(

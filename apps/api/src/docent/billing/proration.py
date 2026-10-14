@@ -12,7 +12,7 @@ charged twice:
                allows (pages, widgets, seats), so nothing breaks at renewal.
   Cancel       Takes effect when the paid period ends, and can be undone until
                then. No refund for the unused part of a month.
-  Refund       The full first payment, within 14 days of it (billing/refunds.py).
+  Refund       Everything paid, within 14 days of the first payment (billing/refunds.py).
 
 Stripe prorates by the second, so this module does too. It explains the bill;
 Stripe's invoice, also previewed when payments are set up, is the bill.

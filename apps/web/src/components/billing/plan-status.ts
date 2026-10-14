@@ -1,8 +1,12 @@
-import type { Billing, Plan } from "@docent/api-client";
+import type { Billing, PaidPlanId, Plan } from "@docent/api-client";
 import { formatCount, formatDate, plural } from "@/lib/format";
 
 /** Stripe statuses with a running subscription. Plan changes then go through the portal, not checkout. */
 const LIVE = new Set(["trialing", "active", "past_due"]);
+
+export type PaidPlan = Plan & { id: PaidPlanId };
+
+export const isPaid = (plan: Plan): plan is PaidPlan => plan.price_usd_month > 0;
 
 /** "$99", for a plan's monthly price. */
 export const monthlyPrice = (plan: Plan) => `$${formatCount(plan.price_usd_month)}`;
@@ -33,8 +37,13 @@ export function planState(billing: Billing, now: number | null): PlanState {
     return { label: `Trial, ${days} ${plural(days, "day")} left`, detail: `The trial ends on ${ends}.`, warn: false };
   }
   if (status === "active") {
-    if (billing.cancel_at) {
-      return { label: `Active until ${date(billing.cancel_at)}`, detail: "The plan is canceled and does not renew.", warn: false };
+    const ends = date(billing.cancel_at ?? billing.current_period_end);
+    if (billing.cancel_at_period_end || billing.cancel_at) {
+      return {
+        label: ends ? `Active until ${ends}` : "Canceled",
+        detail: "The plan is canceled and does not renew.",
+        warn: false,
+      };
     }
     const renews = date(billing.current_period_end);
     return { label: renews ? `Active, renews on ${renews}` : "Active", detail: null, warn: false };

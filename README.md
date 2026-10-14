@@ -96,6 +96,24 @@ The widget's private signing key is saved to `.data/demo-host/` (git-ignored,
 owner-only). Run `pnpm demo-host` and open http://localhost:5173 to chat as an
 anonymous visitor or sign in as one of the demo customers.
 
+### Payments
+
+Without Stripe keys every workspace runs on its trial or a manual plan, and the
+billing page says payments are not set up. To try real checkout in test mode:
+
+1. Put a test secret key (`sk_test_...`) in `.env` as `STRIPE_SECRET_KEY`.
+2. `pnpm stripe:sync` creates the three plans as Stripe products and prices.
+3. `docker compose --profile app --profile stripe up -d`, then
+   `docker compose logs stripe` prints the webhook signing secret. Put it in
+   `.env` as `STRIPE_WEBHOOK_SECRET` and restart the API.
+4. Choose a plan on the billing page and pay with card `4242 4242 4242 4242`.
+
+Plan changes, cancellation, and refunds then work from the billing page. Each
+change opens a preview first: an upgrade shows today's prorated charge line by
+line, a downgrade starts at the end of the paid period, a cancellation keeps
+the plan until then, and the 14 day money-back guarantee refunds everything
+paid. The rules are in `docs/ARCHITECTURE.md`, section 10.
+
 No `.env` file is needed locally. Copy `.env.example` to `.env` to change
 anything; every variable is documented there.
 

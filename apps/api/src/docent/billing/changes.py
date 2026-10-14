@@ -131,13 +131,16 @@ async def set_canceled(
 async def refund(
     conn: Connection, tenant_id: uuid.UUID, current: Entitlement, gateway: BillingGateway
 ) -> int:
-    """Refund the first payment in full and end the plan now. Returns the cents refunded."""
+    """Refund every payment since the first in full and end the plan now. Returns cents."""
     if refunds.window_end(current) is None:
         raise PlanChangeError("refund_unavailable", refunds.reason(current))
     assert current.customer_id is not None
     assert current.subscription_id is not None
+    assert current.first_paid_at is not None
     amount = await gateway.refund_and_cancel(
-        customer_id=current.customer_id, subscription_id=current.subscription_id
+        customer_id=current.customer_id,
+        subscription_id=current.subscription_id,
+        since=current.first_paid_at,
     )
     await conn.execute(
         """

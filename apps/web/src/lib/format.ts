@@ -27,6 +27,13 @@ export function formatCount(n: number) {
   return countFormat.format(n);
 }
 
+const moneyFormat = new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** "$35.00" from cents, or "-$14.50" for a credit. */
+export function formatMoney(cents: number) {
+  return `${cents < 0 ? "-" : ""}$${moneyFormat.format(Math.abs(cents) / 100)}`;
+}
+
 /** "document" or "documents" for a count. */
 export function plural(n: number, singular: string, pluralForm = `${singular}s`) {
   return n === 1 ? singular : pluralForm;

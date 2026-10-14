@@ -364,8 +364,12 @@ waiting for review.** Built: subscriptions with trials and plan states, live
 reply caps from the plan, 80 and 100 percent emails, escalate-only mode when a
 trial ends, a payment stays failed past the 7 day grace, or a plan is canceled,
 plan limits on widgets, seats, and pages, Stripe checkout, customer portal, and
-signed idempotent webhooks, and the billing page. Checks 2, 4, and 5 (upgrade
-part) run in the API suite; the gateway runs against stripe-mock in CI. Not yet
+signed idempotent webhooks, and the billing page. Plan changes are made in
+Docent with a line-by-line preview: prorated upgrades charged now, downgrades
+scheduled for the end of the paid period (refused while usage is over the
+smaller plan), cancel at period end with resume, and a 14 day money-back refund
+(ARCHITECTURE section 10). Checks 2, 4, and 5 run in the API suite; the gateway
+runs against stripe-mock in CI. Not yet
 built: top-up packs, the internal cost and margin dashboard, the Redis command
 budget alerts, and the load test in check 1. Live payments need your Stripe
 keys; see the README.

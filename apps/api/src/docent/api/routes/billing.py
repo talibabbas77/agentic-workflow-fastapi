@@ -211,12 +211,24 @@ async def resume_plan(member: OwnerMember, state: State) -> BillingOut:
 
 @router.get("/refund")
 async def refund_status(member: CurrentMember, state: State) -> RefundOut:
+    """Whether the money-back guarantee still applies, and how much it gives back."""
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         current = await subscriptions.entitlement(conn, member.tenant_id)
     until = refunds.window_end(current)
+    amount = 0
+    if until and current.customer_id and current.first_paid_at:
+        # Stripe knows every payment, upgrade charges included; the plan price is the fallback.
+        amount = current.plan.price_usd_month * 100
+        if state.billing:
+            try:
+                amount = await state.billing.refundable_cents(
+                    customer_id=current.customer_id, since=current.first_paid_at
+                )
+            except BillingError as exc:
+                log.warning("stripe refund lookup failed", extra={"error": str(exc)})
     return RefundOut(
         eligible=until is not None,
-        amount_cents=current.plan.price_usd_month * 100 if until else 0,
+        amount_cents=amount,
         refund_until=until,
         reason=refunds.reason(current),
     )
@@ -224,7 +236,7 @@ async def refund_status(member: CurrentMember, state: State) -> RefundOut:
 
 @router.post("/refund", responses={409: {"model": ErrorOut}, 502: {"model": ErrorOut}})
 async def refund(member: OwnerMember, state: State) -> RefundOut:
-    """The money-back guarantee: refund the first payment in full and end the plan now."""
+    """The money-back guarantee: refund everything paid so far and end the plan now."""
     gateway = _gateway(state)
     async with _owner_change(state, member) as (conn, current):
         amount = await changes.refund(conn, member.tenant_id, current, gateway)

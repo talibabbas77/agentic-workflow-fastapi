@@ -6,20 +6,20 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { formatCount, plural } from "@/lib/format";
-import { isSubscribed, monthlyPrice } from "./plan-status";
-
-const isPaid = (plan: Plan): plan is Plan & { id: PaidPlanId } => plan.price_usd_month > 0;
+import { formatCount, formatDate, plural } from "@/lib/format";
+import { isPaid, isSubscribed, monthlyPrice, type PaidPlan } from "./plan-status";
 
 /**
- * The paid plans, with the current one marked. Owners choose a plan through
- * Stripe Checkout; once subscribed, changes go through the billing portal.
+ * The paid plans, with the current one marked. Owners choose a first plan
+ * through Stripe Checkout. Once subscribed, each other plan opens a preview of
+ * what the change costs, and when it starts, before anything happens.
  */
 export function PlansGrid({
   billing,
   plans,
   pending,
   onChoose,
+  onChange,
 }: {
   billing: Billing;
   /** Null when the catalog could not be loaded. */
@@ -27,14 +27,22 @@ export function PlansGrid({
   /** The plan whose checkout is starting. */
   pending: PaidPlanId | null;
   onChoose: (plan: PaidPlanId) => void;
+  /** Opens the change preview for a subscribed workspace. */
+  onChange: (plan: PaidPlan) => void;
 }) {
   const subscribed = isSubscribed(billing);
   const choosing = billing.can_manage && !subscribed;
+  const changing = billing.can_manage && subscribed;
+  const scheduled = billing.scheduled_plan;
 
   let note: ReactNode = null;
   if (!billing.can_manage) note = "Ask an owner to change the plan.";
   else if (!billing.billing_enabled) note = "Payments are not set up on this server yet.";
-  else if (subscribed) note = "To switch plans, open Manage billing. An upgrade applies right away.";
+  else if (subscribed && billing.cancel_at_period_end) note = "The plan is canceled. Resume it to change plans.";
+  else if (subscribed) {
+    note =
+      "An upgrade starts now and costs only the difference for the rest of this period. A downgrade starts at renewal, so you keep what you paid for.";
+  }
 
   return (
     <section aria-labelledby="plans-heading" className="flex flex-col gap-4">
@@ -59,7 +67,9 @@ export function PlansGrid({
       ) : (
         <ul className="grid gap-4 md:grid-cols-3">
           {plans.filter(isPaid).map((plan) => {
-            const current = billing.active && billing.plan.id === plan.id;
+            const current = billing.plan.id === plan.id && (billing.active || subscribed);
+            const waiting = scheduled?.id === plan.id;
+            const upgrade = plan.price_usd_month > billing.plan.price_usd_month;
             return (
               <li
                 key={plan.id}
@@ -70,7 +80,13 @@ export function PlansGrid({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-lg text-ink">{plan.name}</h3>
-                  {current ? <Badge tone="accent">Current plan</Badge> : null}
+                  {current ? (
+                    <Badge tone="accent">Current plan</Badge>
+                  ) : waiting ? (
+                    <Badge tone="outline">
+                      {billing.scheduled_change_at ? `From ${formatDate(billing.scheduled_change_at)}` : "At renewal"}
+                    </Badge>
+                  ) : null}
                 </div>
                 <p className="mt-3 flex items-baseline gap-1.5">
                   <span className="text-3xl font-semibold tracking-[-0.02em] text-ink tabular-nums">
@@ -98,6 +114,17 @@ export function PlansGrid({
                     onClick={() => onChoose(plan.id)}
                   >
                     Choose plan<span className="sr-only"> {plan.name}</span>
+                  </Button>
+                ) : changing && !current && !waiting ? (
+                  <Button
+                    variant={upgrade ? "primary" : "secondary"}
+                    block
+                    className="mt-6"
+                    disabled={billing.cancel_at_period_end}
+                    onClick={() => onChange(plan)}
+                  >
+                    {upgrade ? "Upgrade" : "Switch at renewal"}
+                    <span className="sr-only"> to {plan.name}</span>
                   </Button>
                 ) : null}
               </li>

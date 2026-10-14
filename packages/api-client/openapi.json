@@ -3777,6 +3777,441 @@
         }
       }
     },
+    "/v1/billing/preview": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Preview Plan Change",
+        "description": "What moving to this plan costs today, when it starts, and why, line by line.",
+        "operationId": "preview_plan_change",
+        "parameters": [
+          {
+            "name": "plan_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "starter",
+                "growth",
+                "scale"
+              ],
+              "type": "string",
+              "title": "Plan Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanChangePreviewOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/change": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Change Plan",
+        "description": "Upgrade now with a prorated charge, or downgrade when the paid period ends.",
+        "operationId": "change_plan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanChangeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Cancel Plan Change",
+        "description": "Keep the current plan: drop a downgrade that is waiting for the period to end.",
+        "operationId": "cancel_plan_change",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/cancel": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Cancel Plan",
+        "description": "End the plan when the paid period ends. It can be resumed until then.",
+        "operationId": "cancel_plan",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/resume": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Resume Plan",
+        "operationId": "resume_plan",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/refund": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Refund Status",
+        "description": "Whether the money-back guarantee still applies, and how much it gives back.",
+        "operationId": "refund_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Refund",
+        "description": "The money-back guarantee: refund everything paid so far and end the plan now.",
+        "operationId": "refund",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/public/plans": {
       "get": {
         "tags": [
@@ -3973,6 +4408,18 @@
             ],
             "title": "Trial Ends At"
           },
+          "current_period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period Start"
+          },
           "current_period_end": {
             "anyOf": [
               {
@@ -3997,6 +4444,34 @@
             ],
             "title": "Cancel At"
           },
+          "cancel_at_period_end": {
+            "type": "boolean",
+            "title": "Cancel At Period End",
+            "description": "Canceled; the plan stays until the period ends"
+          },
+          "scheduled_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Plan"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A downgrade waiting for the period to end"
+          },
+          "scheduled_change_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scheduled Change At"
+          },
           "grace_ends_at": {
             "anyOf": [
               {
@@ -4008,6 +4483,19 @@
               }
             ],
             "title": "Grace Ends At"
+          },
+          "refund_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Until",
+            "description": "End of the 14 day money-back window, while the workspace can still use it"
           },
           "billing_enabled": {
             "type": "boolean",
@@ -4030,9 +4518,14 @@
           "active",
           "provider",
           "trial_ends_at",
+          "current_period_start",
           "current_period_end",
           "cancel_at",
+          "cancel_at_period_end",
+          "scheduled_plan",
+          "scheduled_change_at",
           "grace_ends_at",
+          "refund_until",
           "billing_enabled",
           "can_manage",
           "usage"
@@ -4100,6 +4593,25 @@
           "file"
         ],
         "title": "Body_upload"
+      },
+      "ChargeLine": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents",
+            "description": "Positive is charged, negative is credited"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "amount_cents"
+        ],
+        "title": "ChargeLine"
       },
       "CheckoutIn": {
         "properties": {
@@ -5372,6 +5884,106 @@
         ],
         "title": "Plan"
       },
+      "PlanChangeIn": {
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "enum": [
+              "starter",
+              "growth",
+              "scale"
+            ],
+            "title": "Plan Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_id"
+        ],
+        "title": "PlanChangeIn"
+      },
+      "PlanChangePreviewOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "upgrade",
+              "downgrade",
+              "same"
+            ],
+            "title": "Kind"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/Plan"
+          },
+          "effective_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Effective At",
+            "description": "When the new plan and its limits start"
+          },
+          "due_now_cents": {
+            "type": "integer",
+            "title": "Due Now Cents",
+            "description": "Charged today; 0 for a downgrade"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ChargeLine"
+            },
+            "type": "array",
+            "title": "Lines",
+            "description": "How due_now_cents is worked out, line by line"
+          },
+          "next_renewal_cents": {
+            "type": "integer",
+            "title": "Next Renewal Cents",
+            "description": "The monthly price from the next renewal"
+          },
+          "explanation": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Explanation",
+            "description": "Plain sentences on what happens and why"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blockers",
+            "description": "Why this change cannot be made yet; empty if it can"
+          },
+          "stripe_due_now_cents": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stripe Due Now Cents",
+            "description": "Stripe's own preview of today's charge, when payments are set up"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "plan",
+          "effective_at",
+          "due_now_cents",
+          "lines",
+          "next_renewal_cents",
+          "explanation",
+          "blockers",
+          "stripe_due_now_cents"
+        ],
+        "title": "PlanChangePreviewOut"
+      },
       "RedirectOut": {
         "properties": {
           "url": {
@@ -5384,6 +5996,43 @@
           "url"
         ],
         "title": "RedirectOut"
+      },
+      "RefundOut": {
+        "properties": {
+          "eligible": {
+            "type": "boolean",
+            "title": "Eligible"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents"
+          },
+          "refund_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Until"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Why a refund is or is not available, in plain words"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eligible",
+          "amount_cents",
+          "refund_until",
+          "reason"
+        ],
+        "title": "RefundOut"
       },
       "RememberedCustomerDetailOut": {
         "properties": {

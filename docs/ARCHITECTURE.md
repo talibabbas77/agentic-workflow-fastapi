@@ -964,8 +964,10 @@ Chosen: Stripe (D19). Integration as built:
 
 - Checkout and customer portal hosted by Stripe. We never touch card data.
   `POST /v1/billing/checkout` (owners only) creates the Stripe customer once,
-  stores its id on `subscriptions`, and returns the Checkout URL. Plan changes,
-  card updates, invoices, and cancellation go through `POST /v1/billing/portal`.
+  stores its id on `subscriptions`, and returns the Checkout URL. Card updates
+  and invoices go through `POST /v1/billing/portal`. Plan changes,
+  cancellation, and refunds happen in Docent, with the rules below, so every
+  charge is explained before the owner confirms it.
 - Prices are found by lookup key `docent_<plan>_monthly`. `pnpm stripe:sync`
   creates the products and prices from the plan catalog and moves the lookup
   key to a new price when a price changes, so Stripe never becomes a second
@@ -979,9 +981,6 @@ Chosen: Stripe (D19). Integration as built:
 - Our database owns entitlements and caps. Stripe owns payment status.
 - Every tenant has one `subscriptions` row from creation: a 14 day trial
   (provider `manual`), then Stripe after checkout. Comped plans stay `manual`.
-- Upgrades take effect immediately: the reply cap is read from the plan on
-  every reservation. Downgrades follow Stripe's portal setting (configure it to
-  apply at period end).
 - Failed payment: 7-day grace from the first failure, then escalate-only mode.
   An expired trial or a canceled plan is escalate-only too. Data is kept.
 - Plan limits are enforced when adding: widgets, seats (members plus open
@@ -990,6 +989,33 @@ Chosen: Stripe (D19). Integration as built:
 - Tested without keys: unit tests use a fake gateway with real signature
   checks, and the real gateway runs against `stripe-mock`, which validates
   every request against Stripe's OpenAPI spec.
+
+### Plan changes, cancellation, refunds
+
+The rules, chosen so a customer always gets what they paid for and is never
+charged twice. They live in `billing/proration.py`, `billing/changes.py`, and
+`billing/refunds.py`; owners only, and each change is written to the audit log.
+
+| Change | When it applies | Charged today | How |
+|---|---|---|---|
+| Upgrade | Now | New price for the time left in the period, less the unused part of the old price | Subscription item swap with `proration_behavior: always_invoice` and `payment_behavior: pending_if_incomplete`, so a failed payment leaves the old plan in place |
+| Downgrade | When the paid period ends | Nothing | A subscription schedule with two phases: the current price until the period ends, then the new one. It is refused while the workspace uses more pages, widgets, or seats than the smaller plan allows, so nothing breaks at renewal. "Keep {plan}" releases the schedule |
+| Cancel | When the paid period ends | Nothing, and no refund for the unused part | `cancel_at_period_end`. Resume any time before then. Canceling drops a waiting downgrade |
+| Refund | Now | Everything paid since the first payment comes back | The 14 day money-back guarantee, once per workspace: every charge since the first payment is refunded (an upgrade charge in that window too), and the subscription ends now |
+
+Proration is by the second, as Stripe does it. A worked example: Growth at $99
+to Scale at $299 with 18 of 30 days left charges $299 x 18/30 = $179.40, less
+$99 x 18/30 = $59.40, so $120.00 today, and $299 a month from the unchanged
+renewal date.
+
+`GET /v1/billing/preview?plan_id=` returns the change before it is made: kind,
+start date, the charge line by line, the next renewal price, plain sentences
+on what happens and why, and any blockers. When Stripe is set up it also
+returns Stripe's own invoice preview; the billing page shows it as the total
+and any difference (tax, rounding) as its own line, so the lines always add up.
+The plan itself changes only when Stripe's webhook confirms it, and the page
+waits for that. `invoice.paid` opens the refund window (`first_paid_at`) and
+`charge.refunded` closes it.
 
 ### Cost dashboard (internal)
 
@@ -1219,3 +1245,12 @@ through the local Ollama after `ollama signin`.
 
 All Phase 3 quality targets pass. gemma4:cloud is now the default chat model.
 
+### 2026-10-14, plan changes, cancellation, refunds
+
+Plan changes moved from Stripe's portal into Docent so each one is explained
+before it is confirmed (section 10, "Plan changes, cancellation, refunds").
+Upgrades are prorated and charged now; downgrades and cancellations wait for
+the end of the paid period; refunds follow a 14 day money-back guarantee that
+covers every payment in the window. Migration 0008 adds the period start, the
+scheduled change, `cancel_at_period_end`, `first_paid_at`, and `refunded_at`.
+The portal stays for cards and invoices.

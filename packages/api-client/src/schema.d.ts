@@ -870,6 +870,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Plan Change
+         * @description What moving to this plan costs today, when it starts, and why, line by line.
+         */
+        get: operations["preview_plan_change"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Plan
+         * @description Upgrade now with a prorated charge, or downgrade when the paid period ends.
+         */
+        post: operations["change_plan"];
+        /**
+         * Cancel Plan Change
+         * @description Keep the current plan: drop a downgrade that is waiting for the period to end.
+         */
+        delete: operations["cancel_plan_change"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Plan
+         * @description End the plan when the paid period ends. It can be resumed until then.
+         */
+        post: operations["cancel_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Plan */
+        post: operations["resume_plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Refund Status
+         * @description Whether the money-back guarantee still applies, and how much it gives back.
+         */
+        get: operations["refund_status"];
+        put?: never;
+        /**
+         * Refund
+         * @description The money-back guarantee: refund everything paid so far and end the plan now.
+         */
+        post: operations["refund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/plans": {
         parameters: {
             query?: never;
@@ -941,12 +1046,28 @@ export interface components {
             provider: "manual" | "stripe";
             /** Trial Ends At */
             trial_ends_at: string | null;
+            /** Current Period Start */
+            current_period_start: string | null;
             /** Current Period End */
             current_period_end: string | null;
             /** Cancel At */
             cancel_at: string | null;
+            /**
+             * Cancel At Period End
+             * @description Canceled; the plan stays until the period ends
+             */
+            cancel_at_period_end: boolean;
+            /** @description A downgrade waiting for the period to end */
+            scheduled_plan: components["schemas"]["Plan"] | null;
+            /** Scheduled Change At */
+            scheduled_change_at: string | null;
             /** Grace Ends At */
             grace_ends_at: string | null;
+            /**
+             * Refund Until
+             * @description End of the 14 day money-back window, while the workspace can still use it
+             */
+            refund_until: string | null;
             /**
              * Billing Enabled
              * @description Stripe keys are configured on this server
@@ -989,6 +1110,16 @@ export interface components {
              * @enum {string}
              */
             audience: "public" | "identified";
+        };
+        /** ChargeLine */
+        ChargeLine: {
+            /** Label */
+            label: string;
+            /**
+             * Amount Cents
+             * @description Positive is charged, negative is credited
+             */
+            amount_cents: number;
         };
         /** CheckoutIn */
         CheckoutIn: {
@@ -1511,10 +1642,77 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** PlanChangeIn */
+        PlanChangeIn: {
+            /**
+             * Plan Id
+             * @enum {string}
+             */
+            plan_id: "starter" | "growth" | "scale";
+        };
+        /** PlanChangePreviewOut */
+        PlanChangePreviewOut: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "upgrade" | "downgrade" | "same";
+            plan: components["schemas"]["Plan"];
+            /**
+             * Effective At
+             * Format: date-time
+             * @description When the new plan and its limits start
+             */
+            effective_at: string;
+            /**
+             * Due Now Cents
+             * @description Charged today; 0 for a downgrade
+             */
+            due_now_cents: number;
+            /**
+             * Lines
+             * @description How due_now_cents is worked out, line by line
+             */
+            lines: components["schemas"]["ChargeLine"][];
+            /**
+             * Next Renewal Cents
+             * @description The monthly price from the next renewal
+             */
+            next_renewal_cents: number;
+            /**
+             * Explanation
+             * @description Plain sentences on what happens and why
+             */
+            explanation: string[];
+            /**
+             * Blockers
+             * @description Why this change cannot be made yet; empty if it can
+             */
+            blockers: string[];
+            /**
+             * Stripe Due Now Cents
+             * @description Stripe's own preview of today's charge, when payments are set up
+             */
+            stripe_due_now_cents: number | null;
+        };
         /** RedirectOut */
         RedirectOut: {
             /** Url */
             url: string;
+        };
+        /** RefundOut */
+        RefundOut: {
+            /** Eligible */
+            eligible: boolean;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Refund Until */
+            refund_until: string | null;
+            /**
+             * Reason
+             * @description Why a refund is or is not available, in plain words
+             */
+            reason: string;
         };
         /** RememberedCustomerDetailOut */
         RememberedCustomerDetailOut: {
@@ -5210,6 +5408,386 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RedirectOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    preview_plan_change: {
+        parameters: {
+            query: {
+                plan_id: "starter" | "growth" | "scale";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanChangePreviewOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    change_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanChangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    cancel_plan_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    cancel_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    resume_plan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    refund_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    refund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundOut"];
                 };
             };
             /** @description Forbidden */

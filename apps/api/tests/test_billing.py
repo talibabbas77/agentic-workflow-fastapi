@@ -454,7 +454,7 @@ async def test_money_back_within_fourteen_days_once(
     await subscribed(owner, billing, client_factory, "growth")
     offer = (await owner.get("/v1/billing/refund")).json()
     assert (offer["eligible"], offer["amount_cents"]) == (True, 9900)
-    assert offer["reason"].startswith("Full refund of your first payment until")
+    assert offer["reason"].startswith("Full refund of everything paid so far, until")
 
     refunded = (await owner.post("/v1/billing/refund")).json()
     assert refunded["amount_cents"] == 9900

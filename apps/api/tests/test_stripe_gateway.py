@@ -6,6 +6,7 @@ Run with: docker compose --profile stripe-mock up -d, then STRIPE_MOCK_URL=http:
 
 import os
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -58,5 +59,10 @@ async def test_plan_change_requests_are_valid() -> None:
     assert schedule.startswith("sub_sched_")
     await gateway.release_schedule(schedule_id=schedule)
     await gateway.set_cancel_at_period_end(subscription_id="sub_123", cancel=True)
-    refunded = await gateway.refund_and_cancel(customer_id="cus_123", subscription_id="sub_123")
+    since = datetime.now(UTC) - timedelta(days=3)
+    owed = await gateway.refundable_cents(customer_id="cus_123", since=since)
+    refunded = await gateway.refund_and_cancel(
+        customer_id="cus_123", subscription_id="sub_123", since=since
+    )
+    assert owed >= 0
     assert refunded >= 0
