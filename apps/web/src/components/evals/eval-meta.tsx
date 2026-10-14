@@ -140,6 +140,6 @@ export function formatCost(micros: number | null | undefined) {
   if (micros === null || micros === undefined) return "None";
   const dollars = micros / 1_000_000;
   if (dollars === 0) return "$0";
-  if (dollars < 0.01) return `$${dollars.toFixed(4)}`;
+  if (dollars < 1) return `$${dollars.toFixed(4)}`;
   return `$${dollars.toFixed(2)}`;
 }

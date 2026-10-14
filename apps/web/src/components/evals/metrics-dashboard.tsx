@@ -74,6 +74,7 @@ export function MetricsDashboard({ metrics }: { metrics: ProductionMetrics }) {
                 value: formatPercent(m.wrong_answer_rate, 1),
                 note: `${formatCount(m.marked_wrong)} of ${formatCount(m.answers)} answers marked wrong`,
                 warn: (m.wrong_answer_rate ?? 0) > 0.05,
+                quiet: m.wrong_answer_rate === null,
               },
               {
                 label: "Handoff rate",
@@ -83,7 +84,8 @@ export function MetricsDashboard({ metrics }: { metrics: ProductionMetrics }) {
               {
                 label: "Answer latency",
                 value: formatMs(m.latency_p50_ms),
-                note: `p50; p95 ${formatMs(m.latency_p95_ms)}`,
+                note: m.latency_p50_ms === null ? "No answers yet" : `p50; p95 ${formatMs(m.latency_p95_ms)}`,
+                quiet: m.latency_p50_ms === null,
               },
               {
                 label: "Model cost",
@@ -94,6 +96,7 @@ export function MetricsDashboard({ metrics }: { metrics: ProductionMetrics }) {
                 label: "Wrong in review",
                 value: formatPercent(m.review_wrong_rate),
                 note: `${formatCount(m.reviewed)} graded in this period`,
+                quiet: m.review_wrong_rate === null,
               },
             ]}
           />

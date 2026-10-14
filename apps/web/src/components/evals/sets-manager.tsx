@@ -100,6 +100,13 @@ export function SetsManager({ sets, canManage }: { sets: EvalSet[]; canManage: b
                         {formatCount(set.drafts)} {plural(set.drafts, "draft")} to review
                       </span>
                     ) : null}
+                    <span className="text-ink tabular-nums sm:hidden">
+                      {last?.status === "succeeded"
+                        ? `${formatPercent(last.pass_rate)} passed, ${formatPercent(last.wrong_answer_rate)} wrong`
+                        : last
+                          ? null
+                          : "Not run yet"}
+                    </span>
                     {drafting ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span aria-hidden="true" className="spinner text-[0.625rem] text-rust" />

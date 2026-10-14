@@ -37,18 +37,21 @@ export function runStats(metrics: EvalRunMetrics): Stat[] {
     {
       label: "Escalation recall",
       value: formatPercent(metrics.escalation_recall),
-      note: "Handoffs where one was expected",
+      note: metrics.escalation_recall === null ? "No case expects a handoff" : "Handoffs where one was expected",
+      quiet: metrics.escalation_recall === null,
       warn: metrics.escalation_recall !== null && metrics.escalation_recall < 0.95,
     },
     {
       label: "Answer rate",
       value: formatPercent(metrics.answer_rate),
-      note: "Answers where one was expected",
+      note: metrics.answer_rate === null ? "No case expects an answer" : "Answers where one was expected",
+      quiet: metrics.answer_rate === null,
     },
     {
       label: "Gold document in top 8",
       value: formatPercent(metrics.retrieval_recall_at_8),
-      note: "Search found the right article",
+      note: metrics.retrieval_recall_at_8 === null ? "No case names a gold document" : "Search found the right article",
+      quiet: metrics.retrieval_recall_at_8 === null,
     },
     {
       label: "Latency",

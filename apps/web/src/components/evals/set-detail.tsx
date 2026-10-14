@@ -86,6 +86,32 @@ export function SetDetail({
 
   const finished = detail.runs.filter((r) => r.status === "succeeded" || r.status === "canceled");
 
+  const runsCard = (
+    <Card aria-labelledby="runs-heading">
+      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-1">
+          <CardTitle id="runs-heading">Runs</CardTitle>
+          <CardDescription>The latest 20. Each ran every approved case through the real agent.</CardDescription>
+        </div>
+        {finished.length >= 2 ? (
+          <ButtonLink
+            href={`/app/evals/compare?a=${finished[1]!.id}&b=${finished[0]!.id}`}
+            variant="secondary"
+            size="sm"
+            className="self-start"
+          >
+            Compare the last two
+          </ButtonLink>
+        ) : null}
+      </CardHeader>
+      {detail.runs.length === 0 ? (
+        <p className="px-6 py-8 text-center text-base text-ink-muted">Not run yet.</p>
+      ) : (
+        <RunRows runs={detail.runs} />
+      )}
+    </Card>
+  );
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-4">
@@ -198,6 +224,8 @@ export function SetDetail({
         />
       ) : null}
 
+      {detail.runs.length > 0 ? runsCard : null}
+
       <Card aria-labelledby="cases-heading">
         <CardHeader>
           <CardTitle id="cases-heading">Cases</CardTitle>
@@ -223,29 +251,8 @@ export function SetDetail({
         )}
       </Card>
 
-      <Card aria-labelledby="runs-heading">
-        <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex flex-col gap-1">
-            <CardTitle id="runs-heading">Runs</CardTitle>
-            <CardDescription>The latest 20. Each ran every approved case through the real agent.</CardDescription>
-          </div>
-          {finished.length >= 2 ? (
-            <ButtonLink
-              href={`/app/evals/compare?a=${finished[1]!.id}&b=${finished[0]!.id}`}
-              variant="secondary"
-              size="sm"
-              className="self-start"
-            >
-              Compare the last two
-            </ButtonLink>
-          ) : null}
-        </CardHeader>
-        {detail.runs.length === 0 ? (
-          <p className="px-6 py-8 text-center text-base text-ink-muted">Not run yet.</p>
-        ) : (
-          <RunRows runs={detail.runs} />
-        )}
-      </Card>
+
+      {detail.runs.length === 0 ? runsCard : null}
 
       <CaseDialog
         key={`case-${dialogKey}`}

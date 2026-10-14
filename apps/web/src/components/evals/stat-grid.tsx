@@ -1,7 +1,14 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-export type Stat = { label: string; value: ReactNode; note?: ReactNode; warn?: boolean };
+export type Stat = {
+  label: string;
+  value: ReactNode;
+  note?: ReactNode;
+  warn?: boolean;
+  /** Nothing to measure: the value reads as a quiet sentence, not a number. */
+  quiet?: boolean;
+};
 
 /** A row of numbers with a label and a short note under each. Two across on a phone. */
 export function StatGrid({ stats, className, label }: { stats: Stat[]; className?: string; label: string }) {
@@ -19,8 +26,10 @@ export function StatGrid({ stats, className, label }: { stats: Stat[]; className
           <dd className="flex flex-col gap-1">
             <span
               className={cn(
-                "text-2xl font-semibold tracking-tight tabular-nums",
-                stat.warn ? "text-rust" : "text-ink",
+                stat.quiet
+                  ? "py-1.5 text-base font-medium text-ink-muted"
+                  : "text-2xl font-semibold tracking-tight tabular-nums",
+                !stat.quiet && (stat.warn ? "text-rust" : "text-ink"),
               )}
             >
               {stat.value}

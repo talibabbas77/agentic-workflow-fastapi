@@ -138,16 +138,16 @@ export function CompareView({
               <table className="w-full text-left text-base">
                 <thead>
                   <tr className="border-b border-line text-sm text-ink-muted">
-                    <th scope="col" className="px-6 py-2.5 font-medium">
+                    <th scope="col" className="py-2.5 pr-3 pl-4 font-medium sm:pl-6">
                       Metric
                     </th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-medium">
+                    <th scope="col" className="px-3 py-2.5 text-right font-medium max-sm:hidden">
                       Before
                     </th>
                     <th scope="col" className="px-3 py-2.5 text-right font-medium">
                       After
                     </th>
-                    <th scope="col" className="px-6 py-2.5 text-right font-medium">
+                    <th scope="col" className="py-2.5 pr-4 pl-3 text-right font-medium sm:pr-6">
                       Change
                     </th>
                   </tr>
@@ -155,16 +155,16 @@ export function CompareView({
                 <tbody>
                   {comparison.metrics.map((d) => (
                     <tr key={d.key} className="border-b border-line last:border-b-0">
-                      <th scope="row" className="px-6 py-3 font-normal whitespace-nowrap text-ink">
+                      <th scope="row" className="py-3 pr-3 pl-4 font-normal text-ink sm:pl-6 sm:whitespace-nowrap">
                         {d.label}
                       </th>
-                      <td className="px-3 py-3 text-right whitespace-nowrap text-ink-muted tabular-nums">
+                      <td className="px-3 py-3 text-right whitespace-nowrap text-ink-muted tabular-nums max-sm:hidden">
                         {value(d.key, d.a)}
                       </td>
                       <td className="px-3 py-3 text-right whitespace-nowrap text-ink tabular-nums">
                         {value(d.key, d.b)}
                       </td>
-                      <td className="px-6 py-3 text-right whitespace-nowrap tabular-nums">
+                      <td className="py-3 pr-4 pl-3 text-right whitespace-nowrap tabular-nums sm:pr-6">
                         <span className={cn(d.better === false ? "font-medium text-rust" : "text-ink")}>
                           {delta(d)}
                         </span>
@@ -272,7 +272,9 @@ function ChangeRow({ change }: { change: EvalCaseChange }) {
                 <h4 className="text-sm font-semibold text-ink">{side === "a" ? "Before" : "After"}</h4>
                 {result ? (
                   <>
-                    <ResultSummary result={result} />
+                    <div>
+                      <ResultSummary result={result} />
+                    </div>
                     <ResultBody result={result} />
                   </>
                 ) : (

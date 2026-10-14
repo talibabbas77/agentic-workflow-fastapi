@@ -92,7 +92,7 @@ export function ReviewItemView({ initial, canManageEvals }: { initial: ReviewDet
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <Card aria-labelledby="conversation-heading" className="order-2 overflow-hidden lg:order-1">
+        <Card aria-labelledby="conversation-heading" className="overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5 sm:px-6">
             <CardTitle id="conversation-heading" as="h3" className="text-base font-semibold">
               Conversation
@@ -103,7 +103,7 @@ export function ReviewItemView({ initial, canManageEvals }: { initial: ReviewDet
           </div>
         </Card>
 
-        <Card aria-labelledby="grade-heading" className="order-1 self-start lg:sticky lg:top-20 lg:order-2">
+        <Card aria-labelledby="grade-heading" className="self-start lg:sticky lg:top-20">
           <CardHeader>
             <CardTitle id="grade-heading" as="h3">
               Your grade

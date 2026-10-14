@@ -101,8 +101,12 @@ export function RunsList({ initial }: { initial: EvalRun[] }) {
                 {formatPercent(run.metrics?.wrong_answer_rate, 1)}
                 <span className="md:hidden"> wrong</span>
               </td>
-              <td className={`${cell} text-right tabular-nums max-md:text-sm`}>
-                <span className="md:hidden">Recall </span>
+              <td
+                className={`${cell} text-right tabular-nums max-md:text-sm ${
+                  run.metrics?.escalation_recall == null ? "max-md:hidden" : ""
+                }`}
+              >
+                <span className="md:hidden">Escalation recall </span>
                 {formatPercent(run.metrics?.escalation_recall)}
               </td>
               <td className={`${cell} text-right tabular-nums max-md:text-sm max-md:text-ink-muted`}>

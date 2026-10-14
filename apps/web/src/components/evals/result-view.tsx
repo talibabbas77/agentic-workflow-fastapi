@@ -107,9 +107,11 @@ export function ResultBody({ result }: { result: EvalResult }) {
                 ) : (
                   <XIcon aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-rust" weight="bold" />
                 )}
-                <span className="sr-only">{check.passed ? "Passed: " : "Failed: "}</span>
-                <span className="font-medium text-ink">{checkLabel[check.name]}</span>
-                <span className="text-ink-muted">{check.detail}</span>
+                <span className="min-w-0">
+                  <span className="sr-only">{check.passed ? "Passed: " : "Failed: "}</span>
+                  <span className="font-medium text-ink">{checkLabel[check.name]}</span>{" "}
+                  <span className="text-ink-muted">{check.detail}</span>
+                </span>
               </li>
             ))}
           </ul>

@@ -32,7 +32,7 @@ export function CalibrationView({ initial, canManage }: { initial: EvalCalibrati
   }, []);
 
   async function label(result: EvalResult, value: EvalLabel | null) {
-    setBusy(result.id);
+    setBusy(`${result.id}:${value ?? "clear"}`);
     const saved = await request(
       api.PUT("/v1/evals/results/{result_id}/label", {
         params: { path: { result_id: result.id } },
@@ -178,7 +178,7 @@ export function CalibrationView({ initial, canManage }: { initial: EvalCalibrati
                       variant="secondary"
                       size="sm"
                       disabled={busy !== null}
-                      loading={busy === result.id}
+                      loading={busy === `${result.id}:right`}
                       onClick={() => void label(result, "right")}
                       icon={<CheckIcon aria-hidden="true" className="size-4" weight="bold" />}
                     >
@@ -188,6 +188,7 @@ export function CalibrationView({ initial, canManage }: { initial: EvalCalibrati
                       variant="secondary"
                       size="sm"
                       disabled={busy !== null}
+                      loading={busy === `${result.id}:wrong`}
                       onClick={() => void label(result, "wrong")}
                       icon={<XIcon aria-hidden="true" className="size-4" weight="bold" />}
                     >

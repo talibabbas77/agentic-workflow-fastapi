@@ -1,14 +1,14 @@
 "use client";
 
-import type { ReviewQueue as Queue } from "@docent/api-client";
+import type { ReviewQueue as Queue, ReviewGrade } from "@docent/api-client";
 import { CaretRightIcon, CheckIcon, XIcon } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EvalsIllustration } from "@/components/illustrations/illustrations";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/cn";
 import { formatCount } from "@/lib/format";
 
 const weekFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -16,6 +16,33 @@ const weekFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "nume
 export function weekLabel(weekStart: string, current: boolean) {
   const label = `Week of ${weekFormat.format(new Date(weekStart))}`;
   return current ? `${label} (this week)` : label;
+}
+
+/** The grade as a word with an icon, never color alone. */
+export function GradeBadge({ grade }: { grade: ReviewGrade | null }) {
+  const base = "inline-flex h-5 items-center gap-1 rounded-sm border px-1.5 text-xs font-medium whitespace-nowrap";
+  if (grade === "right") {
+    return (
+      <span className={cn(base, "border-line-strong text-ink")}>
+        <CheckIcon aria-hidden="true" className="size-3" weight="bold" />
+        Right
+      </span>
+    );
+  }
+  if (grade === "wrong") {
+    return (
+      <span className={cn(base, "border-transparent bg-rust text-on-rust")}>
+        <XIcon aria-hidden="true" className="size-3" weight="bold" />
+        Wrong
+      </span>
+    );
+  }
+  return <span className={cn(base, "border-transparent bg-rust-soft text-ink")}>To grade</span>;
+}
+
+/** Agent answers can hold **bold** markers; a one-line excerpt shows plain text. */
+function plain(text: string) {
+  return text.replace(/\*\*/g, "");
 }
 
 /** A week's sample of answered conversations, each to grade right or wrong. */
@@ -33,7 +60,7 @@ export function ReviewQueue({ queue }: { queue: Queue }) {
             read. A wrong grade marks the answer as wrong, so it counts in your wrong-answer rate.
           </p>
         </div>
-        <div className="w-full shrink-0 sm:w-64">
+        <div className="w-full shrink-0 sm:w-80">
           <Select
             aria-label="Week"
             value={queue.week_start}
@@ -80,22 +107,10 @@ export function ReviewQueue({ queue }: { queue: Queue }) {
                       {item.question ?? "No question"}
                     </p>
                     <p dir="auto" className="line-clamp-2 text-sm break-words text-ink-muted">
-                      {item.answer}
+                      {plain(item.answer)}
                     </p>
                     <p className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
-                      {item.grade === "right" ? (
-                        <Badge tone="outline" className="gap-1 text-ink">
-                          <CheckIcon aria-hidden="true" className="size-3" weight="bold" />
-                          Right
-                        </Badge>
-                      ) : item.grade === "wrong" ? (
-                        <Badge className="gap-1 bg-rust text-on-rust">
-                          <XIcon aria-hidden="true" className="size-3" weight="bold" />
-                          Wrong
-                        </Badge>
-                      ) : (
-                        <Badge tone="accent">To grade</Badge>
-                      )}
+                      <GradeBadge grade={item.grade} />
                       <span>{item.mode === "identified" ? "Signed-in customer" : "Anonymous visitor"}</span>
                       {item.escalated ? <span>Later handed off</span> : null}
                       {item.graded_by ? <span>Graded by {item.graded_by}</span> : null}
