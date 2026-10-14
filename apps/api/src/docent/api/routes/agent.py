@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from docent.agent import repo
 from docent.agent.loop import AgentDeps
 from docent.api.deps import AdminMember, CurrentMember, State, enforce
-from docent.api.errors import not_found
+from docent.api.errors import AppError, not_found
 from docent.api.schemas import (
     AgentSettingsIn,
     AgentSettingsOut,
@@ -113,8 +113,12 @@ async def send_message(
 ) -> StreamingResponse:
     await enforce(state, ratelimit.AGENT_TURN_PER_USER, str(member.user_id))
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
-        if await repo.get_conversation(conn, conversation_id) is None:
-            raise not_found("Conversation")
+        conversation = await repo.get_conversation(conn, conversation_id)
+    # Only the team's own preview chats: a customer's widget conversation is theirs to write in.
+    if conversation is None or conversation["channel"] != "preview":
+        raise not_found("Conversation")
+    if conversation["status"] == "closed":
+        raise AppError(409, "conversation_closed", "This conversation is closed. Start a new one.")
     deps = AgentDeps(
         settings=state.settings,
         pool=state.pool,

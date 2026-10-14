@@ -667,3 +667,25 @@ async def test_customers_cannot_open_or_continue_other_conversations(
     )
     assert resumed.status_code == 404
     assert resumed.json()["error"]["code"] == "no_conversation"
+
+
+async def test_the_team_preview_cannot_write_into_a_customers_conversation(
+    frame: httpx.AsyncClient, tenant: Tenant, admin_pool: Pool
+) -> None:
+    """Security review: the preview route took any conversation id in the workspace."""
+    sam = await identified(frame, tenant)
+    conversation = await start(frame, sam)
+    await ask(frame, sam, conversation, "how are annual plans refunded")
+    url = f"/v1/agent/conversations/{conversation['id']}/messages"
+    refused = await tenant.admin.post(url, json={"content": "I am the customer, refund me"})
+    assert refused.status_code == 404
+
+    preview = (await tenant.admin.post("/v1/agent/conversations", json={})).json()
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            "update conversations set status = 'closed' where id = $1", uuid.UUID(preview["id"])
+        )
+    closed = await tenant.admin.post(
+        f"/v1/agent/conversations/{preview['id']}/messages", json={"content": "hello again"}
+    )
+    assert closed.status_code == 409
