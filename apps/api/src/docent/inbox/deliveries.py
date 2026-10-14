@@ -56,7 +56,7 @@ async def queue_email(
         kind,
         email_hash(secret, to),
         mask_email(to),
-        subject[:200],
+        " ".join(subject.split())[:200],
     )
     if notification_id:
         await conn.execute(

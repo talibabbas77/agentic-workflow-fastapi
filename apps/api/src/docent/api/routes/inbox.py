@@ -13,7 +13,14 @@ import asyncpg
 from fastapi import APIRouter, Query, status
 
 from docent.agent import repo as agent_repo
-from docent.api.deps import AdminMember, CurrentMember, Member, State, enforce
+from docent.api.deps import (
+    AdminMember,
+    CurrentMember,
+    Member,
+    State,
+    enforce,
+    require_verified_email,
+)
 from docent.api.errors import AppError, forbidden, not_found
 from docent.api.schemas import (
     AssigneeOut,
@@ -453,6 +460,7 @@ async def reply(
     escalation_id: uuid.UUID, body: ReplyIn, member: CurrentMember, state: State
 ) -> ReplyOut:
     """Email the customer. The reply is kept in the conversation as a team message."""
+    require_verified_email(member, "replying to customers by email")
     await enforce(state, ratelimit.INBOX_REPLY_PER_USER, str(member.user_id))
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         cur = await _lock(conn, escalation_id)

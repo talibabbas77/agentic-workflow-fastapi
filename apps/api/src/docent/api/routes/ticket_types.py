@@ -8,7 +8,7 @@ import asyncpg
 from fastapi import APIRouter, status
 
 from docent.agent import repo
-from docent.api.deps import AdminMember, CurrentMember, Member, State
+from docent.api.deps import AdminMember, CurrentMember, Member, State, require_verified_email
 from docent.api.errors import AppError, not_found
 from docent.api.schemas import ErrorOut, TicketTypeIn, TicketTypeOut
 from docent.db.pool import Connection, transaction
@@ -34,6 +34,8 @@ async def list_ticket_types(member: CurrentMember, state: State) -> list[TicketT
 async def create_ticket_type(
     body: TicketTypeIn, member: AdminMember, state: State
 ) -> TicketTypeOut:
+    if body.notify_emails:
+        require_verified_email(member, "Docent emails people about handoffs")
     ticket_type_id = new_id()
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         async with _unique_name():
@@ -60,6 +62,8 @@ async def create_ticket_type(
 async def replace_ticket_type(
     ticket_type_id: uuid.UUID, body: TicketTypeIn, member: AdminMember, state: State
 ) -> TicketTypeOut:
+    if body.notify_emails:
+        require_verified_email(member, "Docent emails people about handoffs")
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         await _get(conn, ticket_type_id)
         async with _unique_name():

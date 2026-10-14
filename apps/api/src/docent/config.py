@@ -127,6 +127,8 @@ class Settings(BaseSettings):
     eval_judge_model: str | None = None  # defaults to llm_model; a different model in production
     eval_max_cases: int = 300  # cases per set, drafts included
     eval_runs_per_day: int = 20  # per workspace
+    # Handoff notification emails one workspace may send in a day; the rest are skipped.
+    notification_emails_per_day: int = 300
     eval_drafts_per_request: int = 50
 
     # Widget. Served from the API origin, never from the admin app's origin.

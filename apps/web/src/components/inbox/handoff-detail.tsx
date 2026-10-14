@@ -28,12 +28,15 @@ export function HandoffDetail({
   ticketTypes,
   assignees,
   canManageEvals = false,
+  emailVerified,
 }: {
   initial: InboxDetail;
   ticketTypes: TicketType[];
   assignees: Assignee[];
   /** Owners and admins can turn the conversation into an eval case. */
   canManageEvals?: boolean;
+  /** Replies by email need a member who confirmed their own address. */
+  emailVerified: boolean;
 }) {
   const toast = useToast();
   const now = useNow();
@@ -136,6 +139,7 @@ export function HandoffDetail({
             </div>
             <ReplyComposer
               detail={detail}
+              emailVerified={emailVerified}
               onSent={(message, next) => {
                 setDetail((d) => ({ ...d, item: next, messages: [...d.messages, message] }));
                 toast({ tone: "success", title: "Reply sent", description: `To ${next.contact_email}` });

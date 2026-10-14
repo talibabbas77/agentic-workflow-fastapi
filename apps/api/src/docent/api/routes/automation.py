@@ -15,7 +15,14 @@ from urllib.parse import urlsplit
 import asyncpg
 from fastapi import APIRouter, status
 
-from docent.api.deps import AdminMember, CurrentMember, Member, State, enforce
+from docent.api.deps import (
+    AdminMember,
+    CurrentMember,
+    Member,
+    State,
+    enforce,
+    require_verified_email,
+)
 from docent.api.errors import AppError, not_found
 from docent.api.schemas import (
     ClaimCondition,
@@ -151,6 +158,8 @@ async def list_rules(member: CurrentMember, state: State) -> list[RoutingRuleOut
 
 @router.post("/rules", status_code=status.HTTP_201_CREATED)
 async def create_rule(body: RoutingRuleIn, member: AdminMember, state: State) -> RoutingRuleOut:
+    if body.notify_emails:
+        require_verified_email(member, "Docent emails people about handoffs")
     rule_id = new_id()
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         await _check_rule(conn, member.tenant_id, body)
@@ -202,6 +211,8 @@ async def reorder_rules(
 async def replace_rule(
     rule_id: uuid.UUID, body: RoutingRuleIn, member: AdminMember, state: State
 ) -> RoutingRuleOut:
+    if body.notify_emails:
+        require_verified_email(member, "Docent emails people about handoffs")
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         await _check_rule(conn, member.tenant_id, body)
         row = await conn.fetchrow(

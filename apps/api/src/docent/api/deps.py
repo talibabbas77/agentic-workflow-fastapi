@@ -118,6 +118,12 @@ class Member:
         return self.user.user_id
 
 
+def require_verified_email(member: Member, action: str) -> None:
+    """Docent sends email on a workspace's behalf only once its member proved an address."""
+    if not member.user.email_verified:
+        raise AppError(403, "email_not_verified", f"Verify your email address before {action}.")
+
+
 async def get_member(user: CurrentUser, state: State) -> Member:
     tenant_id = user.active_tenant_id
     if tenant_id is None:

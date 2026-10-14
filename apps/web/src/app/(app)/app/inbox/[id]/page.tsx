@@ -30,6 +30,7 @@ async function Handoff({ params }: Pick<PageProps<"/app/inbox/[id]">, "params">)
       ticketTypes={ticketTypes}
       assignees={assignees}
       canManageEvals={role === "owner" || role === "admin"}
+      emailVerified={me.user.email_verified}
     />
   );
 }

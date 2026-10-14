@@ -10,6 +10,7 @@ event. Handoffs from the preview chat are routed the same way, so a team can
 try its rules, but never fall back to owners and admins.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -18,6 +19,8 @@ from docent.config import Settings
 from docent.db.pool import Connection
 from docent.inbox import deliveries, events, notify
 from docent.services import audit
+
+log = logging.getLogger(__name__)
 
 CLAIM_OPS = ("equals", "not_equals", "contains", "exists")
 
@@ -216,7 +219,19 @@ async def route(
             if m["role"] in ("owner", "admin"):
                 recipients[str(m["email"]).lower()] = (str(m["email"]), uid, False)
 
+    # A cap per workspace per day, so a workspace cannot turn Docent into a mailer.
+    sent_today: int = await conn.fetchval(
+        """
+        select count(*) from email_deliveries
+        where kind = 'notification' and created_at > now() - interval '1 day'
+        """
+    )
+    room = settings.notification_emails_per_day - sent_today
     for address, user_id, assigned in recipients.values():
+        if room <= 0:
+            log.warning("notification email cap reached", extra={"tenant_id": str(tenant_id)})
+            break
+        room -= 1
         notification_id = await notify.notify_once(
             conn,
             tenant_id=tenant_id,
@@ -247,6 +262,8 @@ async def route(
                 "url": url,
                 "assigned_to_you": assigned,
                 "rule": rule.name if rule else None,
+                # Someone outside the workspace sees "Docent", not a name the workspace chose.
+                "member": user_id is not None,
             },
             kind="notification",
             escalation_id=escalation_id,

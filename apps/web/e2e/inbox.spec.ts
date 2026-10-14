@@ -110,6 +110,7 @@ test("on the board, a handoff moves to another column with the keyboard", async 
 
 test("a handoff gets a reply by email, a note, and an answer marked as wrong", async ({ page }) => {
   const owner = await signUp(page, "Katherine Johnson", "Replies");
+  await verify(page, owner); // Docent emails customers only for members with a verified address
   const contact = uniqueEmail("customer");
   await handoff(page.request, "hello, my missing invoice", contact);
 

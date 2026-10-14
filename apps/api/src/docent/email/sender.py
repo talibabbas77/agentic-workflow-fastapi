@@ -45,7 +45,7 @@ class SmtpEmailSender:
         msg = EmailMessage()
         msg["From"] = sender_address(self._s.email_from, email.from_name)
         msg["To"] = email.to
-        msg["Subject"] = email.subject
+        msg["Subject"] = " ".join(email.subject.split())  # a line break would fail the send
         msg_id = make_msgid(domain="docent")
         msg["Message-ID"] = msg_id
         if email.reply_to:

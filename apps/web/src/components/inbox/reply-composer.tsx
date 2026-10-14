@@ -15,15 +15,30 @@ type Then = "waiting" | "resolved" | "keep";
 /** Reply by email. The customer gets it from the workspace's name; their answer goes to Reply-To. */
 export function ReplyComposer({
   detail,
+  emailVerified,
   onSent,
 }: {
   detail: InboxDetail;
+  /** Docent emails customers only for members who confirmed their own address. */
+  emailVerified: boolean;
   onSent: (message: InboxMessage, item: InboxItem) => void;
 }) {
   const form = useApiForm();
   const [body, setBody] = useState("");
   const [then, setThen] = useState<Then>("waiting");
   const contact = detail.item.contact_email;
+
+  if (contact && !emailVerified) {
+    return (
+      <div className="flex items-start gap-3 border-t border-line px-5 py-4 text-base text-ink-muted sm:px-6">
+        <EnvelopeSimpleIcon aria-hidden="true" className="mt-0.5 size-4.5 shrink-0" />
+        <p>
+          Verify your email address to reply to customers. Docent sends email for a workspace only from members who
+          confirmed their own address; use the link in the email you got when you signed up.
+        </p>
+      </div>
+    );
+  }
 
   if (!contact) {
     return (

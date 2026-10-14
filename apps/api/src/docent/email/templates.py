@@ -221,6 +221,7 @@ def new_handoff(
     url: str,
     assigned_to_you: bool = False,
     rule: str | None = None,
+    member: bool = True,
 ) -> OutgoingEmail:
     pairs = [
         ("Why", REASONS.get(reason, reason)),
@@ -252,7 +253,7 @@ def new_handoff(
         subject=subject[:200],
         text=f"{lead}\n\n{issue}\n\n{text_rows}\n\nOpen in inbox: {url}\n",
         html=_team_html(heading, _para(lead) + _rows(pairs), "Open in inbox", url, footer),
-        from_name=f"{workspace} via Docent",
+        from_name=f"{workspace} via Docent" if member else "Docent",
     )
 
 
