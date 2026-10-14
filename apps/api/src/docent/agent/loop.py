@@ -38,6 +38,7 @@ from docent.jobs.wake import WorkerWaker
 from docent.knowledge.embeddings import Embedder, EmbeddingError
 from docent.knowledge.search import Hit, search
 from docent.llm.client import ChatModel, LLMError, Structured
+from docent.memory import customers, gaps
 
 SUMMARIZE_ESCALATION = "summarize_escalation"
 
@@ -125,8 +126,11 @@ async def run_turn(
             reserved = await usage.reserve_reply(conn, tenant_id, cap)
         claims: dict[str, str] = dict(conversation["claims"] or {})
         contact = claims.get("email") or await repo.handoff_contact(conn, conversation_id)
+        end_user_id = conversation["end_user_id"]
+        memory = await customers.recall(conn, end_user_id) if end_user_id else []
 
     low_turns = int(conversation["low_confidence_turns"])
+    query_vector: list[float] | None = None
     try:
         if captured:
             outcome = _Outcome("reply", f"Thanks. The team will reply to {captured}.")
@@ -140,18 +144,24 @@ async def run_turn(
             outcome = _escalate("restricted_topic", low_turns)
         else:
             yield Progress("searching")
-            hits = await _retrieve(deps, tenant_id, conversation["mode"], text, history)
+            hits, query_vector = await _retrieve(
+                deps, tenant_id, conversation["mode"], text, history
+            )
             if not _supported(hits, s.retrieval_min_similarity):
                 hits = []
             if hits:
                 yield Progress("writing")
-                outcome = await _generate(deps, profile, claims, hits, history, text, low_turns)
+                outcome = await _generate(
+                    deps, profile, claims, hits, history, text, low_turns, memory
+                )
                 yield Progress("checking")
             else:
                 sorted_as = await _triage(deps, profile, history, text)
                 if sorted_as and sorted_as.value.intent == "account_question" and claims:
                     yield Progress("writing")
-                    outcome = await _generate(deps, profile, claims, [], history, text, low_turns)
+                    outcome = await _generate(
+                        deps, profile, claims, [], history, text, low_turns, memory
+                    )
                     yield Progress("checking")
                 else:
                     outcome = _route(sorted_as, profile, low_turns)
@@ -170,6 +180,16 @@ async def run_turn(
         reply, escalation_id, emailed = await _persist(
             conn, tenant_id, conversation_id, outcome, reserved, contact, s.web_origin
         )
+        if outcome.reason == "no_source":  # a product question the agent could not answer
+            await gaps.record(
+                conn,
+                tenant_id=tenant_id,
+                question=text,
+                vector=query_vector,
+                conversation_id=conversation_id,
+            )
+        if end_user_id:
+            await customers.schedule(conn, tenant_id, conversation_id)
     if (escalation_id or emailed) and deps.waker:
         await deps.waker.wake()
     yield Reply(message=reply, escalation_id=escalation_id)
@@ -197,20 +217,22 @@ def retrieval_query(text: str, history: list[tuple[str, str]]) -> str:
 
 async def _retrieve(
     deps: AgentDeps, tenant_id: uuid.UUID, mode: str, text: str, history: list[tuple[str, str]]
-) -> list[Hit]:
+) -> tuple[list[Hit], list[float] | None]:
+    """The passages for this question, and its query vector (kept for knowledge gaps)."""
     query = retrieval_query(text, history)
     try:
         vector: list[float] | None = await deps.embedder.embed_query(query)
     except EmbeddingError:
         vector = None
     async with transaction(deps.pool, tenant_id=tenant_id) as conn:
-        return await search(
+        hits = await search(
             conn,
             query=query,
             query_vector=vector,
             audience="identified" if mode == "identified" else "public",
             limit=deps.settings.agent_sources,
         )
+    return hits, vector
 
 
 def _supported(hits: list[Hit], threshold: float) -> bool:
@@ -229,11 +251,12 @@ async def _generate(
     history: list[tuple[str, str]],
     text: str,
     low_turns: int,
+    memory: list[str],
 ) -> _Outcome:
     sources = [
         Source(i, h.document_title, h.heading_path, h.content) for i, h in enumerate(hits, 1)
     ]
-    messages = prompts.answer_messages(profile, claims or None, sources, history, text)
+    messages = prompts.answer_messages(profile, claims or None, sources, history, text, memory)
     try:
         generation = await deps.llm.structured(
             messages,

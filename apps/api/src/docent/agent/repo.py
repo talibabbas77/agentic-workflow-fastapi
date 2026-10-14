@@ -9,7 +9,8 @@ from docent.db.pool import Connection
 from docent.ids import new_id
 
 CONVERSATION_COLUMNS = """
-    id, channel, mode, claims, status, low_confidence_turns, started_at, last_message_at
+    id, channel, mode, claims, status, low_confidence_turns, started_at, last_message_at,
+    end_user_id
 """
 
 

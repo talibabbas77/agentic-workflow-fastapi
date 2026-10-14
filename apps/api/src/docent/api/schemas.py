@@ -545,3 +545,89 @@ class CheckoutIn(Model):
 
 class RedirectOut(BaseModel):
     url: str
+
+
+# Memory
+
+
+class TeamAnswerIn(Model):
+    question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=300)]
+    answer: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+    audience: Audience = "public"
+    gap_ids: list[uuid.UUID] = Field(
+        default_factory=list, max_length=500, description="Knowledge gaps this answer closes"
+    )
+
+
+class TeamAnswerOut(BaseModel):
+    id: uuid.UUID
+    question: str
+    answer: str
+    audience: Audience
+    status: str = Field(description="Indexing status of the answer, like a knowledge source")
+    citations_30d: int
+    created_by_name: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class GapGroupOut(BaseModel):
+    ids: list[uuid.UUID]
+    question: str = Field(description="The newest wording of this question")
+    count: int
+    examples: list[str] = Field(description="Up to three other wordings")
+    last_asked_at: datetime
+
+
+class GapDismissIn(Model):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=500)
+
+
+class RememberedCustomerOut(BaseModel):
+    id: uuid.UUID
+    name: str | None
+    email: str | None
+    facts: int
+    conversations: int
+    last_seen_at: datetime | None
+
+
+class CustomerFactOut(BaseModel):
+    id: uuid.UUID
+    fact: str
+    kind: Literal["preference", "context", "issue"]
+    created_at: datetime
+    expires_at: datetime
+
+
+class RememberedCustomerDetailOut(BaseModel):
+    customer: RememberedCustomerOut
+    facts: list[CustomerFactOut]
+
+
+class MemorySourceOut(BaseModel):
+    id: uuid.UUID
+    title: str
+    kind: str
+    status: str
+    documents: int
+    chunks: int
+    citations_30d: int
+
+
+class CitedSectionOut(BaseModel):
+    document_title: str
+    heading_path: str
+    citations: int
+
+
+class MemoryOverviewOut(BaseModel):
+    knowledge_version: int
+    sources: list[MemorySourceOut] = Field(description="Help sources, most cited first")
+    top_sections: list[CitedSectionOut] = Field(description="Most cited sections, 30 days")
+    team_answers: int
+    open_gaps: int = Field(description="Unanswered product questions not yet answered or dismissed")
+    customers_remembered: int
+    customer_facts: int
+    answers_30d: int
+    handoffs_30d: int

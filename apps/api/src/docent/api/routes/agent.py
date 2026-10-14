@@ -27,6 +27,7 @@ from docent.api.schemas import (
 )
 from docent.api.streaming import stream_turn
 from docent.db.pool import Connection, transaction
+from docent.knowledge import repo as knowledge_repo
 from docent.security import ratelimit
 from docent.services import audit
 
@@ -63,6 +64,7 @@ async def update_settings(
             member.tenant_id,
             changes,
         )
+        await knowledge_repo.bump_knowledge_version(conn)  # cached answers used the old voice
         await audit.record(
             conn,
             tenant_id=member.tenant_id,

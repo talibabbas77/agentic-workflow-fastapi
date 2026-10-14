@@ -24,6 +24,7 @@ from docent.jobs.handlers import make_handlers
 from docent.jobs.worker import Worker
 from docent.knowledge.fetch import guarded_client
 from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
+from docent.memory.customers import make_memory_handlers
 from docent.security.ratelimit import RateLimiter
 from tests.fakes import FakeChat, FakeEmbedder
 
@@ -35,6 +36,7 @@ PG_SUPERUSER = os.environ.get("TEST_PG_SUPERUSER", "postgres:postgres")
 TENANT_TABLES = [
     "memberships",
     "subscriptions",
+    "knowledge_versions",
     "invitations",
     "audit_log",
     "knowledge_sources",
@@ -53,6 +55,10 @@ TENANT_TABLES = [
     "widget_sessions",
 ]
 ALL_TABLES = [
+    "customer_memories",
+    "knowledge_gaps",
+    "team_answers",
+    "knowledge_versions",
     "billing_events",
     "subscriptions",
     "widget_sessions",
@@ -200,6 +206,7 @@ async def worker(
             make_handlers(mailbox)
             | make_knowledge_handlers(knowledge)
             | make_escalation_handlers(chat)
+            | make_memory_handlers(chat)
         )
         yield Worker(worker_pool, handlers, idle_poll_seconds=60, lease_seconds=30, worker_id="t1")
 

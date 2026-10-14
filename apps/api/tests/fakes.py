@@ -67,6 +67,8 @@ class FakeChat:
 
 
 def _default(messages: list[dict[str, str]], name: str) -> dict[str, object]:
+    if name == "customer_memory":
+        return {"facts": []}
     if name == "triage":
         return {"intent": "product_question", "language": "en", "clarifying_question": None}
     if name == "agent_decision":

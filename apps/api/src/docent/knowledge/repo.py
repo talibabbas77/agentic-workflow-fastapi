@@ -56,9 +56,25 @@ async def get_source(conn: Connection, source_id: uuid.UUID) -> asyncpg.Record |
 
 
 async def list_sources(conn: Connection) -> list[asyncpg.Record]:
+    """Help articles and pages. Team answers live under memory, not here."""
     return await conn.fetch(
-        f"select {SOURCE_COLUMNS} from knowledge_sources order by created_at desc"  # noqa: S608
+        f"select {SOURCE_COLUMNS} from knowledge_sources"  # noqa: S608
+        " where kind <> 'answer' order by created_at desc"
     )
+
+
+async def bump_knowledge_version(conn: Connection) -> None:
+    """What the agent can find changed, so answers cached under the old version expire."""
+    await conn.execute(
+        """
+        insert into knowledge_versions (tenant_id, version) values (app_current_tenant(), 1)
+        on conflict (tenant_id) do update set version = knowledge_versions.version + 1
+        """
+    )
+
+
+async def knowledge_version(conn: Connection) -> int:
+    return int(await conn.fetchval("select coalesce(max(version), 0) from knowledge_versions"))
 
 
 async def update_source(
@@ -74,6 +90,7 @@ async def update_source(
         title,
         audience,
     )
+    await bump_knowledge_version(conn)
     if audience is not None:
         await conn.execute(
             "update chunks set audience = $2 where source_id = $1 and audience <> $2",
@@ -338,6 +355,8 @@ async def refresh_source(conn: Connection, source_id: uuid.UUID) -> str:
         total,
         row["chunks"],
     )
+    if status == "ready":
+        await bump_knowledge_version(conn)
     return status
 
 

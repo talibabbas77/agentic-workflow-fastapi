@@ -1816,6 +1816,646 @@
         }
       }
     },
+    "/v1/memory": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Overview",
+        "operationId": "overview",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemoryOverviewOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memory/answers": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "List Answers",
+        "operationId": "list_answers",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TeamAnswerOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Answers"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Create Answer",
+        "operationId": "create_answer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamAnswerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamAnswerOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memory/answers/{answer_id}": {
+      "put": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Update Answer",
+        "operationId": "update_answer",
+        "parameters": [
+          {
+            "name": "answer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Answer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamAnswerIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamAnswerOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Delete Answer",
+        "operationId": "delete_answer",
+        "parameters": [
+          {
+            "name": "answer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Answer Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/memory/gaps": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "List Gaps",
+        "operationId": "list_gaps",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GapGroupOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Gaps"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memory/gaps/dismiss": {
+      "post": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Dismiss Gaps",
+        "operationId": "dismiss_gaps",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GapDismissIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memory/customers": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "List Customers",
+        "operationId": "list_customers",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RememberedCustomerOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Customers"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/memory/customers/{end_user_id}": {
+      "get": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Get Customer",
+        "operationId": "get_customer",
+        "parameters": [
+          {
+            "name": "end_user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "End User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RememberedCustomerDetailOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Forget Customer",
+        "description": "Make the agent forget everything it remembered about this customer.",
+        "operationId": "forget_customer",
+        "parameters": [
+          {
+            "name": "end_user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "End User Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
+    "/v1/memory/customers/{end_user_id}/facts/{fact_id}": {
+      "delete": {
+        "tags": [
+          "memory"
+        ],
+        "summary": "Forget Fact",
+        "operationId": "forget_fact",
+        "parameters": [
+          {
+            "name": "end_user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "End User Id"
+            }
+          },
+          {
+            "name": "fact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Fact Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        }
+      }
+    },
     "/v1/ticket-types": {
       "get": {
         "tags": [
@@ -3510,6 +4150,29 @@
         ],
         "title": "CitationOut"
       },
+      "CitedSectionOut": {
+        "properties": {
+          "document_title": {
+            "type": "string",
+            "title": "Document Title"
+          },
+          "heading_path": {
+            "type": "string",
+            "title": "Heading Path"
+          },
+          "citations": {
+            "type": "integer",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_title",
+          "heading_path",
+          "citations"
+        ],
+        "title": "CitedSectionOut"
+      },
       "ContactIn": {
         "properties": {
           "email": {
@@ -3620,6 +4283,47 @@
           "escalation"
         ],
         "title": "ConversationOut"
+      },
+      "CustomerFactOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "fact": {
+            "type": "string",
+            "title": "Fact"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "preference",
+              "context",
+              "issue"
+            ],
+            "title": "Kind"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "fact",
+          "kind",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "CustomerFactOut"
       },
       "DecisionOut": {
         "properties": {
@@ -3962,6 +4666,69 @@
         ],
         "title": "ForgotPasswordIn"
       },
+      "GapDismissIn": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "title": "GapDismissIn"
+      },
+      "GapGroupOut": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Ids"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question",
+            "description": "The newest wording of this question"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "examples": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Examples",
+            "description": "Up to three other wordings"
+          },
+          "last_asked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Asked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids",
+          "question",
+          "count",
+          "examples",
+          "last_asked_at"
+        ],
+        "title": "GapGroupOut"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4265,6 +5032,112 @@
         ],
         "title": "MembersOut"
       },
+      "MemoryOverviewOut": {
+        "properties": {
+          "knowledge_version": {
+            "type": "integer",
+            "title": "Knowledge Version"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/MemorySourceOut"
+            },
+            "type": "array",
+            "title": "Sources",
+            "description": "Help sources, most cited first"
+          },
+          "top_sections": {
+            "items": {
+              "$ref": "#/components/schemas/CitedSectionOut"
+            },
+            "type": "array",
+            "title": "Top Sections",
+            "description": "Most cited sections, 30 days"
+          },
+          "team_answers": {
+            "type": "integer",
+            "title": "Team Answers"
+          },
+          "open_gaps": {
+            "type": "integer",
+            "title": "Open Gaps",
+            "description": "Unanswered product questions not yet answered or dismissed"
+          },
+          "customers_remembered": {
+            "type": "integer",
+            "title": "Customers Remembered"
+          },
+          "customer_facts": {
+            "type": "integer",
+            "title": "Customer Facts"
+          },
+          "answers_30d": {
+            "type": "integer",
+            "title": "Answers 30D"
+          },
+          "handoffs_30d": {
+            "type": "integer",
+            "title": "Handoffs 30D"
+          }
+        },
+        "type": "object",
+        "required": [
+          "knowledge_version",
+          "sources",
+          "top_sections",
+          "team_answers",
+          "open_gaps",
+          "customers_remembered",
+          "customer_facts",
+          "answers_30d",
+          "handoffs_30d"
+        ],
+        "title": "MemoryOverviewOut"
+      },
+      "MemorySourceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "documents": {
+            "type": "integer",
+            "title": "Documents"
+          },
+          "chunks": {
+            "type": "integer",
+            "title": "Chunks"
+          },
+          "citations_30d": {
+            "type": "integer",
+            "title": "Citations 30D"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "status",
+          "documents",
+          "chunks",
+          "citations_30d"
+        ],
+        "title": "MemorySourceOut"
+      },
       "MessageIn": {
         "properties": {
           "content": {
@@ -4476,6 +5349,87 @@
           "url"
         ],
         "title": "RedirectOut"
+      },
+      "RememberedCustomerDetailOut": {
+        "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/RememberedCustomerOut"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/CustomerFactOut"
+            },
+            "type": "array",
+            "title": "Facts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "customer",
+          "facts"
+        ],
+        "title": "RememberedCustomerDetailOut"
+      },
+      "RememberedCustomerOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "facts": {
+            "type": "integer",
+            "title": "Facts"
+          },
+          "conversations": {
+            "type": "integer",
+            "title": "Conversations"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email",
+          "facts",
+          "conversations",
+          "last_seen_at"
+        ],
+        "title": "RememberedCustomerOut"
       },
       "ResetPasswordIn": {
         "properties": {
@@ -5040,6 +5994,116 @@
           "tenant_id"
         ],
         "title": "SwitchTenantIn"
+      },
+      "TeamAnswerIn": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Answer"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "public",
+              "identified"
+            ],
+            "title": "Audience",
+            "default": "public"
+          },
+          "gap_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Gap Ids",
+            "description": "Knowledge gaps this answer closes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question",
+          "answer"
+        ],
+        "title": "TeamAnswerIn"
+      },
+      "TeamAnswerOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "public",
+              "identified"
+            ],
+            "title": "Audience"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Indexing status of the answer, like a knowledge source"
+          },
+          "citations_30d": {
+            "type": "integer",
+            "title": "Citations 30D"
+          },
+          "created_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Name"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "answer",
+          "audience",
+          "status",
+          "citations_30d",
+          "created_by_name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TeamAnswerOut"
       },
       "TenantOut": {
         "properties": {

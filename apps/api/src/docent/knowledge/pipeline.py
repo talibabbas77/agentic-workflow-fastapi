@@ -83,7 +83,7 @@ def make_knowledge_handlers(deps: KnowledgeDeps) -> dict[str, Handler]:
                 raise PermanentJobError(str(exc)) from exc
 
         async with transaction(ctx.pool, tenant_id=tenant_id) as conn:
-            if source["kind"] == "upload":
+            if source["kind"] in ("upload", "answer"):  # stored files: one per upload or answer
                 document_ids = await repo.queue_source_documents(conn, source_id)
             else:
                 document_ids = await repo.sync_url_documents(
@@ -170,6 +170,7 @@ def make_knowledge_handlers(deps: KnowledgeDeps) -> dict[str, Handler]:
         await deps.store.delete_prefix(object_prefix(ctx.job.tenant_id, source_id))
         async with transaction(ctx.pool, tenant_id=ctx.job.tenant_id) as conn:
             await conn.execute("delete from knowledge_sources where id = $1", source_id)
+            await repo.bump_knowledge_version(conn)
 
     return {
         SYNC_SOURCE: sync_source,

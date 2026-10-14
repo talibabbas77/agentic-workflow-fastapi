@@ -21,6 +21,7 @@ from docent.knowledge.fetch import guarded_client
 from docent.knowledge.pipeline import KnowledgeDeps, make_knowledge_handlers
 from docent.llm.client import chat_model
 from docent.log import configure_logging
+from docent.memory.customers import make_memory_handlers
 from docent.storage import ObjectStore
 
 
@@ -51,7 +52,11 @@ def create_worker_app(settings: Settings | None = None) -> FastAPI:
             http=crawler,
         )
         summarizer = chat_model(settings, ollama, settings.llm_summary_model or settings.llm_model)
-        io = make_handlers(SmtpEmailSender(settings)) | make_escalation_handlers(summarizer)
+        io = (
+            make_handlers(SmtpEmailSender(settings))
+            | make_escalation_handlers(summarizer)
+            | make_memory_handlers(summarizer)
+        )
         ingest = make_knowledge_handlers(knowledge)
         worker = Worker(
             pool,
