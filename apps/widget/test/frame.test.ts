@@ -908,15 +908,18 @@ describe("frame app, was this helpful", () => {
     $<HTMLFormElement>("form.rate-more")?.dispatchEvent(new Event("submit", { cancelable: true }));
     await vi.waitFor(() => expect($(".rate-said")?.textContent).toBe("Thanks. The team will read your note."));
     expect($("form.rate-more")).toBeNull();
+    // With the note sent, a person is still one click away.
+    expect($(".rate-person")).not.toBeNull();
     expect(votes(h)).toEqual([
       ["PUT", { vote: "down" }],
       ["PUT", { vote: "down", comment: "It is 14 days for monthly plans." }],
     ]);
 
-    // A thumbs up closes the question; down again offers a person, through the normal handoff.
+    // A thumbs up closes all that; down again offers a person, through the normal handoff.
     thumb("Helpful")?.click();
     await vi.waitFor(() => expect(votes(h)).toHaveLength(3));
     expect($("form.rate-more")).toBeNull();
+    expect($(".rate-person")).toBeNull();
     thumb("Not helpful")?.click();
     await vi.waitFor(() => expect($(".rate-person")).not.toBeNull());
     $<HTMLButtonElement>(".rate-person")?.click();

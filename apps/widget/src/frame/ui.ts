@@ -525,25 +525,34 @@ export function createUi(
     press();
     if (vote) said.textContent = "Thanks for letting us know.";
 
+    /** The note form, or after it was sent, the offer of a person on its own. */
     let more: HTMLElement | null = null;
     const closeMore = (): void => {
       more?.remove();
       more = null;
+    };
+    const personButton = (): HTMLButtonElement | null => {
+      if (!canAskForPerson()) return null;
+      const person = h("button", { type: "button", class: "btn quiet rate-person", disabled: busy }, "Talk to a person");
+      person.addEventListener("click", () => {
+        if (handlers.onSend(ASK_FOR_PERSON)) {
+          closeMore();
+          input.focus();
+        }
+      });
+      return person;
     };
     const openMore = (): void => {
       if (more) return;
       const id = `docent-note-${++uid}`;
       const text = h("textarea", { id, class: "rate-text", rows: "2", maxlength: String(NOTE_LENGTH), dir: "auto" });
       const send = h("button", { type: "submit", class: "btn" }, "Send");
-      const person = canAskForPerson()
-        ? h("button", { type: "button", class: "btn quiet rate-person", disabled: busy }, "Talk to a person")
-        : null;
       const form = h(
         "form",
         { class: "rate-more", novalidate: true },
         h("label", { for: id }, "What was wrong? (optional)"),
         text,
-        h("div", { class: "rate-actions" }, send, person),
+        h("div", { class: "rate-actions" }, send, personButton()),
       );
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -564,13 +573,13 @@ export function createUi(
         }
         closeMore();
         said.textContent = "Thanks. The team will read your note.";
-        down.focus();
-      });
-      person?.addEventListener("click", () => {
-        if (handlers.onSend(ASK_FOR_PERSON)) {
-          closeMore();
-          input.focus();
+        // The note is sent; a person is still one click away.
+        const person = personButton();
+        if (person) {
+          more = h("div", { class: "rate-actions" }, person);
+          box.appendChild(more);
         }
+        down.focus();
       });
       more = form;
       box.appendChild(form);
