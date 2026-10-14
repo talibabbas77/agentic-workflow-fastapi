@@ -27,6 +27,16 @@ MIME_BY_EXTENSION = {
 TEXT_MIMES = {"text/markdown", "text/plain", "text/html", "application/xhtml+xml"}
 DOCX = MIME_BY_EXTENSION[".docx"]
 
+# Limits that keep one document from taking the worker down. A Word file is a zip,
+# so a small upload can expand to gigabytes of XML; check before parsing anything.
+MAX_ZIP_ENTRIES = 2_000
+MAX_ZIP_UNCOMPRESSED = 50_000_000
+MAX_ZIP_RATIO = 100
+# What one document may produce: about 1,000 printed pages of text.
+MAX_TEXT_CHARS = 2_000_000
+MAX_BLOCKS = 100_000
+MAX_PDF_PAGES = 2_000
+
 _HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
 
@@ -65,6 +75,7 @@ def detect_mime(filename: str, data: bytes) -> str:
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
                 if "word/document.xml" in archive.namelist():
+                    check_archive(archive)
                     return DOCX
         except zipfile.BadZipFile:
             pass
@@ -78,6 +89,21 @@ def detect_mime(filename: str, data: bytes) -> str:
     return mime
 
 
+def check_archive(archive: zipfile.ZipFile) -> None:
+    """Refuse a zip that expands far beyond its size, before any of it is read."""
+    entries = archive.infolist()
+    if len(entries) > MAX_ZIP_ENTRIES:
+        raise UnsupportedDocument("This Word document has too many parts to read.")
+    total = 0
+    for entry in entries:
+        total += entry.file_size
+        packed = max(entry.compress_size, 1)
+        if entry.file_size > 1_000_000 and entry.file_size / packed > MAX_ZIP_RATIO:
+            raise UnsupportedDocument("This Word document is compressed too much to read safely.")
+    if total > MAX_ZIP_UNCOMPRESSED:
+        raise UnsupportedDocument("This Word document is too large to read. Split it into parts.")
+
+
 def extract(data: bytes, mime: str, fallback_title: str) -> Extracted:
     if mime == "application/pdf":
         result = _pdf(data, fallback_title)
@@ -87,6 +113,8 @@ def extract(data: bytes, mime: str, fallback_title: str) -> Extracted:
         result = _html(data, fallback_title)
     elif mime in ("text/markdown", "text/plain"):
         text = _decode(data)
+        if len(text) > MAX_TEXT_CHARS:
+            raise UnsupportedDocument("This file has too much text to read. Split it into parts.")
         result = markdown_sections(text, _first_heading(text) or fallback_title)
     else:
         raise UnsupportedDocument(f"Unsupported content type {mime}.")
@@ -145,7 +173,20 @@ def _pdf(data: bytes, fallback_title: str) -> Extracted:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:
             raise UnsupportedDocument("This PDF is password protected.")
-        pages = [page.extract_text() or "" for page in reader.pages]
+        if len(reader.pages) > MAX_PDF_PAGES:
+            raise UnsupportedDocument(
+                f"This PDF has more than {MAX_PDF_PAGES:,} pages. Split it into parts."
+            )
+        pages: list[str] = []
+        size = 0
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            size += len(text)
+            if size > MAX_TEXT_CHARS:
+                raise UnsupportedDocument(
+                    "This PDF has too much text to read. Split it into parts."
+                )
+            pages.append(text)
     except UnsupportedDocument:
         raise
     except Exception as exc:
@@ -162,19 +203,31 @@ def _pdf(data: bytes, fallback_title: str) -> Extracted:
 
 def _docx(data: bytes, fallback_title: str) -> Extracted:
     try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            check_archive(archive)
         document = DocxDocument(io.BytesIO(data))
+    except UnsupportedDocument:
+        raise
     except Exception as exc:
         raise UnsupportedDocument("This Word document could not be read.") from exc
+    # Resolve each style id once; looking it up per paragraph is slow on long files.
+    names = {style.style_id: style.name or "" for style in document.styles}
     lines: list[str] = []
+    size = 0
     title = (document.core_properties.title or "").strip()
-    for block in document.iter_inner_content():  # paragraphs and tables in reading order
+    for count, block in enumerate(document.iter_inner_content()):  # reading order
+        if count >= MAX_BLOCKS or size > MAX_TEXT_CHARS:
+            raise UnsupportedDocument(
+                "This Word document is too long to read. Split it into parts."
+            )
         if isinstance(block, Table):
-            lines.append("")
-            lines.extend(" | ".join(c.text.strip() for c in row.cells) for row in block.rows)
-            lines.append("")
+            rows = [" | ".join(c.text.strip() for c in row.cells) for row in block.rows]
+            size += sum(len(row) for row in rows)
+            lines.extend(["", *rows, ""])
             continue
         text = block.text.strip()
-        style = (block.style.name if block.style is not None else "") or ""
+        size += len(text)
+        style = names.get(block._p.style or "", "")
         if style == "Title" and text:
             title = title or text
             continue
@@ -197,6 +250,12 @@ def _first_heading(text: str) -> str | None:
 
 
 def _decode(data: bytes) -> str:
+    if len(data) > MAX_TEXT_CHARS * 4:
+        raise UnsupportedDocument("This file has too much text to read. Split it into parts.")
+    return _decode_text(data)
+
+
+def _decode_text(data: bytes) -> str:
     try:
         return data.decode("utf-8-sig")
     except UnicodeDecodeError:

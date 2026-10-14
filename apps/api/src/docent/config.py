@@ -90,6 +90,9 @@ class Settings(BaseSettings):
     # Knowledge: storage, crawling, embeddings
     object_store_url: str | None = None  # file:///path or memory://; default .data/objects
     max_upload_bytes: int = 20_000_000
+    # PDF and Word files are read in a child process with these limits.
+    extract_timeout_seconds: int = 60
+    extract_memory_mb: int = 1024
     crawl_max_pages: int = 200
     crawl_max_page_bytes: int = 5_000_000
     crawl_delay_seconds: float = 0.5

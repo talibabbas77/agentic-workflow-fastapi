@@ -27,8 +27,9 @@ from docent.jobs.worker import Handler, JobContext, PermanentJobError
 from docent.knowledge import repo
 from docent.knowledge.chunking import chunk
 from docent.knowledge.embeddings import Embedder
-from docent.knowledge.extract import UnsupportedDocument, extract
+from docent.knowledge.extract import UnsupportedDocument
 from docent.knowledge.fetch import FetchError, RobotsRules, fetch, same_site
+from docent.knowledge.isolated import extract_isolated
 from docent.storage import ObjectStore
 
 SYNC_SOURCE = "sync_source"
@@ -109,7 +110,13 @@ def make_knowledge_handlers(deps: KnowledgeDeps) -> dict[str, Handler]:
                 await repo.set_document_status(conn, document_id, "parsing")
 
             data, mime, title_hint = await _load(deps, document)
-            extracted = await asyncio.to_thread(extract, data, mime, title_hint)
+            extracted = await extract_isolated(
+                data,
+                mime,
+                title_hint,
+                seconds=deps.settings.extract_timeout_seconds,
+                memory_mb=deps.settings.extract_memory_mb,
+            )
             passages = chunk(extracted.sections)
 
             async with transaction(ctx.pool, tenant_id=ctx.job.tenant_id) as conn:
