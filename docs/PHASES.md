@@ -158,8 +158,8 @@ see exactly which passages a question would retrieve.
 
 ## Phase 3. Agent loop with citations and escalation
 
-**Status: backend built 2026-10-14; preview chat and ticket types screens in
-progress.** Checks 1, 3, 4, 5, and 9 run in the API suite. Check 2 with the dev
+**Status: built 2026-10-14, waiting for review.** The Agent screen (settings
+and preview chat) and the Handoffs screen (ticket types) have e2e tests. Checks 1, 3, 4, 5, and 9 run in the API suite. Check 2 with the dev
 model `qwen3:1.7b`: escalation recall 1.00 and injection cases 1.00 pass, but
 the wrong-answer rate is 9.4 percent against the 5 percent target. The misses
 cite a neighbouring article, so the gap is the model, not retrieval (recall at
@@ -214,7 +214,8 @@ cited, and anything the agent cannot back up goes to a human.
 
 ## Phase 4. Widget with signed identity
 
-**Status: built 2026-10-14 except staging; admin Widget pages in progress.**
+**Status: built 2026-10-14 except staging, waiting for review.** The Widgets
+screens (settings, signing keys made in the browser, install) have e2e tests.
 Checks 3, 6, 7, and 9 run in the API suite. Checks 2, 4, 5, and 10 run in the
 widget's Playwright suite (Chromium and WebKit) against the demo host; check 8
 runs in CI (loader 3.1 KB gzipped). Check 1 passes with the local model but is
@@ -390,6 +391,13 @@ provider) and O4 (plan prices and caps).
 ---
 
 ## Phase 8. Landing page following the copy and UI rules
+
+**Status: built 2026-10-14 ahead of Phases 5 to 7, waiting for review.**
+Checks 1, 2, 4, 5, and 6 pass (rule check and axe in e2e; pricing reads the
+plans API). Check 3: accessibility, best practices, and SEO score 100, but
+mobile performance has a median of about 92 against 95, measured on a busy dev
+laptop; recheck on the production host. Check 8 is yours: privacy and terms
+are marked as drafts pending legal review.
 
 **Goal:** a plain, honest site that explains the problem, how Docent works, and
 what it costs.
