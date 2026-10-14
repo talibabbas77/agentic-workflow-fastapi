@@ -344,6 +344,24 @@ reply without asking the customer to repeat themselves.
 
 ## Phase 6. Eval suite
 
+**Status: built 2026-10-14, waiting for review.** Checks 1, 3, 4, 5, and 6
+pass; check 2 needs your 50 labels. The API suite covers the sets and cases,
+drafts, the sandboxed run (no messages, handoffs, emails, billed replies,
+gaps, or memory survive it), comparison, calibration math, the production
+metrics against hand-written SQL, the review sample, the gate, and isolation
+on every new table and route (`tests/test_evals.py`, `tests/test_rls.py`).
+`e2e/evals.spec.ts` creates a set and a case in the browser, runs it, and
+reads the results.
+
+| Check | Result |
+|---|---|
+| 1. 40 drafts, approve 30, run, see metrics | Passes, live on `gemma4:cloud` with the Lumen Notes demo workspace: 40 drafts in 54 s (37 kept, 3 rejected by the grounding check), 30 approved, the run took 115 s: 30 of 30 correct, wrong-answer rate 0, gold document in the top 8 for all 30, p50 2.0 s, p95 3.6 s, cost 13,246 micro dollars. The first live run, with model-picked required phrases, failed 8 right answers; drafts no longer carry them (architecture change log). |
+| 2. Judge agreement of 85 percent on 50 labels | Open. The calibration page computes and records it; it needs a person to label 50 judged answers. 11 labels entered while checking the page agree on 10 (91 percent). |
+| 3. Comparing two runs shows what changed and why | Passes: the compare page lists broke, fixed, added, removed, and unchanged cases, with why (verdict, reply, failed checks, cited sources, the judge's reason, a case edited between runs) and the settings that differed (models, prompt versions, knowledge version). |
+| 4. A worse prompt fails the CI gate with a readable report **(auto)** | Passes: `test_a_worse_prompt_fails_the_gate_with_a_readable_report`. CI runs `docent eval gate` in the `agent-gate` job once a chat model is configured (README). |
+| 5. Dashboard numbers match hand-written SQL **(auto)** | Passes: `test_production_metrics_match_hand_written_sql`. |
+| 6. Concurrency of 1, cost recorded | Passes: one queued or running run per workspace (a partial unique index), and eval jobs have their own worker lane with one slot; every run records its cost and each case its cost and latency. No 429 errors in the live runs. |
+
 **Goal:** every tenant can see how often their agent resolves, answers wrong,
 and escalates, and no prompt or model change ships if it makes those worse.
 

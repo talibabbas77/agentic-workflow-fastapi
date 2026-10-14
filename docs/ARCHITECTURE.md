@@ -462,10 +462,11 @@ on pages (section 10) keep this in check.
 
 | Table | | Key columns |
 |---|---|---|
-| `eval_sets` | T | `id, tenant_id, name, created_at` |
-| `eval_cases` | T | `id, tenant_id, set_id, question, history jsonb, identity jsonb (simulated claims, or null for anonymous), expected (answer, escalate, clarify), must_include text[], must_not_include text[], gold_document_ids uuid[], tags text[], origin (manual, generated, conversation)` |
-| `eval_runs` | T | `id, tenant_id, set_id, config jsonb (model, prompt_version, retrieval params), status, metrics jsonb, started_at, finished_at` |
-| `eval_results` | T | `id, tenant_id, run_id, case_id, output jsonb, retrieved jsonb, verdict (correct, wrong, unsupported, escalated_correctly, escalated_wrongly), judge_notes, cost_micros, latency_ms` |
+| `eval_sets` | T | `id, tenant_id, name (unique per tenant), description, draft_status (idle, running, failed), draft_requested, draft_written, draft_skipped, draft_error, created_by, created_at, updated_at` |
+| `eval_cases` | T | `id, tenant_id, set_id, status (draft, active), question, history jsonb (visitor and agent turns), identity jsonb (simulated claims, or null for anonymous), expected (answer, escalate, clarify), reference_answer, must_include text[], must_not_include text[], gold_document_ids uuid[], gold_chunk_ids uuid[] (the passage a draft came from), tags text[], origin (manual, generated, conversation), source_conversation_id, source_message_id, created_by` |
+| `eval_runs` | T | `id, tenant_id, set_id, status (queued, running, succeeded, failed, canceled), config jsonb (models, prompt versions, retrieval settings, knowledge version), metrics jsonb, case_count, done_count, cost_micros, error, created_by, created_at, started_at, finished_at`. One queued or running run per tenant (partial unique index) |
+| `eval_results` | T | `id, tenant_id, run_id, case_id (null once the case is deleted), position, question, expected, case_snapshot jsonb, output jsonb, retrieved jsonb (top 8), checks jsonb, verdict (correct, wrong, unsupported, escalated_correctly, escalated_wrongly, missed, error), judge_verdict, judge_notes, tokens_in, tokens_out, cost_micros, latency_ms, label (right, wrong), labeled_by, labeled_at`. Unique `(run_id, case_id)`. The app may update only the label columns |
+| `review_items` | T | `id, tenant_id, week_start, conversation_id, message_id (the answer graded), grade (right, wrong), note, flagged_answer, graded_by, graded_at, sampled_at`. Unique `(tenant_id, conversation_id)`: a conversation is sampled once, ever |
 
 ### Jobs
 
@@ -836,7 +837,12 @@ through the pooler. So:
 `ingest_source`, `crawl_url`, `parse_document`, `embed_document`,
 `delete_source`, `summarize_escalation` (which also routes the handoff),
 `send_email`, `send_slack`, `deliver_webhook`, `send_digest`, `run_eval`,
-`rollup_usage`, `close_idle_conversations`, `purge_retention`.
+`draft_eval_cases`, `rollup_usage`, `close_idle_conversations`,
+`purge_retention`.
+
+`run_eval` and `draft_eval_cases` have their own worker lane with one slot, so
+evals never send bursts to a rate-limited model and never wait behind or delay
+email and summaries.
 
 ---
 
@@ -859,18 +865,59 @@ through the pooler. So:
 ### Running an eval
 
 An eval run is a job. For each case it runs the full agent loop (retrieval
-included) with the case's simulated identity, stores the output and retrieved
-sources, then judges it.
+included) with the case's simulated identity and earlier turns, stores the
+output and what retrieval found, then judges it.
+
+**The isolation rule.** An eval turn is the real `run_turn`, so it must leave
+nothing behind: no messages, no handoff in the inbox and no summary job (so no
+email, Slack post, or webhook), no reply billed against the plan, no usage
+email, no knowledge gap, no customer memory. `docent.evals.sandbox` runs the
+turn on one `docent_app` connection inside an outer transaction that is always
+rolled back, and turns every transaction the loop opens into a savepoint that
+is rolled back as soon as it closes, so locks the turn takes (the usage period
+row) are released at once and real traffic never waits on an eval. The outer
+transaction sets `app.sandbox = 'eval'`, which `subscriptions.reply_cap` honors
+by lifting the cap, since a reservation there is rolled back anyway. The turn
+gets no worker waker and no answer cache. Just before each savepoint is undone,
+the sandbox reads what the eval needs: the reply's citations with their chunk
+and document, the handoff reason, and the model usage with its cost. A side
+effect added to the loop later is rolled back the same way, with no change to
+the eval code. The model calls of the turn and the judge are real spend, so the
+run records them as `llm_call` usage events without a conversation (never as
+AI replies). The agent loop needs no hook for any of this.
 
 Judging, in order:
 
-1. **Deterministic checks**: expected type (answer, clarify, escalate),
-   `must_include` and `must_not_include` strings, citations valid, gold document
-   retrieved in top 8.
-2. **LLM judge** for answers that pass step 1: is the answer correct and fully
-   supported by the cited sources? Verdict plus a one-line reason. The judge is
-   checked against 50 human-labeled cases and must agree at least 85 percent
-   of the time before its numbers are trusted.
+1. **Deterministic checks**: expected outcome (answer, clarify, escalate),
+   `must_include` and `must_not_include` phrases (case and spacing ignored),
+   citations valid, gold document retrieved in the top 8.
+2. **LLM judge** (temperature 0, `EVAL_JUDGE_MODEL`, a different model from the
+   answer model in production) for answers that pass step 1: is the answer
+   correct and backed by its cited sources or the customer's verified details,
+   compared with the gold passages and the reference answer? Verdict (correct,
+   wrong, unsupported) plus a one-line reason. The judge is checked against 50
+   human-labeled cases on the calibration page and must agree at least 85
+   percent of the time before its numbers are trusted.
+
+Verdicts: `correct`; `wrong` (an answer that failed a check or the judge, or
+any answer where a handoff was expected); `unsupported`; `escalated_correctly`;
+`escalated_wrongly` (a handoff where an answer was expected); `missed` (a
+clarifying question or polite reply where something else was expected);
+`error` (the turn or the judge failed; left out of the rates).
+
+**Drafts** come from the tenant's own passages, one per document first, never a
+passage the set already uses. The expected answer must be grounded in its
+passage (every number in it, and 70 percent of its longer words), or the draft
+is dropped. Drafts carry no required phrases; see the change log.
+
+**Production numbers** come from widget conversations only, grouped by the
+period they started in. Resolved automatically: quiet for 30 minutes, no
+handoff, nothing marked wrong, last agent answer (greetings and thanks aside)
+backed by a source or verified details. Resolved, confirmed: graded right in
+the weekly review (the widget has no thumbs up yet). The weekly review samples
+up to 20 conversations the agent answered in the 7 days before, the first time
+the queue is opened each week (Monday, UTC), and tops up later that week. A
+wrong grade marks the answer as wrong, so it counts with the inbox's marks.
 
 ### Metrics
 
@@ -878,7 +925,7 @@ Judging, in order:
 |---|---|---|
 | Resolution rate (production) | Conversations with outcome `auto_resolved` or `confirmed_resolved` divided by conversations with at least one visitor message. `auto_resolved` = closed after 30 idle minutes, last agent turn was a cited answer, no escalation, no thumbs-down. `confirmed_resolved` = thumbs-up. Both are shown separately. | Track, no target until baseline |
 | Wrong-answer rate (offline) | Cases judged `wrong` or `unsupported`, plus cases that expected `escalate` but got an answer, divided by all cases. | 5 percent or less |
-| Wrong-answer rate (production) | Messages marked wrong in the inbox review queue divided by messages reviewed. Review queue samples 20 answered conversations per tenant per week. | 5 percent or less |
+| Wrong-answer rate (production) | Agent answers marked wrong (from the inbox, or graded wrong in the weekly review) divided by agent answers in the period. The review queue's own rate, wrong grades over grades, is shown beside it. Review queue samples 20 answered conversations per tenant per week. | 5 percent or less |
 | Escalation rate | Escalated conversations divided by conversations, split by reason. | Track per reason |
 | Escalation recall (offline) | Of cases expecting escalation, share that escalated. | 95 percent or more |
 | Retrieval recall at 8 | Gold document present in the top 8. | 85 percent or more |
@@ -890,8 +937,10 @@ Judging, in order:
 
 - Any change to prompts, models, chunking, or retrieval parameters runs the
   platform golden set. The change is blocked if wrong-answer rate rises by more
-  than 2 points, escalation recall drops below 95 percent, or any injection or
-  leak case fails.
+  than 2 points, escalation recall drops by more than 5 points or below 95
+  percent, or any injection or leak case fails. `docent eval gate` compares a
+  report with `fixtures/golden/baseline.json` and prints the table; the
+  `agent-gate` CI job runs it once a chat model is configured (README).
 - Each tenant's dashboard shows their latest run and the production metrics,
   with the same definitions.
 
@@ -1349,3 +1398,50 @@ The portal stays for cards and invoices.
   `inbox.metrics.answer_quality` is the query Phase 6 builds on: agent
   messages with decision type `answer`, and how many were marked wrong.
 
+
+### 2026-10-14, Phase 6 eval suite
+
+- **Isolation by rollback, not by a flag.** An eval case runs the real
+  `run_turn` in a sandbox (section 9): one outer transaction that is always
+  rolled back, each of the loop's transactions a savepoint rolled back as it
+  closes. Nothing the turn writes survives, including side effects added to
+  the loop later, and no lock outlives a normal turn. The only coupling is the
+  transaction-local `app.sandbox = 'eval'` setting, which lifts the reply cap
+  in `subscriptions.reply_cap`, read in the same query as the subscription.
+  The worker runs eval turns as `docent_app`, the role the loop is written
+  for, through a one-connection pool opened per run; `docent_worker` gains no
+  grants on conversations, messages, or tenants.
+- **Migration 0012** adds `eval_sets`, `eval_cases`, `eval_runs`,
+  `eval_results`, and `review_items`, each with forced RLS. A partial unique
+  index allows one queued or running run per workspace. Results copy their
+  case, so editing or deleting a case never rewrites history. The app may
+  update only a result's label columns; the worker writes results.
+- **Jobs.** `run_eval` and `draft_eval_cases` share a worker lane with one
+  slot. A retried run skips cases it finished; a stopped run stops between
+  cases. Per workspace: 300 cases a set, 20 runs a day, 50 drafts a request.
+  Runs need an active plan; a workspace at its reply cap can still run them.
+- **The first live run** (Lumen Notes demo, `gemma4:cloud`): 40 drafts asked
+  for in 42 s (37 kept, 3 failed the grounding check), 30 approved, 22 of 30
+  passed. All 8 failures were right answers that
+  paraphrased a required phrase the drafting model had picked ("retried
+  three more times" for "retry the charge 3 more times", "email or in-app
+  chat" for "email and in-app chat"). Drafts now keep the passage and a
+  reference answer and no required phrases; with the phrases removed the same
+  30 passed, and a fresh set of 40 drafts and 30 approvals passed 30 of 30
+  (p50 2.0 s, p95 3.6 s, 13,246 micro dollars).
+- **The judge sees verified details.** It first called "You are currently on
+  the Team plan" unsupported, because nothing it could see said so. It now gets
+  the case's simulated claims, which the loop lets an answer state without a
+  passage (`judge-2026-10-14b`).
+- **Found by the evals, not fixed here:** with `gemma4:cloud` through the tool
+  strategy, some answers arrive with the JSON escapes still in the text (a
+  literal `>` for `>`, and `\n` for line breaks), so visitors would see
+  them too. That belongs to the structured output path in the agent loop.
+- **Production metrics** count widget conversations only. "Confirmed" comes
+  from the weekly review until the widget asks visitors for a thumbs up.
+- **CI gate.** `docent eval gate` compares a golden-set report, or a run as
+  the API returns it, with `fixtures/golden/baseline.json` (the gemma4:cloud
+  numbers above). Defaults: wrong-answer rate may rise 2 points, escalation
+  recall may fall 5 points but never below 95 percent, safety cases must all
+  pass. The `agent-gate` job runs it when the repository has a chat model
+  configured.
