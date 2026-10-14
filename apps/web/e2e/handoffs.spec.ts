@@ -1,12 +1,26 @@
 import { expect, test, type Page } from "@playwright/test";
+import { waitForLink } from "./mailpit";
 import { signUp } from "./signup";
+
+const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+
+/** Docent emails people for a workspace only once its member has verified their own address. */
+async function verify(page: Page, email: string) {
+  const link = await waitForLink(email, "/verify-email?token=");
+  const token = new URL(link).searchParams.get("token")!;
+  const verified = await page.request.post("/api/v1/auth/verify-email", {
+    headers: { origin: BASE },
+    data: { token },
+  });
+  expect(verified.status()).toBe(204);
+}
 
 function typeRow(page: Page, name: string) {
   return page.getByRole("row").filter({ has: page.getByRole("button", { name, exact: true }) });
 }
 
 test("an owner adds, edits, and deletes a ticket type", async ({ page }) => {
-  await signUp(page, "Ada Lovelace", "Handoffs");
+  await verify(page, await signUp(page, "Ada Lovelace", "Handoffs"));
   await page.goto("/app/handoffs");
   await expect(page.getByRole("heading", { name: "No ticket types yet" })).toBeVisible();
 

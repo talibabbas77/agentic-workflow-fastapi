@@ -59,7 +59,8 @@ test("a new handoff shows up in the inbox, emails the team, and filters narrow t
 
   // The rule emails the team; the email links to the handoff.
   const notice = await waitForMessage(triage, "New handoff", 60_000);
-  expect(notice.From.Name).toContain("via Docent");
+  // The triage address is not a member, so it sees "Docent", never a name the workspace chose.
+  expect(notice.From.Name).toBe("Docent");
 
   await page.getByLabel("Search").fill("refund");
   await expect(row(page, exportContact)).toBeHidden();
