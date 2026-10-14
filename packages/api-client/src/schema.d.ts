@@ -671,6 +671,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Billing */
+        get: operations["get_billing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Checkout
+         * @description Start Stripe Checkout for a paid plan. An existing plan changes in the portal.
+         */
+        post: operations["checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/portal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Portal
+         * @description Stripe's customer portal: change plan, update the card, download invoices, cancel.
+         */
+        post: operations["portal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/public/plans": {
         parameters: {
             query?: never;
@@ -722,6 +779,61 @@ export interface components {
             /** Restricted Topics */
             restricted_topics: string[];
         };
+        /** BillingOut */
+        BillingOut: {
+            plan: components["schemas"]["Plan"];
+            /** Status */
+            status: string;
+            /**
+             * Active
+             * @description False means escalate-only mode
+             */
+            active: boolean;
+            /**
+             * Provider
+             * @enum {string}
+             */
+            provider: "manual" | "stripe";
+            /** Trial Ends At */
+            trial_ends_at: string | null;
+            /** Current Period End */
+            current_period_end: string | null;
+            /** Cancel At */
+            cancel_at: string | null;
+            /** Grace Ends At */
+            grace_ends_at: string | null;
+            /**
+             * Billing Enabled
+             * @description Stripe keys are configured on this server
+             */
+            billing_enabled: boolean;
+            /**
+             * Can Manage
+             * @description The current member may change billing
+             */
+            can_manage: boolean;
+            usage: components["schemas"]["BillingUsage"];
+        };
+        /** BillingUsage */
+        BillingUsage: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** @description AI replies this month against the plan's cap */
+            replies: components["schemas"]["UsageMeter"];
+            /** @description Indexed documents against the plan's pages */
+            documents: components["schemas"]["UsageMeter"];
+            widgets: components["schemas"]["UsageMeter"];
+            /** @description Members plus open invitations */
+            seats: components["schemas"]["UsageMeter"];
+        };
         /** Body_upload */
         Body_upload: {
             /** File */
@@ -732,6 +844,14 @@ export interface components {
              * @enum {string}
              */
             audience: "public" | "identified";
+        };
+        /** CheckoutIn */
+        CheckoutIn: {
+            /**
+             * Plan Id
+             * @enum {string}
+             */
+            plan_id: "starter" | "growth" | "scale";
         };
         /** CitationOut */
         CitationOut: {
@@ -1123,6 +1243,11 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /** RedirectOut */
+        RedirectOut: {
+            /** Url */
+            url: string;
+        };
         /** ResetPasswordIn */
         ResetPasswordIn: {
             /** Token */
@@ -1468,6 +1593,13 @@ export interface components {
         TokenIn: {
             /** Token */
             token: string;
+        };
+        /** UsageMeter */
+        UsageMeter: {
+            /** Used */
+            used: number;
+            /** Limit */
+            limit: number;
         };
         /** UserOut */
         UserOut: {
@@ -4067,6 +4199,169 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    get_billing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    portal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

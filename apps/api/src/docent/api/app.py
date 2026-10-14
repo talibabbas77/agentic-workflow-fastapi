@@ -19,6 +19,7 @@ from docent.api.middleware import (
 from docent.api.routes import (
     agent,
     auth,
+    billing,
     health,
     knowledge,
     members,
@@ -30,6 +31,7 @@ from docent.api.routes import (
     workspace,
 )
 from docent.api.state import AppState
+from docent.billing.gateway import stripe_gateway
 from docent.config import Settings, get_settings
 from docent.db.pool import create_pool
 from docent.jobs.wake import WorkerWaker
@@ -76,6 +78,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 )
             ),
             llm=chat_model(settings, http, settings.llm_model),
+            billing=stripe_gateway(settings),
         )
         try:
             yield
@@ -115,6 +118,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         widgets.router,
         widget_api.router,
         widget_assets.router,
+        billing.router,
+        billing.webhook_router,
         public.router,
     ):
         app.include_router(router)

@@ -251,7 +251,7 @@ async def test_cap_reached_hands_off_without_calling_the_model(
     cid = await conversation(owner)
     await say(owner, cid, "how do refunds work for annual plans")
     async with admin_pool.acquire() as conn:
-        await conn.execute("update usage_periods set replies_cap = replies_used")
+        await conn.execute("update usage_periods set replies_used = replies_cap")
     calls = len(chat.calls)
     message = await say(owner, cid, "how do refunds work for annual plans again")
     assert message["decision"]["reason"] == "cap_reached"

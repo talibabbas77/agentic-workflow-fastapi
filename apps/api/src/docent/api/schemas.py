@@ -1,11 +1,12 @@
 """Request and response models. These generate the OpenAPI schema the web app uses."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints, field_validator
 
+from docent.billing.plans import Plan
 from docent.config import get_settings
 
 Role = Literal["owner", "admin", "agent"]
@@ -503,3 +504,42 @@ class WidgetConversationOut(BaseModel):
 
 class ContactIn(Model):
     email: EmailStr
+
+
+# Billing
+
+
+class UsageMeter(BaseModel):
+    used: int
+    limit: int
+
+
+class BillingUsage(BaseModel):
+    period_start: date
+    period_end: date
+    replies: UsageMeter = Field(description="AI replies this month against the plan's cap")
+    documents: UsageMeter = Field(description="Indexed documents against the plan's pages")
+    widgets: UsageMeter
+    seats: UsageMeter = Field(description="Members plus open invitations")
+
+
+class BillingOut(BaseModel):
+    plan: Plan
+    status: str
+    active: bool = Field(description="False means escalate-only mode")
+    provider: Literal["manual", "stripe"]
+    trial_ends_at: datetime | None
+    current_period_end: datetime | None
+    cancel_at: datetime | None
+    grace_ends_at: datetime | None
+    billing_enabled: bool = Field(description="Stripe keys are configured on this server")
+    can_manage: bool = Field(description="The current member may change billing")
+    usage: BillingUsage
+
+
+class CheckoutIn(Model):
+    plan_id: Literal["starter", "growth", "scale"]
+
+
+class RedirectOut(BaseModel):
+    url: str

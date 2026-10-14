@@ -6,6 +6,7 @@ from fastapi import APIRouter, status
 
 from docent.api.deps import AdminMember, CurrentMember, Member, State
 from docent.api.errors import AppError, not_found
+from docent.api.plan_limits import check_limit
 from docent.api.schemas import ErrorOut, SigningKeyIn, SigningKeyOut, WidgetIn, WidgetOut
 from docent.config import Settings
 from docent.db.pool import Connection, transaction
@@ -42,6 +43,7 @@ async def create_widget(body: WidgetIn, member: AdminMember, state: State) -> Wi
     origins = _origins(body.allowed_origins, state.settings)
     widget_id = new_id()
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
+        await check_limit(conn, member.tenant_id, "widgets")
         await conn.execute(
             """
             insert into widgets (id, public_id, tenant_id, name, allowed_origins,

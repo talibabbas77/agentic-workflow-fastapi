@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import httpx
 
+from docent.billing.gateway import BillingGateway
 from docent.config import Settings
 from docent.db.pool import Pool
 from docent.jobs.wake import WorkerWaker
@@ -25,3 +26,4 @@ class AppState:
     store: ObjectStore
     embedder: Embedder
     llm: ChatModel
+    billing: BillingGateway | None = None

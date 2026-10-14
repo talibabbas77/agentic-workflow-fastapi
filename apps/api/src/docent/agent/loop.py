@@ -24,6 +24,7 @@ from typing import Any, Literal
 
 from docent.agent import guards, prompts, repo, usage
 from docent.agent.prompts import AgentDecision, AgentProfile, EscalationReason, Source
+from docent.billing import notifications, subscriptions
 from docent.config import Settings
 from docent.db.pool import Connection, Pool, transaction
 from docent.jobs import queue
@@ -98,7 +99,8 @@ async def run_turn(
         await repo.add_message(
             conn, tenant_id=tenant_id, conversation_id=conversation_id, role="visitor", content=text
         )
-        reserved = await usage.reserve_reply(conn, tenant_id, s.default_replies_cap)
+        cap = await subscriptions.reply_cap(conn, tenant_id)
+        reserved = await usage.reserve_reply(conn, tenant_id, cap)
 
     claims: dict[str, str] = dict(conversation["claims"] or {})
     low_turns = int(conversation["low_confidence_turns"])
@@ -127,10 +129,10 @@ async def run_turn(
         raise
 
     async with transaction(deps.pool, tenant_id=tenant_id) as conn:
-        reply, escalation_id = await _persist(
-            conn, tenant_id, conversation_id, outcome, reserved, claims.get("email")
+        reply, escalation_id, emailed = await _persist(
+            conn, tenant_id, conversation_id, outcome, reserved, claims.get("email"), s.web_origin
         )
-    if escalation_id and deps.waker:
+    if (escalation_id or emailed) and deps.waker:
         await deps.waker.wake()
     yield Reply(message=reply, escalation_id=escalation_id)
 
@@ -276,7 +278,10 @@ async def _persist(
     outcome: _Outcome,
     reserved: bool,
     contact_email: str | None,
-) -> tuple[dict[str, Any], uuid.UUID | None]:
+    web_origin: str,
+) -> tuple[dict[str, Any], uuid.UUID | None, bool]:
+    """Store the reply and everything it caused. Returns the reply, the handoff it
+    opened (if any), and whether a usage email was queued."""
     gen = outcome.generation
     decision = {
         "type": outcome.kind,
@@ -324,6 +329,7 @@ async def _persist(
             conversation_id=conversation_id,
             message_id=message_id,
         )
+    emailed = 0
     if reserved:
         await usage.record(
             conn,
@@ -333,7 +339,9 @@ async def _persist(
             conversation_id=conversation_id,
             message_id=message_id,
         )
-        await usage.settle_reply(conn, tenant_id, used=True)
+        crossed = await usage.settle_reply(conn, tenant_id, used=True)
+        if crossed:
+            emailed = await notifications.enqueue_usage_emails(conn, tenant_id, crossed, web_origin)
 
     escalation_id = None
     if outcome.kind == "escalate":
@@ -368,4 +376,4 @@ async def _persist(
         "decision": decision,
         "citations": [{k: v for k, v in c.items() if k != "chunk_id"} for c in citations],
     }
-    return reply, escalation_id
+    return reply, escalation_id, emailed > 0

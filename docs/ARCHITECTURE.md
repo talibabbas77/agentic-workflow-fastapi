@@ -48,12 +48,13 @@ against. Project rules in [CLAUDE.md](../CLAUDE.md) win if the two disagree.
 | D16 | Next.js runs as a standalone Docker image next to the API. Not on Vercel Hobby. | Vercel Hobby forbids commercial use. |
 | D17 | Escalations get a kanban board (Open, Assigned, Waiting, Resolved) as a second view of the inbox in Phase 5. | Escalations move through statuses; a board is the natural way to work them. |
 | D18 | No visual workflow builder. Automation is "When ... Then ..." routing rules for escalations plus outgoing webhooks. | A node editor needs an execution engine, versioning, retries, secrets, and outbound requests (an SSRF surface). Routing rules cover support needs; webhooks let teams connect their own n8n, Zapier, or Make. |
+| D19 | Billing runs on Stripe (founder's choice, 2026-10-14): hosted Checkout and customer portal, signed webhooks, prices found by lookup key from the plan catalog. | Stripe is not a merchant of record outside a few countries, so sales tax and VAT are ours: Stripe Tax is wired behind `STRIPE_AUTOMATIC_TAX` and must be configured with registrations before charging. Paddle and Polar remain the fallback if Stripe is not available in the business's country (O1). |
 
 ### Open (yours to decide, with the latest moment it blocks work)
 
 | # | Question | Needed by | My default if you have none |
 |---|---|---|---|
-| O1 | Country where the business is registered. Decides the billing provider. | Phase 7 | Paddle (merchant of record). Polar if Paddle does not accept your country. |
+| O1 | Country where the business is registered. Decides whether Stripe can pay out there and which taxes apply. | Before charging real cards | Stripe (D19). Paddle or Polar if Stripe does not support the country. |
 | O2 | Production LLM provider and monthly budget. Free tiers cannot carry customer data. | Phase 4 staging | Ollama Cloud paid plan to start (zero retention per its policy). Note its concurrency limits in section 13. |
 | O3 | Hosting for API, worker, embeddings. No free tier allows an always-on worker. | Phase 4 staging | One small VM or Fly.io machine with 2 GB RAM running the Docker images. Roughly 7 to 15 USD per month. |
 | O4 | Plan prices and caps. | Phase 7 | See the starting proposal in section 10. |
@@ -179,7 +180,7 @@ The API gets the tenant from exactly one trusted place per request type:
 | Admin API | The staff session's active tenant, checked against `memberships`. |
 | Widget API | The widget session row, which was created from a verified widget id. |
 | Worker | `jobs.tenant_id`. |
-| Billing webhook | Provider customer id mapped through `subscriptions` (uses `docent_ops`). |
+| Billing webhook | Stripe customer id mapped through `subscriptions` (the `app.billing_customer` capability). Event metadata is never trusted for the tenant. |
 
 Request bodies, URLs and chat content never set the tenant.
 
@@ -194,6 +195,7 @@ carries a narrow capability that a dedicated `for select` policy honors:
 | `app.tenant_id` | Every row of that tenant | All tenant work |
 | `app.user_id` | The user's own `memberships` rows and the `tenants` they belong to | Log in, tenant switcher, `/me` |
 | `app.invite_token` | The one `invitations` row whose token hash matches, and its tenant's name | Invitation lookup and accept |
+| `app.billing_customer` | The one `subscriptions` row of that Stripe customer | Billing webhooks |
 
 The widget id lookup in Phase 4 uses the same pattern (`app.widget_public_id`).
 
@@ -865,16 +867,36 @@ founder. The provider depends on the country where the business is registered
 | Stripe | no (MoR only in some countries) | Available in 44 countries. Adds tax work. |
 | Lemon Squeezy | yes | Says it is moving users to Stripe Managed Payments. Avoid for new builds. |
 
-Integration (same shape for any provider):
+Chosen: Stripe (D19). Integration as built:
 
-- Checkout and customer portal hosted by the provider. We never touch card data.
-- Webhooks: verify signature, store in `billing_events` keyed by provider event
-  id (idempotent), then update `subscriptions` and `usage_periods`.
-- Our database owns entitlements and caps. The provider owns payment status.
-- Downgrade takes effect at period end; upgrade takes effect immediately and
-  raises the current cap.
-- Failed payment: 7-day grace, then the tenant drops to escalate-only mode.
-  Data is kept.
+- Checkout and customer portal hosted by Stripe. We never touch card data.
+  `POST /v1/billing/checkout` (owners only) creates the Stripe customer once,
+  stores its id on `subscriptions`, and returns the Checkout URL. Plan changes,
+  card updates, invoices, and cancellation go through `POST /v1/billing/portal`.
+- Prices are found by lookup key `docent_<plan>_monthly`. `pnpm stripe:sync`
+  creates the products and prices from the plan catalog and moves the lookup
+  key to a new price when a price changes, so Stripe never becomes a second
+  catalog.
+- Webhooks (`POST /v1/webhooks/stripe`): verify the signature over the raw body
+  (5 minute tolerance), store the event id in `billing_events` (idempotent),
+  map the customer to the tenant through `subscriptions`, then update it. An
+  event older than the last one applied is ignored, because Stripe does not
+  promise order; an event for a replaced subscription cannot overwrite the live
+  one.
+- Our database owns entitlements and caps. Stripe owns payment status.
+- Every tenant has one `subscriptions` row from creation: a 14 day trial
+  (provider `manual`), then Stripe after checkout. Comped plans stay `manual`.
+- Upgrades take effect immediately: the reply cap is read from the plan on
+  every reservation. Downgrades follow Stripe's portal setting (configure it to
+  apply at period end).
+- Failed payment: 7-day grace from the first failure, then escalate-only mode.
+  An expired trial or a canceled plan is escalate-only too. Data is kept.
+- Plan limits are enforced when adding: widgets, seats (members plus open
+  invitations; a re-invite to the same email takes no extra seat), and pages
+  of docs (a file or a crawled page counts as one).
+- Tested without keys: unit tests use a fake gateway with real signature
+  checks, and the real gateway runs against `stripe-mock`, which validates
+  every request against Stripe's OpenAPI spec.
 
 ### Cost dashboard (internal)
 

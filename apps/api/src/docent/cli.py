@@ -56,6 +56,12 @@ def main(argv: list[str] | None = None) -> None:
 
     sub.add_parser("openapi")
 
+    billing = sub.add_parser("billing", help="Payments")
+    billing_sub = billing.add_subparsers(dest="billing_command", required=True)
+    billing_sub.add_parser(
+        "sync-stripe", help="Create the Stripe products and monthly prices for every paid plan"
+    )
+
     seed = sub.add_parser("seed", help="Load demo data (local and test only)")
     seed.add_argument("--owner-email", required=True)
     seed.add_argument("--owner-name", default="Talib Abbas")
@@ -140,6 +146,16 @@ def main(argv: list[str] | None = None) -> None:
                 raise SystemExit(
                     f"section recall {report['section_recall_at_8']} < {args.min_recall}"
                 )
+    elif args.command == "billing":
+        import asyncio
+
+        from docent.billing.gateway import stripe_gateway
+
+        gateway = stripe_gateway(get_settings())
+        if gateway is None:
+            raise SystemExit("Set STRIPE_SECRET_KEY first (a test key starts with sk_test_).")
+        for line in asyncio.run(gateway.sync_catalog()):
+            print(line)
     elif args.command == "openapi":
         from docent.api.app import create_app
 

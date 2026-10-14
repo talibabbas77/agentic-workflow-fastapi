@@ -8,6 +8,7 @@ import uuid
 
 import asyncpg
 
+from docent.billing import subscriptions
 from docent.db.pool import Connection, set_context
 from docent.ids import new_id
 
@@ -21,7 +22,7 @@ def slugify(name: str) -> str:
 
 
 async def create_tenant(conn: Connection, *, name: str, owner_id: uuid.UUID) -> uuid.UUID:
-    """Create a tenant and its owner membership. Switches RLS context to the new tenant."""
+    """Create a tenant, its owner membership, and its trial. Switches RLS context to it."""
     tenant_id = new_id()
     await set_context(conn, tenant_id=tenant_id, user_id=owner_id)
     base = slugify(name)
@@ -46,6 +47,7 @@ async def create_tenant(conn: Connection, *, name: str, owner_id: uuid.UUID) -> 
         tenant_id,
         owner_id,
     )
+    await subscriptions.start_trial(conn, tenant_id)
     return tenant_id
 
 

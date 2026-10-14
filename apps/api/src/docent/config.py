@@ -87,7 +87,6 @@ class Settings(BaseSettings):
     # Knowledge: storage, crawling, embeddings
     object_store_url: str | None = None  # file:///path or memory://; default .data/objects
     max_upload_bytes: int = 20_000_000
-    tenant_max_documents: int = 500
     crawl_max_pages: int = 200
     crawl_max_page_bytes: int = 5_000_000
     crawl_delay_seconds: float = 0.5
@@ -107,7 +106,7 @@ class Settings(BaseSettings):
     # gemma4:cloud through the same local server after `ollama signin`.
     llm_base_url: str = "http://127.0.0.1:11434/v1"
     llm_api_key: SecretStr | None = None
-    llm_model: str = "qwen3:1.7b"
+    llm_model: str = "gemma4:cloud"
     llm_summary_model: str | None = None  # defaults to llm_model
     llm_structured_output: Literal["auto", "json_schema", "tool", "prompt"] = "auto"
     llm_reasoning_effort: str | None = "none"  # sent to models that think by default
@@ -117,7 +116,6 @@ class Settings(BaseSettings):
     agent_history_turns: int = 6
     agent_sources: int = 6
     agent_turns_per_minute: int = 20
-    default_replies_cap: int = 1000  # until plans exist (Phase 7)
 
     # Widget. Served from the API origin, never from the admin app's origin.
     widget_origin: str = "http://localhost:8000"
@@ -127,6 +125,14 @@ class Settings(BaseSettings):
     widget_clock_skew_seconds: int = 60
     widget_anonymous_per_hour: int = 10
     widget_identified_per_hour: int = 30
+
+    # Billing (Stripe). Without a secret key the API runs with trials and manual
+    # plans only, and checkout answers 503. STRIPE_API_BASE points at stripe-mock
+    # in tests and local development.
+    stripe_secret_key: SecretStr | None = None
+    stripe_webhook_secret: SecretStr | None = None
+    stripe_api_base: str | None = None
+    stripe_automatic_tax: bool = False
 
     @model_validator(mode="after")
     def _check_production_secrets(self) -> Settings:

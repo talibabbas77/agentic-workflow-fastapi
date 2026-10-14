@@ -1,6 +1,8 @@
-"""The plan catalog. One source for the pricing page today and for caps and billing in Phase 7.
+"""The plan catalog: one source for the pricing page, caps, and Stripe prices.
 
 Prices and limits are the starting proposal in docs/ARCHITECTURE.md section 10.
+`docent billing sync-stripe` creates the matching Stripe products and prices,
+found again by their lookup key, so Stripe never becomes a second catalog.
 """
 
 from pydantic import BaseModel
@@ -71,3 +73,15 @@ PLANS: tuple[Plan, ...] = (
         summary="High volume support with room for every team.",
     ),
 )
+
+PLAN_BY_ID: dict[str, Plan] = {plan.id: plan for plan in PLANS}
+TRIAL = PLAN_BY_ID["trial"]
+PAID_PLANS: tuple[Plan, ...] = tuple(plan for plan in PLANS if plan.price_usd_month > 0)
+
+
+def price_lookup_key(plan: Plan) -> str:
+    return f"docent_{plan.id}_monthly"
+
+
+def plan_for_lookup_key(key: str | None) -> Plan | None:
+    return next((plan for plan in PAID_PLANS if price_lookup_key(plan) == key), None)

@@ -42,11 +42,15 @@ jobs:
       redis:
         image: redis:7.4-alpine
         ports: ["6379:6379"]
+      stripe-mock:
+        image: stripe/stripe-mock:v0.206.0
+        ports: ["12111:12111"]
     env:
       PGHOST: 127.0.0.1
       PGUSER: postgres
       PGPASSWORD: postgres
       TEST_PG_SUPERUSER: postgres:postgres
+      STRIPE_MOCK_URL: http://localhost:12111
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10

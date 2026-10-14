@@ -23,6 +23,7 @@ dependencies = [
     "python-docx>=1.2.0",
     "python-multipart>=0.0.32",
     "redis>=8.1.0",
+    "stripe>=16.0.0",
     "trafilatura>=2.3.1",
     "uvicorn[standard]>=0.54.0",
 ]
@@ -73,3 +74,7 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+filterwarnings = [
+  # Raised inside the Stripe SDK's httpx adapter, not by our code.
+  "ignore:Use 'content=<...>' to upload raw bytes:DeprecationWarning:httpx",
+]

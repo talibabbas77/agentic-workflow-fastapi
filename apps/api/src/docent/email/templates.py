@@ -92,3 +92,34 @@ def invitation(
         "Accept invitation",
         url,
     )
+
+
+def usage_threshold(
+    to: str, name: str, workspace: str, percent: int, used: int, cap: int, url: str
+) -> OutgoingEmail:
+    if percent >= 100:
+        return _build(
+            to,
+            f"{workspace} has used all of this month's AI replies",
+            "Your agent is handing every message to your team",
+            [
+                f"Hi {name}. {workspace} has used all {cap:,} AI replies included this month.",
+                "Until the month resets or you upgrade, the widget shows a contact form and every "
+                "message reaches your inbox as a handoff. Nothing is billed beyond your plan.",
+            ],
+            "Review your plan",
+            url,
+        )
+    return _build(
+        to,
+        f"{workspace} has used {percent} percent of this month's AI replies",
+        f"{percent} percent of this month's replies used",
+        [
+            f"Hi {name}. {workspace} has used {used:,} of the {cap:,} AI replies included this "
+            "month.",
+            "When it reaches the cap, the widget shows a contact form and every message reaches "
+            "your inbox as a handoff. Upgrade before then to keep the agent answering.",
+        ],
+        "Review your plan",
+        url,
+    )

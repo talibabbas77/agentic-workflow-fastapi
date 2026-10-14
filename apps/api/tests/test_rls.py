@@ -14,7 +14,10 @@ from docent.ids import new_id
 from tests.conftest import TENANT_TABLES, ClientFactory, Drain, signup, verified_owner
 
 # Tables with tenant_id that are deliberately outside RLS, with the reason.
-RLS_EXEMPT = {"jobs": "system queue; worker sets tenant context per job"}
+RLS_EXEMPT = {
+    "jobs": "system queue; worker sets tenant context per job",
+    "billing_events": "provider event ids and types, written before the tenant is known",
+}
 SITE = "http://localhost:5173"
 
 

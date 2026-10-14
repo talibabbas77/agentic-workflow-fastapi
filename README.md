@@ -39,7 +39,8 @@ and [Ollama](https://ollama.com) running natively.
 ```bash
 corepack enable pnpm   # once per machine (needs corepack 0.34+: npm i -g corepack@latest)
 pnpm install
-ollama pull embeddinggemma && ollama pull qwen3:1.7b
+ollama pull embeddinggemma
+ollama signin          # once; the chat model gemma4:cloud runs through the local Ollama
 pnpm infra:up          # Postgres 17 + pgvector, Redis, Mailpit
 pnpm db:migrate
 pnpm --filter @docent/widget build   # the API serves the widget from apps/widget/dist
@@ -54,9 +55,10 @@ pnpm dev               # API :8000, worker :8001, web :3000
 | http://localhost:8000/docs | API reference (local only) |
 | http://localhost:8025 | Mailpit, catches every email sent locally |
 
-The local chat model, `qwen3:1.7b`, runs on a laptop CPU but answers slowly
-(10 to 50 seconds) and less accurately than the target model. For better answers
-run `ollama signin` once, then set `LLM_MODEL=gemma4:cloud` in `.env`.
+The chat model is `gemma4:cloud`, served through the local Ollama after
+`ollama signin` (synthetic and demo data only on the free plan). To work fully
+offline, `ollama pull qwen3:1.7b` and set `LLM_MODEL=qwen3:1.7b` in `.env`; it
+runs on a laptop CPU but answers slowly (10 to 50 seconds) and less accurately.
 
 Run everything in containers instead: `pnpm stack:up` (and `pnpm stack:down`).
 

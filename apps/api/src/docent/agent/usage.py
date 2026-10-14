@@ -3,7 +3,8 @@
 Every model call writes a usage event with its token cost, priced from
 model_prices at that moment. A reply first reserves one unit of the tenant's
 monthly cap with a single conditional UPDATE, so concurrent turns can never
-overshoot it; the reservation becomes usage when the reply is stored.
+overshoot it; the reservation becomes usage when the reply is stored. The cap
+comes from the plan on every reservation, so an upgrade applies at once.
 """
 
 import logging
@@ -15,16 +16,17 @@ from docent.ids import new_id
 log = logging.getLogger(__name__)
 
 
-async def reserve_reply(conn: Connection, tenant_id: uuid.UUID, default_cap: int) -> bool:
+async def reserve_reply(conn: Connection, tenant_id: uuid.UUID, cap: int) -> bool:
     await conn.execute(
         """
         insert into usage_periods (tenant_id, period_start, period_end, replies_cap)
         values ($1, date_trunc('month', now())::date,
                 (date_trunc('month', now()) + interval '1 month')::date, $2)
-        on conflict (tenant_id, period_start) do nothing
+        on conflict (tenant_id, period_start) do update set replies_cap = excluded.replies_cap
+          where usage_periods.replies_cap <> excluded.replies_cap
         """,
         tenant_id,
-        default_cap,
+        cap,
     )
     reserved = await conn.fetchval(
         """
@@ -38,18 +40,43 @@ async def reserve_reply(conn: Connection, tenant_id: uuid.UUID, default_cap: int
     return bool(reserved)
 
 
-async def settle_reply(conn: Connection, tenant_id: uuid.UUID, *, used: bool) -> None:
-    """Turn a reservation into usage, or give it back."""
-    await conn.execute(
+async def settle_reply(conn: Connection, tenant_id: uuid.UUID, *, used: bool) -> int | None:
+    """Turn a reservation into usage, or give it back.
+
+    Returns 80 or 100 the first time usage reaches that percent of the cap this
+    month, so the caller can tell the owners. Each threshold is marked once.
+    """
+    row = await conn.fetchrow(
         """
         update usage_periods
         set replies_reserved = greatest(replies_reserved - 1, 0),
             replies_used = replies_used + $2
         where tenant_id = $1 and period_start = date_trunc('month', now())::date
+        returning replies_used, replies_cap, notified_80_at, notified_100_at
         """,
         tenant_id,
         1 if used else 0,
     )
+    if not used or row is None or row["replies_cap"] <= 0:
+        return None
+    if row["notified_100_at"] is None and row["replies_used"] >= row["replies_cap"]:
+        crossed = 100
+    elif row["notified_80_at"] is None and row["replies_used"] * 5 >= row["replies_cap"] * 4:
+        crossed = 80
+    else:
+        return None
+    await conn.execute(
+        """
+        update usage_periods
+        set notified_80_at = coalesce(notified_80_at, now()),
+            notified_100_at = case when $2 then coalesce(notified_100_at, now())
+                                   else notified_100_at end
+        where tenant_id = $1 and period_start = date_trunc('month', now())::date
+        """,
+        tenant_id,
+        crossed == 100,
+    )
+    return crossed
 
 
 async def record(

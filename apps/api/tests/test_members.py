@@ -7,6 +7,7 @@ from tests.conftest import (
     PASSWORD,
     ClientFactory,
     Drain,
+    set_plan,
     signup,
     token_from,
     unique_email,
@@ -112,9 +113,10 @@ async def test_owner_changes_roles_and_last_owner_is_protected(
 
 
 async def test_admin_can_remove_agents_but_not_admins(
-    client: httpx.AsyncClient, client_factory: ClientFactory, drain: Drain
+    client: httpx.AsyncClient, client_factory: ClientFactory, drain: Drain, admin_pool: Pool
 ) -> None:
     await verified_owner(client, drain)
+    await set_plan(client, admin_pool, "growth")  # four people need more than the trial's seats
     admin, _ = await _invite_and_join(client, client_factory, drain, role="admin")
     _, agent_me = await _invite_and_join(client, client_factory, drain, role="agent")
     _, other_admin = await _invite_and_join(client, client_factory, drain, role="admin")

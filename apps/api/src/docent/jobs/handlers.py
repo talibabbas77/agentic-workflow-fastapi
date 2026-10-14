@@ -12,6 +12,7 @@ _BUILDERS: dict[str, Callable[..., OutgoingEmail]] = {
     "verify_email": templates.verify_email,
     "reset_password": templates.reset_password,
     "invitation": templates.invitation,
+    "usage_threshold": templates.usage_threshold,
 }
 
 

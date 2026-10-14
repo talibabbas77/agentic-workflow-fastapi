@@ -34,6 +34,7 @@ PG_SUPERUSER = os.environ.get("TEST_PG_SUPERUSER", "postgres:postgres")
 
 TENANT_TABLES = [
     "memberships",
+    "subscriptions",
     "invitations",
     "audit_log",
     "knowledge_sources",
@@ -52,6 +53,8 @@ TENANT_TABLES = [
     "widget_sessions",
 ]
 ALL_TABLES = [
+    "billing_events",
+    "subscriptions",
     "widget_sessions",
     "end_users",
     "signing_keys",
@@ -286,3 +289,14 @@ async def verified_owner(
     body: dict[str, Any] = me_response.json()
     assert body["user"]["email_verified"] is True
     return me | body
+
+
+async def set_plan(client: httpx.AsyncClient, admin_pool: Pool, plan_id: str) -> None:
+    """Move the client's active workspace onto a paid plan, as a settled checkout would."""
+    tenant_id = uuid.UUID((await client.get("/v1/tenant")).json()["id"])
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            "update subscriptions set plan_id = $2, status = 'active' where tenant_id = $1",
+            tenant_id,
+            plan_id,
+        )

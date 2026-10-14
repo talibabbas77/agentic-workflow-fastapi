@@ -17,6 +17,7 @@ from docent.api.deps import (
     set_session_cookie,
 )
 from docent.api.errors import AppError, forbidden, not_found
+from docent.api.plan_limits import check_limit
 from docent.api.schemas import (
     AcceptInviteIn,
     ErrorOut,
@@ -91,6 +92,7 @@ async def invite(body: InviteIn, member: AdminMember, state: State) -> Invitatio
                 "That person is already in this workspace.",
                 {"email": "Already a member."},
             )
+        await check_limit(conn, member.tenant_id, "seats", reinvite=str(body.email))
         invitation_id, token = await members.create_invitation(
             conn,
             tenant_id=member.tenant_id,

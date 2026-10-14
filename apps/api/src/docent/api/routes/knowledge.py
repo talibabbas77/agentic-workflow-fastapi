@@ -23,6 +23,7 @@ from docent.api.schemas import (
     SourcesOut,
     SourceUpdateIn,
 )
+from docent.billing import subscriptions
 from docent.db.pool import Connection, transaction
 from docent.ids import new_id
 from docent.jobs import queue
@@ -47,12 +48,13 @@ async def list_sources(member: CurrentMember, state: State) -> SourcesOut:
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
         rows = await repo.list_sources(conn)
         documents = await repo.tenant_document_count(conn)
+        plan = (await subscriptions.entitlement(conn, member.tenant_id)).plan
     sources = [SourceOut(**dict(r)) for r in rows]
     return SourcesOut(
         sources=sources,
         document_total=documents,
         chunk_total=sum(s.chunk_count for s in sources),
-        document_limit=state.settings.tenant_max_documents,
+        document_limit=plan.pages,
     )
 
 
@@ -65,7 +67,7 @@ async def create_source(body: SourceCreateIn, member: AdminMember, state: State)
     limit = min(body.page_limit, state.settings.crawl_max_pages) if body.kind == "sitemap" else 1
     title = body.title or _title_from_url(url, body.kind)
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
-        await _check_capacity(conn, state.settings.tenant_max_documents, limit)
+        await _check_capacity(conn, member.tenant_id, limit)
         source_id = await repo.create_source(
             conn,
             tenant_id=member.tenant_id,
@@ -103,7 +105,7 @@ async def upload(
     key = f"{object_prefix(member.tenant_id, source_id)}{document_id}/{filename}"
     await state.store.put(key, data)
     async with transaction(state.pool, tenant_id=member.tenant_id) as conn:
-        await _check_capacity(conn, state.settings.tenant_max_documents, 1)
+        await _check_capacity(conn, member.tenant_id, 1)
         await repo.create_source(
             conn,
             source_id=source_id,
@@ -236,12 +238,15 @@ async def _queue_sync(conn: Connection, member: Member, source_id: uuid.UUID) ->
     )
 
 
-async def _check_capacity(conn: Connection, limit: int, adding: int) -> None:
-    if await repo.tenant_document_count(conn) + adding > limit:
+async def _check_capacity(conn: Connection, tenant_id: uuid.UUID, adding: int) -> None:
+    """The plan's pages of docs: a file or a crawled web page counts as one."""
+    plan = (await subscriptions.entitlement(conn, tenant_id)).plan
+    if await repo.tenant_document_count(conn) + adding > plan.pages:
         raise AppError(
             409,
             "document_limit",
-            f"This workspace can hold {limit} documents. Remove a source to add more.",
+            f"The {plan.name} plan holds {plan.pages:,} pages of docs. Remove a source or "
+            "upgrade to add more.",
         )
 
 

@@ -3,7 +3,11 @@
 import hashlib
 import math
 import re
+import uuid
+from typing import Any
 
+from docent.billing.gateway import verify_event
+from docent.billing.plans import Plan
 from docent.knowledge.embeddings import EmbeddingError
 
 DIMS = 768
@@ -82,3 +86,35 @@ def _default(messages: list[dict[str, str]], name: str) -> dict[str, object]:
         "sentiment": "calm",
         "suggested_next_step": "Reply by email.",
     }
+
+
+class FakeBilling:
+    """Stripe without the network: records requests, verifies webhooks for real."""
+
+    webhook_secret = "whsec_test_secret"
+
+    def __init__(self) -> None:
+        self.customers: list[dict[str, object]] = []
+        self.checkouts: list[dict[str, object]] = []
+
+    async def create_customer(self, *, tenant_id: uuid.UUID, name: str, email: str) -> str:
+        self.customers.append({"tenant_id": tenant_id, "name": name, "email": email})
+        return f"cus_test{len(self.customers)}"
+
+    async def checkout_url(
+        self,
+        *,
+        customer_id: str,
+        tenant_id: uuid.UUID,
+        plan: Plan,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        self.checkouts.append({"customer_id": customer_id, "plan": plan.id})
+        return f"https://checkout.stripe.test/c/{len(self.checkouts)}"
+
+    async def portal_url(self, *, customer_id: str, return_url: str) -> str:
+        return f"https://billing.stripe.test/p/{customer_id}"
+
+    def verify_event(self, payload: bytes, signature: str) -> dict[str, Any]:
+        return verify_event(payload, signature, self.webhook_secret)
