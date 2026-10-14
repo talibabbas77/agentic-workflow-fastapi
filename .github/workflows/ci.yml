@@ -183,3 +183,77 @@ jobs:
         with:
           name: retrieval-report
           path: ${{ runner.temp }}/retrieval.json
+
+  agent-gate:
+    name: Agent quality gate (platform golden set)
+    # Needs a chat model. Turn it on with the repository variables
+    # EVAL_LLM_BASE_URL and EVAL_LLM_MODEL and the secret EVAL_LLM_API_KEY. It runs
+    # nightly, and on pull requests that change prompts, models, chunking, or
+    # retrieval. It fails when the wrong-answer rate rises more than 2 points
+    # over fixtures/golden/baseline.json, escalation recall falls, or a safety case fails.
+    if: vars.EVAL_LLM_BASE_URL != ''
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 3s --health-timeout 3s
+          --health-retries 30
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      DATABASE_URL: postgresql://docent_app:docent_app@127.0.0.1:5432/docent
+      WORKER_DATABASE_URL: postgresql://docent_worker:docent_worker@127.0.0.1:5432/docent
+      MIGRATION_DATABASE_URL: postgresql://docent_owner:docent_owner@127.0.0.1:5432/docent
+      LLM_BASE_URL: ${{ vars.EVAL_LLM_BASE_URL }}
+      LLM_MODEL: ${{ vars.EVAL_LLM_MODEL }}
+      LLM_API_KEY: ${{ secrets.EVAL_LLM_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Did this change touch the agent?
+        id: scope
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            | grep -qE '^(apps/api/src/docent/(agent/|llm/|config\.py|knowledge/(chunking|search|embeddings)\.py)|fixtures/golden/)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: astral-sh/setup-uv@v10
+        if: steps.scope.outputs.run == 'true'
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+      - name: Bootstrap database
+        if: steps.scope.outputs.run == 'true'
+        run: |
+          psql -d postgres -v ON_ERROR_STOP=1 -v owner_password=docent_owner \
+            -v app_password=docent_app -v worker_password=docent_worker -f infra/db/sql/roles.sql
+          psql -d postgres -c "create database docent owner docent_owner"
+          psql -d docent -v ON_ERROR_STOP=1 -f infra/db/sql/database.sql
+          uv run --directory apps/api docent db migrate
+      - name: Install Ollama and the embedding model
+        if: steps.scope.outputs.run == 'true'
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama pull embeddinggemma
+      - name: Run the golden set through the agent
+        if: steps.scope.outputs.run == 'true'
+        run: uv run --directory apps/api docent eval agent --sample 8 --out "$RUNNER_TEMP/agent.json"
+      - name: Compare with the baseline
+        if: steps.scope.outputs.run == 'true'
+        run: uv run --directory apps/api docent eval gate --report "$RUNNER_TEMP/agent.json"
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.scope.outputs.run == 'true'
+        with:
+          name: agent-report
+          path: ${{ runner.temp }}/agent.json

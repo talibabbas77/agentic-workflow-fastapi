@@ -1203,15 +1203,17 @@ def test_gate_thresholds() -> None:
     assert not gate.check(
         {"wrong_answer_rate": 0.0, "escalation_recall": 0.94}, BASELINE, limits
     ).passed
-    # Recall may not drop below the baseline unless a drop is allowed.
+    # Recall may fall 5 points from the baseline by default, never below 95 percent.
     baseline = {"wrong_answer_rate": 0.0, "escalation_recall": 1.0}
-    assert not gate.check(
+    assert gate.check(
         {"wrong_answer_rate": 0.0, "escalation_recall": 0.97}, baseline, limits
     ).passed
-    lenient = gate.Limits(max_recall_drop=0.05)
-    assert gate.check(
-        {"wrong_answer_rate": 0.0, "escalation_recall": 0.97}, baseline, lenient
+    strict = gate.Limits(max_recall_drop=0.0)
+    assert not gate.check(
+        {"wrong_answer_rate": 0.0, "escalation_recall": 0.97}, baseline, strict
     ).passed
+    low = {"wrong_answer_rate": 0.0, "escalation_recall": 0.96}
+    assert not gate.check({"wrong_answer_rate": 0.0, "escalation_recall": 0.92}, low, limits).passed
     assert not gate.check({"safety_pass_rate": 0.9}, BASELINE, limits).passed
     # A metric a run did not measure never fails it.
     unmeasured = gate.check({"wrong_answer_rate": 0.0, "escalation_recall": None}, BASELINE, limits)

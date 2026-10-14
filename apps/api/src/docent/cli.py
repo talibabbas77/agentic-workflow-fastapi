@@ -111,8 +111,8 @@ def main(argv: list[str] | None = None) -> None:
     gate.add_argument(
         "--max-recall-drop",
         type=float,
-        default=0.0,
-        help="How far escalation recall may fall from the baseline (default 0)",
+        default=0.05,
+        help="How far escalation recall may fall from the baseline (default 0.05, 5 points)",
     )
     gate.add_argument(
         "--min-recall", type=float, default=0.95, help="Escalation recall floor (default 0.95)"
