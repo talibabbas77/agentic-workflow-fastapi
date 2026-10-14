@@ -74,3 +74,21 @@ def test_the_default_agent_name_is_not_repeated() -> None:
     for lang in ("es", "de", "pt", "it", "ar"):
         for kind in ("greeting", "about"):
             assert "Lumen Notes assistant" not in reply(kind, lang, unnamed)
+
+
+@pytest.mark.parametrize(
+    "text", ["What is this about?", "what's this for", "What is this chat?", "How does this work?"]
+)
+def test_questions_about_the_chat_itself_are_about(text: str) -> None:
+    assert detect(text, PROFILE) == Detected("about", "en")
+
+
+def test_the_about_reply_names_the_help_topics_before_its_question() -> None:
+    text = reply("about", "en", PROFILE, ["Pricing and billing", "Labels", "Rate limits"])
+    assert text.endswith(
+        "Visitors often ask about Pricing and billing, Labels, Rate limits. "
+        "What can I help you with?"
+    )
+    for lang in ("es", "fr", "de", "pt", "it", "ar"):
+        assert "Labels" in reply("about", lang, PROFILE, ["Labels"])
+    assert "Visitors often ask" not in reply("about", "en", PROFILE)

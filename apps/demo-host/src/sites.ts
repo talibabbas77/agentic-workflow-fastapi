@@ -83,7 +83,7 @@ export interface Account {
 }
 
 export interface Persona {
-  /** The customer's id in Parcelwise. The token's `sub` adds a per-browser suffix (see server.ts). */
+  /** The customer's id in Parcelwise, the token's `sub` (see server.ts for public deployments). */
   id: string;
   name: string;
   email: string;

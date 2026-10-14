@@ -32,10 +32,13 @@ const PUBLIC_DIR = fileURLToPath(new URL("../public/", import.meta.url));
 
 const COOKIE = "parcelwise_session";
 /**
- * Many visitors share each demo customer. A random id per browser, kept across
- * sign-outs, goes into the token's `sub`, so a visitor resumes only their own
- * chat and never sees someone else's. A real site would use its own user id.
+ * The token's `sub` is the demo customer's id, as a real site would send its
+ * own user id, so Docent remembers the customer across chats and shows the
+ * seeded history. On a public deployment many visitors share each demo
+ * customer: SHOWCASE_PRIVATE_CHATS=1 adds a random id per browser, kept across
+ * sign-outs, so a visitor resumes only their own chat.
  */
+const PRIVATE_CHATS = process.env.SHOWCASE_PRIVATE_CHATS === "1";
 const DEVICE_COOKIE = "parcelwise_device";
 const DEVICE_ID = /^[A-Za-z0-9_-]{22}$/;
 const COOKIE_PATH = `/${PARCELWISE.slug}`;
@@ -85,13 +88,26 @@ function signedIn(req: IncomingMessage): Persona | undefined {
   return findPersona(value);
 }
 
-async function identityToken(install: Install, persona: Persona, device: string): Promise<string> {
+/** What the dashboard shows, so support can answer "what's my balance?" from the same figures. */
+function accountContext(persona: Persona): Record<string, string> {
+  const { account } = persona;
+  return {
+    ...persona.context,
+    postage_balance: `$${account.balance.toFixed(2)}`,
+    auto_reload: account.autoReload ? "on" : "off",
+    labels_this_month: String(account.labelsThisMonth),
+    shipments_in_transit: String(account.inTransit),
+    shipments_needing_attention: String(account.attention),
+  };
+}
+
+async function identityToken(install: Install, persona: Persona, device: string | null): Promise<string> {
   const key = await importJWK(install.private_jwk, "ES256");
-  return new SignJWT({ name: persona.name, email: persona.email, ctx: persona.context })
+  return new SignJWT({ name: persona.name, email: persona.email, ctx: accountContext(persona) })
     .setProtectedHeader({ alg: "ES256", kid: install.kid })
     .setIssuer(install.widget)
     .setAudience("docent")
-    .setSubject(`${persona.id}-${device}`)
+    .setSubject(device ? `${persona.id}-${device}` : persona.id)
     .setIssuedAt()
     .setExpirationTime(TOKEN_LIFETIME)
     .setJti(randomUUID())
@@ -187,10 +203,10 @@ async function handle(req: IncomingMessage, res: ServerResponse, port: number): 
     const persona = signedIn(req);
     const device = cookie(req, DEVICE_COOKIE);
     const install = persona && (await readInstall(PARCELWISE));
-    if (!persona || !install || !device || !DEVICE_ID.test(device)) {
+    if (!persona || !install || (PRIVATE_CHATS && !(device && DEVICE_ID.test(device)))) {
       return send(res, 401, "Not signed in", "text/plain");
     }
-    return send(res, 200, await identityToken(install, persona, device), "text/plain");
+    return send(res, 200, await identityToken(install, persona, PRIVATE_CHATS ? (device ?? null) : null), "text/plain");
   }
 
   return html(notFound(ctx), 404);

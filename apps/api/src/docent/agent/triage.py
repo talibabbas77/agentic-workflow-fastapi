@@ -13,6 +13,7 @@ language, and (for unclear messages) one clarifying question.
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from html import escape
 from typing import Literal
@@ -21,7 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from docent.agent.prompts import AgentProfile
 
-TRIAGE_PROMPT_VERSION = "triage-2026-10-14"
+TRIAGE_PROMPT_VERSION = "triage-2026-10-14b"
 
 type SmallTalk = Literal["greeting", "about", "thanks", "goodbye", "ack"]
 type Lang = Literal["en", "es", "fr", "de", "pt", "it", "ar"]
@@ -140,7 +141,8 @@ _PHRASES: dict[SmallTalk, dict[Lang, tuple[str, ...]]] = {
 _ABOUT = re.compile(
     r"^(?:(?:who|what) are you|are you (?:a |an )?(?:bot|robot|human|real person|person|ai|"
     r"machine)|what can you (?:do|help (?:me )?with)|how can you help(?: me)?|what do you do|"
-    r"who am i (?:talking|speaking|chatting) (?:to|with)|is this a bot)$"
+    r"who am i (?:talking|speaking|chatting) (?:to|with)|is this a bot|"
+    r"what(?: is|s) this(?: chat| assistant| thing)?(?: about| for)?|how does this (?:chat )?work)$"
 )
 _FILLERS = ("there", "team", "all", "everyone", "folks", "guys", "again")
 
@@ -282,9 +284,35 @@ _REPLIES: dict[str, dict[str, str]] = {
 }
 
 
-def reply(kind: str, lang: str, profile: AgentProfile) -> str:
+# The question that closes each "about" reply; the help topics go just before it.
+_ABOUT_CLOSE: dict[str, str] = {
+    "en": "What can I help you with?",
+    "es": "¿En qué te ayudo?",
+    "fr": "Comment puis-je vous aider ?",
+    "de": "Wobei kann ich helfen?",
+    "pt": "Como posso ajudar?",
+    "it": "Come posso aiutarti?",
+    "ar": "كيف يمكنني مساعدتك؟",
+}
+_TOPICS: dict[str, str] = {
+    "en": "Visitors often ask about {topics}.",
+    "es": "Las preguntas más comunes son sobre {topics}.",
+    "fr": "Les questions portent souvent sur {topics}.",
+    "de": "Häufige Themen sind {topics}.",
+    "pt": "As dúvidas mais comuns são sobre {topics}.",
+    "it": "Le domande più frequenti riguardano {topics}.",
+    "ar": "تدور الأسئلة الشائعة حول {topics}.",
+}
+
+
+def reply(kind: str, lang: str, profile: AgentProfile, topics: Sequence[str] = ()) -> str:
+    """A templated reply. For "about", `topics` names real help articles, never the model's words."""
     templates = _REPLIES[kind]
     text = templates.get(lang, templates["en"])
+    lang = lang if lang in templates else "en"
+    if kind == "about" and topics and (close := _ABOUT_CLOSE.get(lang)) and close in text:
+        listed = ", ".join(t.replace("{", "(").replace("}", ")") for t in topics)
+        text = text.replace(close, f"{_TOPICS[lang].replace('{topics}', listed)} {close}")
     if _normalize(profile.company) in _normalize(profile.agent_name):
         # "Lumen Notes assistant" (the default) is not a name; say "I'm the Lumen Notes assistant".
         text = text.replace("{agent}, ", "").replace("{agent}، ", "")
@@ -298,11 +326,13 @@ TRIAGE_RULES = """You sort messages sent to a company's support assistant. Text 
 Intents:
 - product_question: anything about the company's product, service, pricing, policies, billing, or how to do something with it.
 - account_question: about the visitor's own account details, such as their plan, name, email, or workspace.
-- small_talk: greetings, thanks, chit-chat, or questions about the assistant itself.
+- small_talk: greetings, thanks, chit-chat, or questions about the assistant or this chat itself, such as "who are you", "what is this about", or "what can you help with".
 - off_topic: unrelated to the company, such as general knowledge, other companies, homework, or writing code.
 - unclear: too vague to answer without one clarifying question. Write that question in the visitor's language.
 - wants_person: asks to talk to a human.
 
+Read <recent> first. A short reply such as "yes", "no", "the first one", or a single word answers the assistant's last message, so judge it together with that message and the visitor's earlier question.
+Never choose unclear when the assistant's last message already asked a clarifying question; choose product_question instead.
 When unsure between product_question and anything else, choose product_question.
 Reply with a JSON object: intent, language (ISO 639-1 code), clarifying_question (null unless unclear)."""
 

@@ -224,7 +224,15 @@ PARCELWISE = Workspace(
     invites=((demo_email("noah.patel"), "agent"),),
     docs="golden/parcelwise",
     greeting="Hi, ask me about shipping, labels, or the Parcelwise API.",
-    claims=("plan", "account"),
+    claims=(
+        "plan",
+        "account",
+        "postage_balance",
+        "auto_reload",
+        "labels_this_month",
+        "shipments_in_transit",
+        "shipments_needing_attention",
+    ),
     anonymous_enabled=False,  # the demo host shows it only inside the signed-in dashboard
     tone="neutral",
     ticket_types=(

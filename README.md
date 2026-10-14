@@ -109,9 +109,12 @@ from "See it live" on the landing page:
 
 Both have a "Try asking" panel: a click copies the question and opens the chat
 (the loader cannot type into the chat, and a host page never reaches into the
-widget's frame). Many visitors share each demo customer, so the token's `sub` is
-the customer id plus a random id kept in a cookie for that browser: a visitor
-resumes only their own chat. The same pages on http://localhost:5174 are on an
+widget's frame). The token's `sub` is the demo customer's id, so the agent
+remembers the customer across chats, and its `ctx` carries the figures on the
+dashboard (postage balance, auto-reload, labels this month), so "What's my
+balance?" is answered from them. On a public deployment, where many visitors
+share each demo customer, set `SHOWCASE_PRIVATE_CHATS=1`: the `sub` then adds a
+random id per browser, so a visitor resumes only their own chat. The same pages on http://localhost:5174 are on an
 origin the widgets do not allow, so the browser refuses to show the chat there.
 `DOCENT_URL` sets the "About Docent" link (default http://localhost:3000).
 

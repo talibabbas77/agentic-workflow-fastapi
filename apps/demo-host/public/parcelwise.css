@@ -522,7 +522,9 @@
   gap: 20px;
   align-content: start;
   width: 100%;
-  max-width: 1320px;
+  max-width: 1440px;
+  /* Centered in the space beside the sidebar, so wide screens have no empty strip on one side. */
+  margin-inline: auto;
   padding: 28px 36px 64px;
 }
 
