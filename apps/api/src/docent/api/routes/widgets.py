@@ -98,6 +98,17 @@ async def replace_widget(
         )
         if status_line.endswith(" 0"):
             raise not_found("Widget")
+        # Sessions the new settings no longer allow end now, not when they expire.
+        await conn.execute(
+            """
+            update widget_sessions set revoked_at = now()
+            where widget_id = $1 and revoked_at is null
+              and ((mode = 'anonymous' and not $2) or not (parent_origin = any($3::text[])))
+            """,
+            widget_id,
+            body.anonymous_enabled,
+            origins,
+        )
         await _audit(conn, member, "widget.updated", widget_id)
         return await _out(conn, state.settings, widget_id)
 
@@ -167,6 +178,15 @@ async def retire_key(
         )
         if row is None:
             raise not_found("Key")
+        # A retired key may be compromised: signed-in sessions start again with a fresh token,
+        # which the widget asks the site for on its own.
+        await conn.execute(
+            """
+            update widget_sessions set revoked_at = now()
+            where widget_id = $1 and mode = 'identified' and revoked_at is null
+            """,
+            widget_id,
+        )
         await _audit(conn, member, "widget.key_retired", widget_id, {"kid": kid})
     return SigningKeyOut(**dict(row))
 

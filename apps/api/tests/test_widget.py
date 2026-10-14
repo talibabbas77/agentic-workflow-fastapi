@@ -689,3 +689,23 @@ async def test_the_team_preview_cannot_write_into_a_customers_conversation(
         f"/v1/agent/conversations/{preview['id']}/messages", json={"content": "hello again"}
     )
     assert closed.status_code == 409
+
+
+async def test_live_sessions_end_when_the_widget_no_longer_allows_them(
+    frame: httpx.AsyncClient, tenant: Tenant
+) -> None:
+    """Security review: retiring a key or turning anonymous off left sessions for 30 minutes."""
+    visitor = await anonymous(frame, tenant)
+    sam = await identified(frame, tenant)
+    url = f"/v1/widgets/{tenant.widget['id']}"
+    await tenant.admin.put(
+        url, json={"name": "Help", "allowed_origins": [SITE], "anonymous_enabled": False}
+    )
+    assert (
+        await frame.post("/v1/widget/conversations", json={}, headers=visitor)
+    ).status_code == 401
+    assert (await frame.post("/v1/widget/conversations", json={}, headers=sam)).status_code == 201
+
+    retired = await tenant.admin.post(f"{url}/keys/{tenant.kid}/retire")
+    assert retired.status_code == 200
+    assert (await frame.post("/v1/widget/conversations", json={}, headers=sam)).status_code == 401
