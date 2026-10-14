@@ -52,7 +52,9 @@ test("a new handoff shows up in the inbox, emails the team, and filters narrow t
   await expect(row(page, refundContact)).toBeVisible({ timeout: 6_000 });
   await handoff(page.request, "exporting my notes", exportContact);
   await expect(row(page, exportContact)).toBeVisible({ timeout: 6_000 });
-  await expect(page.getByText("2 unread")).toBeVisible();
+  await expect(page.getByRole("main").getByText("2 unread")).toBeVisible();
+  // The sidebar badge counts the same handoffs.
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Inbox 2 unread" })).toBeVisible();
   await expect(row(page, refundContact)).toContainText("Unread");
 
   // The rule emails the team; the email links to the handoff.
