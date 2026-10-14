@@ -9,6 +9,7 @@ import { formatCount, formatMicros, formatPercent, formatPerReply, plural } from
 import { PrivacyNote, StatTile } from "./bits";
 import { planName, planOptions, stateOptions } from "./labels";
 import { queryHref } from "./query";
+import { RedisBudget } from "./redis-budget";
 
 const monthFormat = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" });
 
@@ -35,7 +36,12 @@ export function ConsoleOverview({ data }: { data: AdminOverview }) {
           <StatTile
             label="Monthly recurring revenue"
             value={formatMicros(data.mrr_micros)}
-            note={`${formatCount(paying)} active Stripe ${plural(paying, "subscription")}`}
+            note={
+              `${formatCount(paying)} active Stripe ${plural(paying, "subscription")}` +
+              (data.topups_this_month_micros > 0
+                ? `, and ${formatMicros(data.topups_this_month_micros)} in top-ups this month`
+                : "")
+            }
           />
           <StatTile
             label={`Model cost in ${month}`}
@@ -45,7 +51,9 @@ export function ConsoleOverview({ data }: { data: AdminOverview }) {
           <StatTile
             label="Gross margin"
             value={margin === null ? "No revenue" : formatPercent(margin)}
-            note={margin === null ? "Nothing is paid through Stripe yet." : "Revenue less model cost, this month"}
+            note={
+              margin === null ? "Nothing is paid through Stripe yet." : "Plans and top-ups less model cost, this month"
+            }
             warn={margin !== null && margin < 0}
           />
           <StatTile
@@ -68,7 +76,10 @@ export function ConsoleOverview({ data }: { data: AdminOverview }) {
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <PlanStateTable counts={data.by_plan_state} total={data.workspaces} />
-        <Anomalies anomalies={data.anomalies} median={median} />
+        <div className="flex min-w-0 flex-col gap-6">
+          <Anomalies anomalies={data.anomalies} median={median} />
+          <RedisBudget redis={data.redis} />
+        </div>
       </div>
     </div>
   );

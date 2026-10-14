@@ -57,7 +57,8 @@ async def load(conn: Connection, tenant: asyncpg.Record) -> Workspace:
             and occurred_at >= date_trunc('month', now()) - make_interval(months => $2 - 1)
           group by 1
         )
-        select m.month, coalesce(up.replies_used, 0) as replies_used, up.replies_cap,
+        select m.month, coalesce(up.replies_used, 0) as replies_used,
+               up.replies_cap + up.replies_topup as replies_cap,
                coalesce(e.cost_micros, 0) as cost_micros, coalesce(e.tokens_in, 0) as tokens_in,
                coalesce(e.tokens_out, 0) as tokens_out
         from months m

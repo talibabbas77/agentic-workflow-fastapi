@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     # Redis is optional. Unset means local-only mode.
     redis_url: str | None = None
     redis_timeout_seconds: float = 0.1
+    # Commands a month Docent may send (Upstash Free: 500K). Platform admins get an email
+    # at 80 and 90 percent; at 90 the app stops using Redis until the month ends.
+    redis_monthly_command_budget: int = Field(default=500_000, gt=0)
+    # How often each API process adds its command count to Postgres. It also adds it as
+    # soon as 1 percent of the budget is waiting, and never when it sent nothing.
+    redis_budget_flush_seconds: float = Field(default=600.0, gt=0)
 
     # Secrets
     secret_key: SecretStr = SecretStr("local-dev-secret-change-me")

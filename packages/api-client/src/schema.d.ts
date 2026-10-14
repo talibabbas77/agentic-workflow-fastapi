@@ -1706,6 +1706,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/billing/topups/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Topup Checkout
+         * @description Start Stripe Checkout for one top-up pack. The replies arrive with its webhook.
+         */
+        post: operations["topup_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/billing/portal": {
         parameters: {
             query?: never;
@@ -2355,6 +2375,11 @@ export interface components {
              * @description Monthly price of every active Stripe subscription
              */
             mrr_micros: number;
+            /**
+             * Topups This Month Micros
+             * @description Top-up packs paid for this month, before tax
+             */
+            topups_this_month_micros: number;
             /** New Workspaces 30D */
             new_workspaces_30d: number;
             /** New Accounts 30D */
@@ -2365,13 +2390,14 @@ export interface components {
             cost_this_month_micros: number;
             /**
              * Gross Margin
-             * @description (MRR - model cost) / MRR; null without MRR
+             * @description (MRR + top-ups - model cost) / (MRR + top-ups); null without revenue
              */
             gross_margin: number | null;
             /** Median Cost Per Reply Micros */
             median_cost_per_reply_micros: number | null;
             /** Anomalies */
             anomalies: components["schemas"]["AdminAnomalyOut"][];
+            redis: components["schemas"]["AdminRedisOut"];
         };
         /** AdminPeopleOut */
         AdminPeopleOut: {
@@ -2441,6 +2467,51 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** AdminRedisOut */
+        AdminRedisOut: {
+            /**
+             * Status
+             * @description Redis as this API process sees it now; local_only once the budget is nearly spent
+             * @enum {string}
+             */
+            status: "ok" | "degraded" | "disabled" | "local_only";
+            /**
+             * Month
+             * Format: date
+             */
+            month: string;
+            /**
+             * Commands
+             * @description Commands sent this month: what every process added up, plus what this process has not added yet
+             */
+            commands: number;
+            /**
+             * Budget
+             * @description Commands a month Docent allows itself
+             */
+            budget: number;
+            /**
+             * Alert Percents
+             * @description Platform admins get an email at each
+             */
+            alert_percents: number[];
+            /**
+             * Local Only Percent
+             * @description From here, no command until the month ends
+             */
+            local_only_percent: number;
+            /** Alerted 80 At */
+            alerted_80_at: string | null;
+            /** Alerted 90 At */
+            alerted_90_at: string | null;
+            /** Local Only Since */
+            local_only_since: string | null;
+            /**
+             * Counted At
+             * @description When a process last added its count
+             */
+            counted_at: string | null;
+        };
         /** AdminSubscriptionOut */
         AdminSubscriptionOut: {
             plan: components["schemas"]["Plan"];
@@ -2509,7 +2580,7 @@ export interface components {
             replies_used: number;
             /**
              * Replies Cap
-             * @description The cap that month; null with no usage row
+             * @description The cap that month, top-ups included; null with no usage row
              */
             replies_cap: number | null;
             /** Cost Micros */
@@ -2723,6 +2794,20 @@ export interface components {
              */
             can_manage: boolean;
             usage: components["schemas"]["BillingUsage"];
+            topups: components["schemas"]["BillingTopups"];
+        };
+        /** BillingTopups */
+        BillingTopups: {
+            /**
+             * Replies
+             * @description Replies this month's top-up packs added to the cap
+             */
+            replies: number;
+            /**
+             * Bought
+             * @description Packs paid for this month, oldest first
+             */
+            bought: components["schemas"]["TopupOut"][];
         };
         /** BillingUsage */
         BillingUsage: {
@@ -2736,7 +2821,7 @@ export interface components {
              * Format: date
              */
             period_end: string;
-            /** @description AI replies this month against the plan's cap */
+            /** @description AI replies this month against the plan's cap plus this month's top-ups */
             replies: components["schemas"]["UsageMeter"];
             /** @description Indexed documents against the plan's pages */
             documents: components["schemas"]["UsageMeter"];
@@ -3665,7 +3750,7 @@ export interface components {
              * Redis
              * @enum {string}
              */
-            redis: "ok" | "degraded" | "disabled";
+            redis: "ok" | "degraded" | "disabled" | "local_only";
             /** Version */
             version: string;
         };
@@ -4305,6 +4390,11 @@ export interface components {
             trial_days?: number | null;
             /** Summary */
             summary: string;
+            /**
+             * Topup Packs
+             * @description Extra replies an owner can buy for the current month. None on the trial.
+             */
+            readonly topup_packs: components["schemas"]["TopupPack"][];
         };
         /** PlanChangeIn */
         PlanChangeIn: {
@@ -5312,6 +5402,47 @@ export interface components {
         TokenIn: {
             /** Token */
             token: string;
+        };
+        /** TopupCheckoutIn */
+        TopupCheckoutIn: {
+            /**
+             * Pack Id
+             * @description A pack from the current plan's topup_packs
+             */
+            pack_id: string;
+        };
+        /** TopupOut */
+        TopupOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Pack Id */
+            pack_id: string;
+            /** Replies */
+            replies: number;
+            /**
+             * Amount Cents
+             * @description The pack's price, before any tax
+             */
+            amount_cents: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** TopupPack */
+        TopupPack: {
+            /** Id */
+            id: string;
+            /** Plan Id */
+            plan_id: string;
+            /** Replies */
+            replies: number;
+            /** Price Cents */
+            price_cents: number;
         };
         /** UsageMeter */
         UsageMeter: {
@@ -12124,6 +12255,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    topup_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopupCheckoutIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RedirectOut"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
                 };
             };
             /** @description Bad Gateway */

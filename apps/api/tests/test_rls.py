@@ -83,6 +83,11 @@ async def test_app_roles_cannot_bypass_rls_or_change_schema(owner_pool: Pool) ->
         assert not await conn.fetchval(
             "select has_table_privilege('docent_worker', 'eval_results', 'DELETE')"
         )
+        # Only the signed Stripe webhook writes a top-up, and nobody edits or removes one.
+        for privilege in ("UPDATE", "DELETE"):
+            assert not await conn.fetchval(
+                "select has_table_privilege('docent_app', 'topups', $1)", privilege
+            )
 
 
 @pytest.fixture
@@ -175,8 +180,18 @@ async def two_tenants(
         assert run.status_code == 202, run.text
     await drain()  # summaries and routing: notifications, email deliveries, webhook events
     # The weekly review samples answered widget conversations: make the previews count.
+    # A top-up pack is written only by Stripe's webhook (test_billing); one row each here.
     async with admin_pool.acquire() as conn:
         await conn.execute("update conversations set channel = 'widget'")
+        for me in (a, b):
+            await conn.execute(
+                "insert into topups (id, tenant_id, pack_id, replies, amount_cents,"
+                " provider_order_id, period_start)"
+                " values (gen_random_uuid(), $1, 'starter_500', 500, 1450, $2,"
+                " date_trunc('month', now())::date)",
+                _tid(me),
+                f"cs_{_tid(me).hex}",
+            )
     for c in (a_client, b_client):
         assert (await c.get("/v1/evals/review")).json()["items"]
     return a, b

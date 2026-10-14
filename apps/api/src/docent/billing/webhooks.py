@@ -4,7 +4,7 @@ The tenant comes only from the Stripe customer id, mapped through our own
 subscriptions row (ARCHITECTURE section 3), never from event metadata. Each
 event id is stored once, so redelivery is a no-op, and an event older than the
 last one applied never rolls the subscription back: Stripe does not promise
-delivery order.
+delivery order. A paid top-up checkout credits its pack once (topups.py).
 """
 
 import logging
@@ -12,6 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
+from docent.billing import topups
 from docent.billing.plans import plan_for_lookup_key
 from docent.db.pool import Connection, Pool, set_context, transaction
 
@@ -75,7 +76,7 @@ async def _apply(
     created: datetime,
     event_id: str,
 ) -> Outcome:
-    if kind not in SUBSCRIPTION_EVENTS | INVOICE_EVENTS:
+    if kind not in SUBSCRIPTION_EVENTS | INVOICE_EVENTS | topups.CHECKOUT_EVENTS:
         return "ignored"
     if tenant_id is None:
         log.warning("billing event for an unknown customer", extra={"event": event_id})
@@ -83,6 +84,8 @@ async def _apply(
     await set_context(conn, tenant_id=tenant_id)
     if kind in SUBSCRIPTION_EVENTS:
         return await _apply_subscription(conn, tenant_id, kind, obj, created)
+    if kind in topups.CHECKOUT_EVENTS:
+        return await topups.credit(conn, tenant_id, obj, created)
     return await _apply_invoice(conn, tenant_id, kind, created)
 
 

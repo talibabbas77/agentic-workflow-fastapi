@@ -15,6 +15,11 @@ export function priceLabel(plan: Pick<Plan, "price_usd_month">) {
   return plan.price_usd_month === 0 ? "Free" : `$${count(plan.price_usd_month)}`;
 }
 
+/** "$29" or "$14.50", for a top-up pack's price in cents. */
+export function packPrice(cents: number) {
+  return cents % 100 === 0 ? `$${count(cents / 100)}` : `$${(cents / 100).toFixed(2)}`;
+}
+
 export function periodLabel(plan: Pick<Plan, "trial_days">) {
   return plan.trial_days ? `for ${plan.trial_days} days` : "per month";
 }

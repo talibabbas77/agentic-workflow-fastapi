@@ -96,8 +96,12 @@ class RateLimiter:
 
     async def hit(self, limit: Limit, *key_parts: str) -> RateResult:
         key = ":".join((self._prefix, limit.name, *key_parts))
+        # The first check in a process loads the script first: two commands, not one.
+        commands = 1 if self._sha else 2
         try:
-            allowed, remaining, retry_ms = await self._hub.call(lambda r: self._eval(r, key, limit))
+            allowed, remaining, retry_ms = await self._hub.call(
+                lambda r: self._eval(r, key, limit), commands=commands
+            )
         except RedisUnavailable:
             return self._local.hit(key, limit)
         return _result(bool(allowed), remaining, retry_ms)

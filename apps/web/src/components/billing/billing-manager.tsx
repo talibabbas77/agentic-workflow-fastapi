@@ -1,6 +1,6 @@
 "use client";
 
-import type { Billing, PaidPlanId, Plan, PlanChangePreview, RefundStatus } from "@docent/api-client";
+import type { Billing, PaidPlanId, Plan, PlanChangePreview, RefundStatus, TopupPack } from "@docent/api-client";
 import { WarningCircleIcon } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { FormAlert } from "@/components/ui/form-alert";
@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/toast";
 import { api, request } from "@/lib/api/browser";
 import type { FetchOutcome } from "@/lib/api/result";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatCount, formatDate, formatMoney } from "@/lib/format";
 import { hardNavigate } from "@/lib/navigation";
 import { usePoll } from "@/lib/use-poll";
 import { CancelPlanDialog } from "./cancel-plan-dialog";
@@ -17,14 +17,25 @@ import { PlanChangeDialog } from "./plan-change-dialog";
 import { inactiveReason, isSubscribed, type PaidPlan } from "./plan-status";
 import { PlansGrid } from "./plans-grid";
 import { RefundDialog } from "./refund-dialog";
+import { showTopups, TopupCard } from "./topup-card";
+import { TopupDialog } from "./topup-dialog";
+import { monthName } from "./topup-math";
 import { UsageMeters } from "./usage-meters";
 
 export type CheckoutReturn = "success" | "canceled" | null;
+export type TopupReturn = "success" | "canceled" | null;
 
 /** Stripe's webhook usually lands within seconds; after this long, stop asking and say so. */
 const CONFIRM_PATIENCE_MS = 30_000;
+/** A pack credited this long before the owner came back still counts as the one just bought. */
+const CREDIT_WINDOW_MS = 10 * 60_000;
 
-type Open = { kind: "change"; plan: PaidPlan } | { kind: "cancel" } | { kind: "refund" } | null;
+type Open =
+  | { kind: "change"; plan: PaidPlan }
+  | { kind: "cancel" }
+  | { kind: "refund" }
+  | { kind: "topup"; pack: TopupPack }
+  | null;
 /** An upgrade Stripe has accepted; the plan changes when its webhook confirms the payment. */
 type Upgrade = { plan: PaidPlan; gaveUp: boolean } | null;
 
@@ -32,11 +43,14 @@ export function BillingManager({
   initial,
   plans,
   checkout,
+  topup = null,
 }: {
   initial: Billing;
   plans: Plan[] | null;
   /** Where Stripe Checkout sent the owner back from, read once from the URL. */
   checkout: CheckoutReturn;
+  /** The same, for a top-up pack's checkout. */
+  topup?: TopupReturn;
 }) {
   const toast = useToast();
   const [billing, setBilling] = useState(initial);
@@ -45,11 +59,16 @@ export function BillingManager({
   const [gaveUp, setGaveUp] = useState(false);
   const [open, setOpen] = useState<Open>(null);
   const [upgrade, setUpgrade] = useState<Upgrade>(null);
+  // A pack is credited by Stripe's webhook, a moment after the owner comes back.
+  const [returnedAt] = useState(() => Date.now());
+  const [topupGaveUp, setTopupGaveUp] = useState(false);
 
   const confirmed = isSubscribed(billing);
   const waiting = checkout === "success" && !confirmed && !gaveUp;
   const upgraded = upgrade !== null && billing.plan.id === upgrade.plan.id;
   const waitingForUpgrade = upgrade !== null && !upgraded && !upgrade.gaveUp;
+  const credited = billing.topups.bought.find((t) => Date.parse(t.created_at) > returnedAt - CREDIT_WINDOW_MS);
+  const waitingForTopup = topup === "success" && !credited && !topupGaveUp;
 
   const refresh = useCallback(async () => {
     const result = await request(api.GET("/v1/billing"));
@@ -57,7 +76,7 @@ export function BillingManager({
   }, []);
 
   // The plan changes when Stripe's webhook arrives, a moment after checkout or an upgrade.
-  usePoll(waiting || waitingForUpgrade, refresh, 3000);
+  usePoll(waiting || waitingForUpgrade || waitingForTopup, refresh, 3000);
 
   useEffect(() => {
     if (!waiting) return;
@@ -74,10 +93,16 @@ export function BillingManager({
     return () => window.clearTimeout(timer);
   }, [waitingForUpgrade]);
 
-  // Drop ?checkout= so a reload does not show the notice again.
   useEffect(() => {
-    if (checkout) window.history.replaceState(null, "", window.location.pathname);
-  }, [checkout]);
+    if (!waitingForTopup) return;
+    const timer = window.setTimeout(() => setTopupGaveUp(true), CONFIRM_PATIENCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [waitingForTopup]);
+
+  // Drop ?checkout= and ?topup= so a reload does not show the notice again.
+  useEffect(() => {
+    if (checkout || topup) window.history.replaceState(null, "", window.location.pathname);
+  }, [checkout, topup]);
 
   async function redirect(target: PaidPlanId | "portal") {
     setPending(target);
@@ -194,6 +219,24 @@ export function BillingManager({
         <Waiting>Upgrade to {upgrade.plan.name} requested. Waiting for Stripe to confirm the payment.</Waiting>
       )}
 
+      {topup === "success" ? (
+        credited ? (
+          <FormAlert tone="success">
+            Added {formatCount(credited.replies)} replies to {monthName(billing.usage.period_start)}. This month&apos;s
+            cap is {formatCount(billing.usage.replies.limit)} now.
+          </FormAlert>
+        ) : topupGaveUp ? (
+          <FormAlert tone="info">
+            The payment is complete. Stripe has not confirmed it yet, which can take a minute. Refresh this page
+            shortly.
+          </FormAlert>
+        ) : (
+          <Waiting>The payment is complete. Waiting for Stripe to confirm the top-up.</Waiting>
+        )
+      ) : topup === "canceled" ? (
+        <FormAlert tone="info">Checkout canceled. Nothing was charged and the cap is unchanged.</FormAlert>
+      ) : null}
+
       {billing.active ? null : (
         <div className="fade-in flex items-start gap-3 rounded-md border border-rust/40 bg-rust-soft px-4 py-3.5">
           <WarningCircleIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-rust" weight="bold" />
@@ -214,6 +257,10 @@ export function BillingManager({
         <CurrentPlan billing={billing} actions={actions} />
         <UsageMeters billing={billing} />
       </div>
+
+      {showTopups(billing) ? (
+        <TopupCard billing={billing} onChoose={(pack) => setOpen({ kind: "topup", pack })} />
+      ) : null}
 
       <PlansGrid
         billing={billing}
@@ -247,6 +294,12 @@ export function BillingManager({
         onRefundInstead={() => setOpen({ kind: "refund" })}
       />
       <RefundDialog billing={billing} open={open?.kind === "refund"} onClose={close("refund")} onRefunded={refunded} />
+      <TopupDialog
+        billing={billing}
+        pack={open?.kind === "topup" ? open.pack : null}
+        biggerPlan={plans?.some((plan) => plan.replies_per_month > billing.plan.replies_per_month) ?? false}
+        onClose={close("topup")}
+      />
     </div>
   );
 }

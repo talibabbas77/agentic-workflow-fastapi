@@ -8244,6 +8244,88 @@
         }
       }
     },
+    "/v1/billing/topups/checkout": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Topup Checkout",
+        "description": "Start Stripe Checkout for one top-up pack. The replies arrive with its webhook.",
+        "operationId": "topup_checkout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopupCheckoutIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedirectOut"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/billing/portal": {
       "post": {
         "tags": [
@@ -10202,6 +10284,11 @@
             "title": "Mrr Micros",
             "description": "Monthly price of every active Stripe subscription"
           },
+          "topups_this_month_micros": {
+            "type": "integer",
+            "title": "Topups This Month Micros",
+            "description": "Top-up packs paid for this month, before tax"
+          },
           "new_workspaces_30d": {
             "type": "integer",
             "title": "New Workspaces 30D"
@@ -10228,7 +10315,7 @@
               }
             ],
             "title": "Gross Margin",
-            "description": "(MRR - model cost) / MRR; null without MRR"
+            "description": "(MRR + top-ups - model cost) / (MRR + top-ups); null without revenue"
           },
           "median_cost_per_reply_micros": {
             "anyOf": [
@@ -10247,6 +10334,9 @@
             },
             "type": "array",
             "title": "Anomalies"
+          },
+          "redis": {
+            "$ref": "#/components/schemas/AdminRedisOut"
           }
         },
         "type": "object",
@@ -10256,13 +10346,15 @@
           "by_plan_state",
           "paying_workspaces",
           "mrr_micros",
+          "topups_this_month_micros",
           "new_workspaces_30d",
           "new_accounts_30d",
           "replies_this_month",
           "cost_this_month_micros",
           "gross_margin",
           "median_cost_per_reply_micros",
-          "anomalies"
+          "anomalies",
+          "redis"
         ],
         "title": "AdminOverviewOut"
       },
@@ -10435,6 +10527,112 @@
           "reason"
         ],
         "title": "AdminReasonIn"
+      },
+      "AdminRedisOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "degraded",
+              "disabled",
+              "local_only"
+            ],
+            "title": "Status",
+            "description": "Redis as this API process sees it now; local_only once the budget is nearly spent"
+          },
+          "month": {
+            "type": "string",
+            "format": "date",
+            "title": "Month"
+          },
+          "commands": {
+            "type": "integer",
+            "title": "Commands",
+            "description": "Commands sent this month: what every process added up, plus what this process has not added yet"
+          },
+          "budget": {
+            "type": "integer",
+            "title": "Budget",
+            "description": "Commands a month Docent allows itself"
+          },
+          "alert_percents": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Alert Percents",
+            "description": "Platform admins get an email at each"
+          },
+          "local_only_percent": {
+            "type": "integer",
+            "title": "Local Only Percent",
+            "description": "From here, no command until the month ends"
+          },
+          "alerted_80_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alerted 80 At"
+          },
+          "alerted_90_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alerted 90 At"
+          },
+          "local_only_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Local Only Since"
+          },
+          "counted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counted At",
+            "description": "When a process last added its count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "month",
+          "commands",
+          "budget",
+          "alert_percents",
+          "local_only_percent",
+          "alerted_80_at",
+          "alerted_90_at",
+          "local_only_since",
+          "counted_at"
+        ],
+        "title": "AdminRedisOut"
       },
       "AdminSubscriptionOut": {
         "properties": {
@@ -10686,7 +10884,7 @@
               }
             ],
             "title": "Replies Cap",
-            "description": "The cap that month; null with no usage row"
+            "description": "The cap that month, top-ups included; null with no usage row"
           },
           "cost_micros": {
             "type": "integer",
@@ -11240,6 +11438,9 @@
           },
           "usage": {
             "$ref": "#/components/schemas/BillingUsage"
+          },
+          "topups": {
+            "$ref": "#/components/schemas/BillingTopups"
           }
         },
         "type": "object",
@@ -11260,9 +11461,33 @@
           "refund_until",
           "billing_enabled",
           "can_manage",
-          "usage"
+          "usage",
+          "topups"
         ],
         "title": "BillingOut"
+      },
+      "BillingTopups": {
+        "properties": {
+          "replies": {
+            "type": "integer",
+            "title": "Replies",
+            "description": "Replies this month's top-up packs added to the cap"
+          },
+          "bought": {
+            "items": {
+              "$ref": "#/components/schemas/TopupOut"
+            },
+            "type": "array",
+            "title": "Bought",
+            "description": "Packs paid for this month, oldest first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "replies",
+          "bought"
+        ],
+        "title": "BillingTopups"
       },
       "BillingUsage": {
         "properties": {
@@ -11278,7 +11503,7 @@
           },
           "replies": {
             "$ref": "#/components/schemas/UsageMeter",
-            "description": "AI replies this month against the plan's cap"
+            "description": "AI replies this month against the plan's cap plus this month's top-ups"
           },
           "documents": {
             "$ref": "#/components/schemas/UsageMeter",
@@ -13783,7 +14008,8 @@
             "enum": [
               "ok",
               "degraded",
-              "disabled"
+              "disabled",
+              "local_only"
             ],
             "title": "Redis"
           },
@@ -15401,6 +15627,15 @@
           "summary": {
             "type": "string",
             "title": "Summary"
+          },
+          "topup_packs": {
+            "items": {
+              "$ref": "#/components/schemas/TopupPack"
+            },
+            "type": "array",
+            "title": "Topup Packs",
+            "description": "Extra replies an owner can buy for the current month. None on the trial.",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -15414,7 +15649,8 @@
           "seats",
           "anonymous_mode",
           "identified_mode",
-          "summary"
+          "summary",
+          "topup_packs"
         ],
         "title": "Plan"
       },
@@ -18106,6 +18342,87 @@
           "token"
         ],
         "title": "TokenIn"
+      },
+      "TopupCheckoutIn": {
+        "properties": {
+          "pack_id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Pack Id",
+            "description": "A pack from the current plan's topup_packs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pack_id"
+        ],
+        "title": "TopupCheckoutIn"
+      },
+      "TopupOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "pack_id": {
+            "type": "string",
+            "title": "Pack Id"
+          },
+          "replies": {
+            "type": "integer",
+            "title": "Replies"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "title": "Amount Cents",
+            "description": "The pack's price, before any tax"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "pack_id",
+          "replies",
+          "amount_cents",
+          "created_at"
+        ],
+        "title": "TopupOut"
+      },
+      "TopupPack": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "plan_id": {
+            "type": "string",
+            "title": "Plan Id"
+          },
+          "replies": {
+            "type": "integer",
+            "title": "Replies"
+          },
+          "price_cents": {
+            "type": "integer",
+            "title": "Price Cents"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "plan_id",
+          "replies",
+          "price_cents"
+        ],
+        "title": "TopupPack"
       },
       "UsageMeter": {
         "properties": {

@@ -204,8 +204,9 @@ The widget id lookup in Phase 4 uses the same pattern (`app.widget_public_id`).
 ### Tables without RLS
 
 Global tables (`users`, `user_sessions`, `auth_tokens`, `plans`,
-`model_prices`, `jobs`, `billing_events`) hold no tenant content or are
-accessed only by code that sets tenant context before touching tenant tables.
+`model_prices`, `jobs`, `billing_events`, `redis_usage`) hold no tenant content
+or are accessed only by code that sets tenant context before touching tenant
+tables.
 
 ### Backups and RLS
 
@@ -513,11 +514,12 @@ on pages (section 10) keep this in check.
 |---|---|---|
 | `plans` | | `id, name, price_cents, replies_cap, pages_cap, sources_cap, widgets_cap, seats_cap, anonymous_allowed, active` |
 | `subscriptions` | T | `tenant_id pk, provider, provider_customer_id, provider_subscription_id, plan_id, status, current_period_start, current_period_end, cancel_at, comped_until` (a manual paid plan given until then) |
-| `topups` | T | `id, tenant_id, replies, provider_order_id, period_start, created_at` |
+| `topups` | T | `id, tenant_id, pack_id, replies, amount_cents (before tax), provider, provider_order_id unique (the Checkout session), period_start, created_at`. Written only by the signed webhook; the app role cannot update or delete one |
 | `usage_events` | T | `id, tenant_id, kind (ai_reply, llm_call, embedding, ingest_page), quantity, model, tokens_in, tokens_out, cost_micros, conversation_id null, message_id null, idempotency_key unique, occurred_at` |
-| `usage_periods` | T | `tenant_id, period_start, period_end, replies_cap, replies_used, replies_reserved, cost_micros, notified_80_at, notified_100_at`. PK `(tenant_id, period_start)` |
+| `usage_periods` | T | `tenant_id, period_start, period_end, replies_cap, replies_topup, replies_used, replies_reserved, cost_micros, notified_80_at, notified_100_at`. PK `(tenant_id, period_start)`. `replies_topup` is the sum of the period's `topups`, kept in the same transaction |
 | `model_prices` | | `model, input_micros_per_mtok, output_micros_per_mtok, effective_from` |
 | `billing_events` | | `provider_event_id pk, provider, type, payload jsonb, tenant_id null, processed_at, outcome (applied, ignored, stale, unknown_customer)` |
+| `redis_usage` | | `month pk, commands, budget, alerted_80_at, alerted_90_at, local_only_since, updated_at`. Redis commands Docent sent that calendar month (UTC), added up from every API process (section 7) |
 
 ### Evaluation
 
@@ -796,12 +798,30 @@ requests past the limit are rejected with `ERR max requests limit exceeded`.
 Rough sizing: 50K visitor messages a month costs about 100K to 150K commands.
 That covers the build and early customers.
 
-Guards:
+Guards, as built (`docent/redis_hub.py`, `docent/redis_budget.py`):
 
-- The app counts its own Redis commands in-process and flushes the count to
-  Postgres hourly. Alerts at 60 and 80 percent of the monthly budget.
-- At 90 percent, the app switches itself to local-only mode until the period
-  resets.
+- `RedisHub` counts every command it sends, in process. Counting costs no
+  command. A rate limit check counts 2 the first time in a process (the
+  script load), then 1.
+- Each API process adds its count to the month's `redis_usage` row with one
+  upsert every `REDIS_BUDGET_FLUSH_SECONDS` (default 600), sooner once 1
+  percent of the budget is waiting, and once more on shutdown. A process that
+  sent nothing writes nothing, so an idle app never wakes Neon for this. The
+  worker sends Redis nothing, so it counts nothing.
+- The budget is `REDIS_MONTHLY_COMMAND_BUDGET` (default 500,000). At 80 and at
+  90 percent the platform admins (verified email) get one email each, once per
+  threshold per calendar month. The upsert locks the month's row, so two
+  processes cannot both see a threshold as new. Crossing both in one step sends
+  only the 90 percent email and marks 80 as done.
+- From 90 percent every process sends no command at all until the month ends
+  (local-only mode): the cache and rate limits use their in-process tiers. A
+  process that starts later reads the month's count when it starts. Raising the
+  budget (a bigger Redis plan) and restarting the API turns Redis back on.
+- The count is close, not exact: connection setup is not counted, and a count
+  flushed just after midnight on the first lands in the new month. Stopping at
+  90 percent leaves room for both.
+- The platform admin console's overview shows the month's count, the budget,
+  the 80 and 90 percent marks, the alerts sent, and the mode.
 - No code path may poll Redis or call it in a loop. Code review rule.
 
 ### When Redis is missing or failing
@@ -816,9 +836,11 @@ Guards:
 | Cache | The in-process tier alone. Slower to warm up, never wrong. |
 | Revocation check | Postgres `widget_sessions.revoked_at` and `user_sessions.revoked_at`, cached in-process for 60 s. |
 | Counters | Postgres. |
+| Budget spent (local-only) | The same fallbacks as above, on purpose, until the month ends. |
 
-`/healthz` reports `redis: ok | degraded | disabled`. The app never returns an
-error to a visitor because Redis is down.
+`/healthz` reports `redis: ok | degraded | disabled | local_only`. Only
+`degraded` makes the whole check degraded: `local_only` is the app working as
+designed. The app never returns an error to a visitor because Redis is down.
 
 ---
 
@@ -1024,8 +1046,21 @@ Starting proposal, to be validated (O4):
 | Growth | 99 USD | 5,000 | 10,000 | 3 | 10 | yes |
 | Scale | 299 USD | 20,000 | 50,000 | 10 | 25 | yes |
 
-Top-up pack: one-time purchase, for example 1,000 replies, valid for the current
-period only. Never automatic.
+Top-up packs: a one-time purchase of extra replies for the current month,
+never automatic. Each paid plan offers two, at exactly its own price per
+reply: half a month's replies for half the monthly price, and a whole month's
+for the whole price.
+
+| Plan | Packs |
+|---|---|
+| Starter (2.9 cents a reply) | 500 replies for $14.50, 1,000 for $29 |
+| Growth (1.98 cents) | 2,500 for $49.50, 5,000 for $99 |
+| Scale (1.495 cents) | 10,000 for $149.50, 20,000 for $299 |
+
+A pack is never a worse deal per reply than the plan, and never a better one
+than upgrading for a team that needs more every month. The packs live in the
+plan catalog (`billing/plans.py`), so the pricing page and the billing page
+read one source. Rules are under "Top-up packs" below.
 
 Cost sanity check: a reply uses about 4K input and 300 output tokens. At the
 dev model's listed price (0.14 USD in, 0.40 USD out per million tokens) that is
@@ -1044,24 +1079,33 @@ about 0.0007 USD. A model ten times pricier is still under 1 cent per reply.
 Before generating, reserve one reply atomically:
 
 ```sql
+-- First an upsert that sets replies_cap from the plan and locks the row
+-- until the turn's first transaction ends, then:
 update usage_periods
 set replies_reserved = replies_reserved + 1
-where tenant_id = $1 and period_start = $2
-  and replies_used + replies_reserved < replies_cap + coalesce($topups, 0)
-returning replies_used, replies_reserved, replies_cap;
+where tenant_id = $1 and period_start = date_trunc('month', now())::date
+  and replies_cap > 0
+  and replies_used + replies_reserved < replies_cap + replies_topup
+returning true;
 ```
 
-- No row returned means the cap is reached: escalate-only mode.
+- No row returned means the cap is reached: escalate-only mode. A plan that is
+  off has a cap of 0 and allows nothing, top-ups or not.
 - After the reply, `replies_reserved - 1, replies_used + 1` in the same
   transaction that stores the message. On failure, release the reservation.
-- Concurrency cannot overshoot the cap. No Redis needed.
+- Concurrency cannot overshoot the cap. No Redis needed. Checked by a load
+  test (Phase 7 check 1): 50 messages at once with 10 replies left, through
+  the real `run_turn` on a pool of 20 connections, give exactly 10 replies and
+  40 handoffs without a model call (`tests/test_caps_load.py`; against a live
+  stack, `docent loadtest caps`). The same test with a deliberately racy
+  read-then-write reservation gives 22.
 
 ### Caps behavior
 
 | Usage | What happens |
 |---|---|
 | 80 percent | Email to tenant owners and admins. Banner in admin app. |
-| 100 percent | Widget switches to escalate-only mode: a short message and the contact form. Every message becomes an escalation in the inbox. Owners get an email with upgrade and top-up links. |
+| 100 percent | Widget switches to escalate-only mode: a short message and the contact form. Every message becomes an escalation in the inbox. Owners get an email with upgrade and top-up links. From 80 percent the billing page offers the plan's top-up packs. |
 | Pages cap | New ingestion is refused with a clear message. Existing sources keep working. |
 | Per-visitor limits | Identified: 30 messages per hour. Anonymous: 10 per hour per IP-hash and a per-widget daily cap set by the tenant. Stops one visitor from draining a tenant's quota. |
 
@@ -1086,16 +1130,18 @@ Chosen: Stripe (D19). Integration as built:
   and invoices go through `POST /v1/billing/portal`. Plan changes,
   cancellation, and refunds happen in Docent, with the rules below, so every
   charge is explained before the owner confirms it.
-- Prices are found by lookup key `docent_<plan>_monthly`. `pnpm stripe:sync`
-  creates the products and prices from the plan catalog and moves the lookup
-  key to a new price when a price changes, so Stripe never becomes a second
-  catalog.
+- Prices are found by lookup key: `docent_<plan>_monthly` for plans and
+  `docent_topup_<pack>` (for example `docent_topup_growth_2500`) for one-time
+  top-up packs. `pnpm stripe:sync` creates the products and prices from the
+  plan catalog and moves the lookup key to a new price when a price changes,
+  so Stripe never becomes a second catalog.
 - Webhooks (`POST /v1/webhooks/stripe`): verify the signature over the raw body
   (5 minute tolerance), store the event id in `billing_events` (idempotent),
   map the customer to the tenant through `subscriptions`, then update it. An
   event older than the last one applied is ignored, because Stripe does not
   promise order; an event for a replaced subscription cannot overwrite the live
-  one.
+  one. `checkout.session.completed` (payment status paid) and
+  `checkout.session.async_payment_succeeded` credit a top-up pack.
 - Our database owns entitlements and caps. Stripe owns payment status.
 - Every tenant has one `subscriptions` row from creation: a 14 day trial
   (provider `manual`), then Stripe after checkout. Comped plans stay `manual`:
@@ -1128,6 +1174,22 @@ to Scale at $299 with 18 of 30 days left charges $299 x 18/30 = $179.40, less
 $99 x 18/30 = $59.40, so $120.00 today, and $299 a month from the unchanged
 renewal date.
 
+### Top-up packs
+
+The rules live in `billing/topups.py`. Owners only; each checkout started is
+written to the audit log.
+
+| Rule | How |
+|---|---|
+| Who and when | An owner, on a paid plan that is on (not the trial, not escalate-only). The billing page offers packs from 80 percent of the month's replies; the API allows a purchase at any time. Only the current plan's packs |
+| Paying | `POST /v1/billing/topups/checkout` starts Stripe Checkout in payment mode with the pack's one-time price. Leaving checkout, or coming back from it, changes nothing |
+| Crediting | Only the signed webhook: `checkout.session.completed` with payment status paid, or `checkout.session.async_payment_succeeded` for a slower method. The tenant comes from the Stripe customer, the pack from the session's metadata (ours). One row per Checkout session (`provider_order_id` unique), so a replayed or second event credits nothing |
+| Which month | The calendar month in which the payment went through (the event's time), whatever month the checkout started in |
+| What it changes | That month's allowance becomes the plan's cap plus its top-ups. If the pack lifts usage back under 80 or 100 percent, that notice is sent again when it is crossed again |
+| Ending | With the month, used or not. Never renewed, never carried over, never refunded in part |
+| Plan changes | A pack stays with the month across an upgrade or downgrade. While the plan is off it gives no replies: a pack never turns answers back on by itself |
+| Refunds | The 14 day money-back guarantee refunds everything paid since the first payment, a pack bought in that window included. Otherwise no refunds |
+
 `GET /v1/billing/preview?plan_id=` returns the change before it is made: kind,
 start date, the charge line by line, the next renewal price, plain sentences
 on what happens and why, and any blockers. When Stripe is set up it also
@@ -1139,7 +1201,9 @@ waits for that. `invoice.paid` opens the refund window (`first_paid_at`) and
 
 ### Cost dashboard (internal)
 
-Per tenant per month: replies, tokens, cost, revenue, margin. Alert when a
+Per tenant per month: replies, tokens, cost, revenue (the plan's price
+through Stripe plus the top-ups paid for that month, before tax), margin. MRR
+counts plans only, since a top-up does not recur. Alert when a
 tenant's cost per reply is more than 3 times the median (prompt abuse or a
 runaway loop). Built as the platform admin console's overview and workspace
 pages (section 12); the alert is the anomaly list there, not an email yet.
@@ -1634,3 +1698,28 @@ Still open by choice: the web app's CSP has no `script-src` (Next.js inline
 scripts need nonces), and signup answers 409 for an email that already has an
 account.
 
+
+### 2026-10-14, Phase 7: top-ups, Redis budget, cap load test
+
+- **Top-up packs.** Two per paid plan at the plan's own price per reply (half
+  and a whole month's replies), in the plan catalog, sold through Stripe
+  Checkout in payment mode and credited only by the signed webhook, once per
+  Checkout session. A pack counts for the month the payment went through. Rules
+  in section 10. Migration 0013 adds `topups` (forced RLS, select-only for the
+  console, no update or delete for the app role) and
+  `usage_periods.replies_topup`, so a reservation stays one conditional update
+  of one row. A plan that is off allows nothing, top-ups or not.
+- **Redis command budget.** Section 7 planned an hourly flush and alerts at 60
+  and 80 percent. As built: a flush every 10 minutes or after 1 percent of the
+  budget, and alerts at 80 and 90 percent, the second when the app goes
+  local-only, so each email asks for something. Migration 0013 adds
+  `redis_usage`. `/healthz` reports `local_only`.
+- **Load test (check 1).** No race found in the reservation SQL: the upsert
+  before the conditional update locks the period row, so concurrent turns of
+  one tenant check the cap one at a time against committed counts. The test
+  fails as expected against a read-then-write version (22 replies for 10).
+- **At the cap (check 3)** runs in the API suite through the widget's own
+  endpoints: every message is a `cap_reached` handoff with no model call, and
+  an anonymous visitor's handoff is open with no contact, which is what makes
+  the frame show its contact form. Greetings and thanks are still answered by
+  rules at the cap, as before, since they never count as replies.

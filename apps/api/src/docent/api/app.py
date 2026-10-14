@@ -46,6 +46,7 @@ from docent.jobs.wake import WorkerWaker
 from docent.knowledge.embeddings import OllamaEmbedder, QueryCache
 from docent.llm.client import chat_model
 from docent.log import configure_logging
+from docent.redis_budget import RedisBudget
 from docent.redis_hub import RedisHub
 from docent.security.ratelimit import RateLimiter
 from docent.storage import ObjectStore
@@ -67,6 +68,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redis = RedisHub(settings.redis_url, settings.redis_timeout_seconds)
         cache = TieredCache(redis, settings.redis_prefix)
         http = httpx.AsyncClient()
+        waker = WorkerWaker(http, settings.worker_url, settings.internal_token.get_secret_value())
+        budget = (
+            RedisBudget(
+                redis,
+                pool,
+                budget=settings.redis_monthly_command_budget,
+                flush_seconds=settings.redis_budget_flush_seconds,
+                web_origin=settings.web_origin,
+                waker=waker,
+            )
+            if redis.enabled
+            else None
+        )
+        if budget:
+            await budget.start()
         app.state.docent = AppState(
             settings=settings,
             pool=pool,
@@ -74,9 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             limiter=RateLimiter(redis, prefix=f"{settings.redis_prefix}:rl"),
             cache=cache,
             http=http,
-            waker=WorkerWaker(
-                http, settings.worker_url, settings.internal_token.get_secret_value()
-            ),
+            waker=waker,
             store=ObjectStore.from_url(settings.object_store),
             embedder=QueryCache(
                 OllamaEmbedder(
@@ -90,6 +104,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             ),
             llm=chat_model(settings, http, settings.llm_model),
             billing=stripe_gateway(settings),
+            redis_budget=budget,
         )
         try:
             yield
@@ -97,6 +112,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             with contextlib.suppress(TimeoutError):
                 async with asyncio.timeout(settings.llm_timeout_seconds):
                     await streaming.drain()
+            if budget:
+                await budget.close()  # adds what this process counted since the last flush
             await http.aclose()
             await redis.close()
             await pool.close()

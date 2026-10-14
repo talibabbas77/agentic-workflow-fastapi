@@ -16,7 +16,7 @@ export const faqReplies: FaqItem = {
 export const faqCap: FaqItem = {
   question: "What happens at the cap?",
   answer:
-    "The widget shows a short message and a contact form for the rest of the month, and every message becomes a handoff in your inbox, so customers still reach your team. Owners and admins get an email at 80 percent, and owners again at the cap. You are never billed for overage.",
+    "The widget shows a short message and a contact form for the rest of the month, and every message becomes a handoff in your inbox, so customers still reach your team. Owners and admins get an email at 80 percent, and owners again at the cap. You are never billed for overage. If you need more that month, an owner can add a top-up pack, or upgrade.",
 };
 
 export const faqFiles: FaqItem = {

@@ -1,4 +1,10 @@
-"""Health check. Never sends a Redis command: that would spend the monthly budget."""
+"""Health check. Never sends a Redis command: that would spend the monthly budget.
+
+redis is ok, degraded (failing, circuit open), disabled (not configured), or
+local_only (the monthly command budget is nearly spent, so the app stopped using
+it until the month ends). Only degraded makes the whole check degraded:
+local_only is the app working as designed.
+"""
 
 import asyncio
 

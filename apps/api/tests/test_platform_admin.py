@@ -369,6 +369,65 @@ async def test_overview_figures(
     assert detail["this_month"]["anomaly"] is False
 
 
+async def test_overview_counts_top_ups_and_shows_the_redis_budget(
+    admin: httpx.AsyncClient, client_factory: ClientFactory, admin_pool: Pool
+) -> None:
+    starter = tid(await signup(client_factory(), workspace="Starter Co"))
+    await put_plan(admin_pool, starter, "starter", "active", provider="stripe")
+    await put_usage(admin_pool, starter, 1_200, 120_000)
+    async with admin_pool.acquire() as conn:
+        for months_ago, order in ((0, "cs_now"), (1, "cs_last_month")):
+            await conn.execute(
+                """
+                insert into topups (id, tenant_id, pack_id, replies, amount_cents,
+                                    provider_order_id, period_start)
+                values ($1, $2, 'starter_500', 500, 1450, $3,
+                        (date_trunc('month', now()) - make_interval(months => $4))::date)
+                """,
+                new_id(),
+                starter,
+                order,
+                months_ago,
+            )
+        await conn.execute(
+            "update usage_periods set replies_topup = 500 where tenant_id = $1", starter
+        )
+
+    data = (await admin.get(f"{ADMIN}/overview")).json()
+    assert data["mrr_micros"] == 29_000_000  # a top-up does not recur
+    assert data["topups_this_month_micros"] == 14_500_000  # last month's pack is not counted
+    revenue = 29_000_000 + 14_500_000
+    assert data["gross_margin"] == pytest.approx((revenue - 120_000) / revenue)
+    assert data["redis"] == {
+        "status": "disabled",  # the test app runs without Redis
+        "month": date.today().replace(day=1).isoformat(),
+        "commands": 0,
+        "budget": 500_000,
+        "alert_percents": [80, 90],
+        "local_only_percent": 90,
+        "alerted_80_at": None,
+        "alerted_90_at": None,
+        "local_only_since": None,
+        "counted_at": None,
+    }
+    rows = {w["name"]: w for w in (await admin.get(f"{ADMIN}/workspaces")).json()["items"]}
+    figures = rows["Starter Co"]["figures"]
+    assert (figures["replies_used"], figures["replies_cap"]) == (1_200, 1_500)
+    assert figures["revenue_micros"] == revenue
+
+    async with admin_pool.acquire() as conn:
+        await conn.execute(
+            """
+            insert into redis_usage (month, commands, budget, alerted_80_at)
+            values (date_trunc('month', now() at time zone 'utc')::date, 412000, 500000, now())
+            """
+        )
+    redis = (await admin.get(f"{ADMIN}/overview")).json()["redis"]
+    assert (redis["commands"], redis["budget"]) == (412_000, 500_000)
+    assert redis["alerted_80_at"] is not None
+    assert redis["counted_at"] is not None
+
+
 async def test_no_anomalies_while_the_median_is_zero(
     admin: httpx.AsyncClient, client_factory: ClientFactory, admin_pool: Pool
 ) -> None:

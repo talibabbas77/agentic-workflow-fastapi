@@ -5,6 +5,11 @@ model_prices at that moment. A reply first reserves one unit of the tenant's
 monthly cap with a single conditional UPDATE, so concurrent turns can never
 overshoot it; the reservation becomes usage when the reply is stored. The cap
 comes from the plan on every reservation, so an upgrade applies at once.
+
+The month's allowance is the plan's cap plus the replies its top-up packs added
+(usage_periods.replies_topup, written by the Stripe webhook). Packs add to a
+plan that is on: a plan that allows nothing (an ended trial, a canceled plan, a
+payment past its grace period) allows nothing, packs or not.
 """
 
 import logging
@@ -28,11 +33,14 @@ async def reserve_reply(conn: Connection, tenant_id: uuid.UUID, cap: int) -> boo
         tenant_id,
         cap,
     )
+    # The upsert above locks the period row until this transaction ends, so every
+    # concurrent turn of the tenant checks the allowance against committed counts.
     reserved = await conn.fetchval(
         """
         update usage_periods set replies_reserved = replies_reserved + 1
         where tenant_id = $1 and period_start = date_trunc('month', now())::date
-          and replies_used + replies_reserved < replies_cap
+          and replies_cap > 0
+          and replies_used + replies_reserved < replies_cap + replies_topup
         returning true
         """,
         tenant_id,
@@ -43,8 +51,9 @@ async def reserve_reply(conn: Connection, tenant_id: uuid.UUID, cap: int) -> boo
 async def settle_reply(conn: Connection, tenant_id: uuid.UUID, *, used: bool) -> int | None:
     """Turn a reservation into usage, or give it back.
 
-    Returns 80 or 100 the first time usage reaches that percent of the cap this
-    month, so the caller can tell the owners. Each threshold is marked once.
+    Returns 80 or 100 the first time usage reaches that percent of the month's
+    allowance (the cap plus top-ups), so the caller can tell the owners. Each
+    threshold is marked once; a top-up that lifts usage back under one clears it.
     """
     row = await conn.fetchrow(
         """
@@ -52,16 +61,17 @@ async def settle_reply(conn: Connection, tenant_id: uuid.UUID, *, used: bool) ->
         set replies_reserved = greatest(replies_reserved - 1, 0),
             replies_used = replies_used + $2
         where tenant_id = $1 and period_start = date_trunc('month', now())::date
-        returning replies_used, replies_cap, notified_80_at, notified_100_at
+        returning replies_used, replies_cap + replies_topup as allowance,
+                  notified_80_at, notified_100_at
         """,
         tenant_id,
         1 if used else 0,
     )
-    if not used or row is None or row["replies_cap"] <= 0:
+    if not used or row is None or row["allowance"] <= 0:
         return None
-    if row["notified_100_at"] is None and row["replies_used"] >= row["replies_cap"]:
+    if row["notified_100_at"] is None and row["replies_used"] >= row["allowance"]:
         crossed = 100
-    elif row["notified_80_at"] is None and row["replies_used"] * 5 >= row["replies_cap"] * 4:
+    elif row["notified_80_at"] is None and row["replies_used"] * 5 >= row["allowance"] * 4:
         crossed = 80
     else:
         return None

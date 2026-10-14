@@ -5,10 +5,11 @@ script tag. Teach it from your documents and it answers your customers with
 citations, knows which logged-in user is asking, and hands the conversation to
 your team with a summary when it should not answer.
 
-**Status:** Phases 1 to 6, billing, and the landing site (Phase 8) are built
-and waiting for review: auth and tenants, teaching the agent from documents,
-cited answers with handoffs, the embeddable widget with signed identity, the
-inbox, and evals. See [build phases](docs/PHASES.md).
+**Status:** Phases 1 to 8 are built and waiting for review: auth and tenants,
+teaching the agent from documents, cited answers with handoffs, the embeddable
+widget with signed identity, the inbox, evals, usage caps and billing (with
+top-up packs and the Redis command budget), and the landing site. See
+[build phases](docs/PHASES.md).
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Build phases](docs/PHASES.md)
@@ -132,7 +133,8 @@ Without Stripe keys every workspace runs on its trial or a manual plan, and the
 billing page says payments are not set up. To try real checkout in test mode:
 
 1. Put a test secret key (`sk_test_...`) in `.env` as `STRIPE_SECRET_KEY`.
-2. `pnpm stripe:sync` creates the three plans as Stripe products and prices.
+2. `pnpm stripe:sync` creates the three plans and the six top-up packs as
+   Stripe products and prices.
 3. `docker compose --profile app --profile stripe up -d`, then
    `docker compose logs stripe` prints the webhook signing secret. Put it in
    `.env` as `STRIPE_WEBHOOK_SECRET` and restart the API.
@@ -143,6 +145,24 @@ change opens a preview first: an upgrade shows today's prorated charge line by
 line, a downgrade starts at the end of the paid period, a cancellation keeps
 the plan until then, and the 14 day money-back guarantee refunds everything
 paid. The rules are in `docs/ARCHITECTURE.md`, section 10.
+
+From 80 percent of a month's replies, the billing page offers the plan's two
+top-up packs (half or a whole month's replies, at the plan's own price per
+reply), each with the new cap and the price. Payment goes through Stripe
+Checkout; the replies arrive with Stripe's webhook (the `stripe` compose
+service forwards the checkout events) and end with the month. When you point a
+dashboard webhook at a deployed API instead, subscribe it to the same events as
+the `--events` list in `compose.yaml`.
+
+### Redis command budget
+
+Redis is optional, and Docent keeps itself inside the Upstash free tier: each
+API process counts the commands it sends and adds the count to Postgres every
+10 minutes. Platform admins get an email at 80 and 90 percent of
+`REDIS_MONTHLY_COMMAND_BUDGET` (default 500,000), and from 90 percent the app
+uses its in-process cache and rate limits until the month ends. The admin
+console's overview shows the month's count and the mode; `/healthz` reports
+`redis: local_only` meanwhile.
 
 No `.env` file is needed locally. Copy `.env.example` to `.env` to change
 anything; every variable is documented there.
@@ -177,8 +197,15 @@ pnpm e2e           # browser tests (needs pnpm dev running)
 pnpm lint          # ruff, eslint, and the copy and UI rule check
 pnpm typecheck     # mypy strict and tsc
 pnpm api:types     # regenerate the TypeScript client after changing the API
+uv run --directory apps/api docent loadtest caps   # 50 messages at once, 10 replies left: the cap holds
 bash examples/signing/verify.sh   # every signing example against the local API
 ```
+
+`docent loadtest caps` runs Phase 7's load test against the database in
+`DATABASE_URL` and the configured models, on a new scratch workspace (or
+`--workspace <slug>`; its usage is put back afterwards). Each message past the
+cap opens a handoff, so use a workspace made for testing. `--keep-at-cap`
+leaves it at its cap to try the widget's contact form by hand.
 
 After editing `examples/signing`, run `node scripts/gen-signing-examples.mjs` so
 the install guide shows the same code; CI fails when they differ.

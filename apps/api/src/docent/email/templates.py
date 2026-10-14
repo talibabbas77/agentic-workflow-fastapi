@@ -1,5 +1,6 @@
 """Transactional email templates. Plain, direct, flat. Brand palette only."""
 
+from datetime import date
 from html import escape
 
 from docent.email.sender import OutgoingEmail
@@ -104,8 +105,9 @@ def usage_threshold(
             "Your agent is handing every message to your team",
             [
                 f"Hi {name}. {workspace} has used all {cap:,} AI replies included this month.",
-                "Until the month resets or you upgrade, the widget shows a contact form and every "
-                "message reaches your inbox as a handoff. Nothing is billed beyond your plan.",
+                "Until the month resets, you upgrade, or you add a top-up pack, the widget shows a "
+                "contact form and every message reaches your inbox as a handoff. Nothing is billed "
+                "beyond your plan.",
             ],
             "Review your plan",
             url,
@@ -118,9 +120,58 @@ def usage_threshold(
             f"Hi {name}. {workspace} has used {used:,} of the {cap:,} AI replies included this "
             "month.",
             "When it reaches the cap, the widget shows a contact form and every message reaches "
-            "your inbox as a handoff. Upgrade before then to keep the agent answering.",
+            "your inbox as a handoff. Upgrade or add a top-up pack before then to keep the agent "
+            "answering.",
         ],
         "Review your plan",
+        url,
+    )
+
+
+def redis_budget(
+    to: str,
+    name: str,
+    percent: int,
+    used: int,
+    budget: int,
+    month: str,
+    local_only: bool,
+    url: str,
+) -> OutgoingEmail:
+    """For platform admins: Docent's own Redis use against its monthly command budget."""
+    start = date.fromisoformat(month)
+    month_name = f"{start:%B}"
+    ends = date(start.year + 1, 1, 1) if start.month == 12 else date(start.year, start.month + 1, 1)
+    spent = f"Hi {name}. Docent has sent about {used:,} of the {budget:,} Redis commands it allows itself in {month_name}."
+    if local_only:
+        return _build(
+            to,
+            f"Docent stopped using Redis for the rest of {month_name}",
+            "Redis is off until the month ends",
+            [
+                spent,
+                f"To stay inside the plan's limit, it sends Redis nothing until {ends:%B} "
+                f"{ends.day}. Each API process keeps its own cache and rate limits until then. "
+                "Visitors see no errors; rate limits are exact with one instance and looser with "
+                "several.",
+                "It switches back by itself when the month ends. To switch back sooner, raise "
+                "REDIS_MONTHLY_COMMAND_BUDGET on a bigger Redis plan and restart the API.",
+            ],
+            "Open the admin console",
+            url,
+        )
+    return _build(
+        to,
+        f"Docent has used {percent} percent of {month_name}'s Redis commands",
+        f"{percent} percent of the Redis budget used",
+        [
+            spent,
+            "At 90 percent it stops using Redis until the month ends, so the plan's limit is "
+            "never reached. The cache and rate limits then run in each API process instead.",
+            "If this is earlier in the month than you expect, check what is sending the "
+            "commands, or move to a bigger Redis plan.",
+        ],
+        "Open the admin console",
         url,
     )
 

@@ -9,6 +9,7 @@ from docent.email.sender import MemoryEmailSender
 from docent.jobs import queue
 from docent.jobs.handlers import SEND_EMAIL, make_handlers
 from docent.jobs.worker import JobContext, Lane, Worker
+from tests.conftest import make_settings
 
 EMAIL_PAYLOAD = {
     "template": "verify_email",
@@ -158,7 +159,12 @@ async def test_idle_worker_does_not_poll(
 
     monkeypatch.setattr(queue, "claim", counting_claim)
     mailbox = MemoryEmailSender()
-    w = Worker(worker_pool, make_handlers(mailbox), idle_poll_seconds=30, lease_seconds=30)
+    w = Worker(
+        worker_pool,
+        make_handlers(mailbox, make_settings().secret_key.get_secret_value()),
+        idle_poll_seconds=30,
+        lease_seconds=30,
+    )
     task = asyncio.create_task(w.run_forever())
     await asyncio.sleep(0.5)
     assert claims == 1  # one empty drain at start, then asleep

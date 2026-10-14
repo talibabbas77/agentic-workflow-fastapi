@@ -1,7 +1,8 @@
 """Stripe, behind the small interface the API and the tests share.
 
 Stripe hosts checkout and the customer portal, so card data never reaches us.
-Prices are found by lookup key (`docent_<plan>_monthly`), which
+Prices are found by lookup key (`docent_<plan>_monthly` for plans,
+`docent_topup_<pack>` for one-time top-up packs), which
 `docent billing sync-stripe` creates from the plan catalog.
 """
 
@@ -12,8 +13,17 @@ from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 import stripe
+from stripe.params import PriceCreateParams, ProductCreateParams
 
-from docent.billing.plans import PAID_PLANS, Plan, price_lookup_key
+from docent.billing.plans import (
+    PAID_PLANS,
+    PLAN_BY_ID,
+    TOPUP_PACKS,
+    Plan,
+    TopupPack,
+    price_lookup_key,
+    topup_lookup_key,
+)
 from docent.config import Settings
 
 WEBHOOK_TOLERANCE_SECONDS = 300
@@ -39,6 +49,18 @@ class BillingGateway(Protocol):
         success_url: str,
         cancel_url: str,
     ) -> str: ...
+
+    async def topup_checkout_url(
+        self,
+        *,
+        customer_id: str,
+        metadata: dict[str, str],
+        pack: TopupPack,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        """Checkout in payment mode for one pack. Only its webhook credits the replies."""
+        ...
 
     async def portal_url(self, *, customer_id: str, return_url: str) -> str: ...
 
@@ -144,6 +166,37 @@ class StripeGateway:
                     "subscription_data": {"metadata": metadata},
                     "metadata": metadata,
                     "allow_promotion_codes": True,
+                    "automatic_tax": {"enabled": self._automatic_tax},
+                    **({"customer_update": {"address": "auto"}} if self._automatic_tax else {}),
+                    "success_url": success_url,
+                    "cancel_url": cancel_url,
+                }
+            )
+        )
+        if not session.url:
+            raise BillingError("Stripe returned a checkout session without a URL.")
+        return session.url
+
+    async def topup_checkout_url(
+        self,
+        *,
+        customer_id: str,
+        metadata: dict[str, str],
+        pack: TopupPack,
+        success_url: str,
+        cancel_url: str,
+    ) -> str:
+        session = await self._call(
+            self._client.v1.checkout.sessions.create_async(
+                {
+                    "mode": "payment",
+                    "customer": customer_id,
+                    "client_reference_id": metadata["tenant_id"],
+                    "line_items": [
+                        {"price": await self._price_for(topup_lookup_key(pack)), "quantity": 1}
+                    ],
+                    "metadata": metadata,
+                    "payment_intent_data": {"metadata": metadata},
                     "automatic_tax": {"enabled": self._automatic_tax},
                     **({"customer_update": {"address": "auto"}} if self._automatic_tax else {}),
                     "success_url": success_url,
@@ -287,52 +340,81 @@ class StripeGateway:
         return str(subscription["items"]["data"][0]["id"])
 
     async def sync_catalog(self) -> list[str]:
-        """Create or update one product and one monthly price per paid plan. Safe to rerun."""
+        """Create or update the Stripe products and prices for the catalog. Safe to rerun.
+
+        One product with a monthly price per paid plan, and one product with a one-time
+        price per top-up pack.
+        """
         lines = []
         for plan in PAID_PLANS:
-            product_id = f"docent_{plan.id}"
-            try:
-                await self._client.v1.products.retrieve_async(product_id)
-            except stripe.InvalidRequestError:
-                await self._call(
-                    self._client.v1.products.create_async(
-                        {
-                            "id": product_id,
-                            "name": f"Docent {plan.name}",
-                            "description": plan.summary,
-                            "metadata": {"plan_id": plan.id},
-                        }
-                    )
-                )
-            key = price_lookup_key(plan)
-            amount = plan.price_usd_month * 100
-            existing = await self._find_price(key)
-            if existing and existing.unit_amount == amount and existing.currency == "usd":
-                lines.append(f"{plan.name}: price {existing.id} is current")
-                continue
-            price = await self._call(
-                self._client.v1.prices.create_async(
-                    {
-                        "product": product_id,
-                        "currency": "usd",
-                        "unit_amount": amount,
-                        "recurring": {"interval": "month"},
-                        "lookup_key": key,
-                        "transfer_lookup_key": True,
+            lines.append(
+                await self._sync_price(
+                    product={
+                        "id": f"docent_{plan.id}",
+                        "name": f"Docent {plan.name}",
+                        "description": plan.summary,
                         "metadata": {"plan_id": plan.id},
-                    }
+                    },
+                    key=price_lookup_key(plan),
+                    amount=plan.price_usd_month * 100,
+                    monthly=True,
+                    label=plan.name,
                 )
             )
-            if existing:
-                await self._call(
-                    self._client.v1.prices.update_async(existing.id, {"active": False})
+        for pack in TOPUP_PACKS:
+            plan_name = PLAN_BY_ID[pack.plan_id].name
+            lines.append(
+                await self._sync_price(
+                    product={
+                        "id": f"docent_topup_{pack.id}",
+                        "name": f"{pack.replies:,} extra AI replies",
+                        "description": (
+                            f"Added to this month's cap on the {plan_name} plan. "
+                            "They end with the month."
+                        ),
+                        "metadata": {"pack_id": pack.id, "plan_id": pack.plan_id},
+                    },
+                    key=topup_lookup_key(pack),
+                    amount=pack.price_cents,
+                    monthly=False,
+                    label=f"{plan_name} top-up of {pack.replies:,} replies",
                 )
-            self._prices[key] = price.id
-            lines.append(f"{plan.name}: created price {price.id} at ${plan.price_usd_month}/month")
+            )
         return lines
 
+    async def _sync_price(
+        self, *, product: ProductCreateParams, key: str, amount: int, monthly: bool, label: str
+    ) -> str:
+        """Make sure the product exists and the lookup key points at a price of `amount`."""
+        product_id = product["id"]
+        try:
+            await self._client.v1.products.retrieve_async(product_id)
+        except stripe.InvalidRequestError:
+            await self._call(self._client.v1.products.create_async(product))
+        existing = await self._find_price(key)
+        if existing and existing.unit_amount == amount and existing.currency == "usd":
+            return f"{label}: price {existing.id} is current"
+        params: PriceCreateParams = {
+            "product": product_id,
+            "currency": "usd",
+            "unit_amount": amount,
+            "lookup_key": key,
+            "transfer_lookup_key": True,
+            "metadata": product.get("metadata", {}),
+        }
+        if monthly:
+            params["recurring"] = {"interval": "month"}
+        price = await self._call(self._client.v1.prices.create_async(params))
+        if existing:
+            await self._call(self._client.v1.prices.update_async(existing.id, {"active": False}))
+        self._prices[key] = price.id
+        cadence = "/month" if monthly else " once"
+        return f"{label}: created price {price.id} at ${amount / 100:,.2f}{cadence}"
+
     async def _price_id(self, plan: Plan) -> str:
-        key = price_lookup_key(plan)
+        return await self._price_for(price_lookup_key(plan))
+
+    async def _price_for(self, key: str) -> str:
         if key not in self._prices:
             price = await self._find_price(key)
             if price is None:

@@ -11,6 +11,7 @@ from docent.db.pool import Pool
 from docent.jobs.wake import WorkerWaker
 from docent.knowledge.embeddings import Embedder
 from docent.llm.client import ChatModel
+from docent.redis_budget import RedisBudget
 from docent.redis_hub import RedisHub
 from docent.security.ratelimit import RateLimiter
 from docent.storage import ObjectStore
@@ -29,3 +30,4 @@ class AppState:
     embedder: Embedder
     llm: ChatModel
     billing: BillingGateway | None = None
+    redis_budget: RedisBudget | None = None  # None when Redis is not configured

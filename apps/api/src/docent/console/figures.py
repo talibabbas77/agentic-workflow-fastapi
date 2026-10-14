@@ -3,11 +3,13 @@
 Replies are the billed count the cap enforces (usage_periods), which is one per
 ai_reply usage event. Cost is the usage_events ledger. Revenue is the plan's
 monthly price for a workspace that pays through Stripe (an active
-subscription); trials and comps bring in nothing. Margin is revenue less model
-cost. A workspace whose cost per reply this month is more than 3 times the
-median, across every workspace with replies this month, is flagged as an
-anomaly (ARCHITECTURE section 10: prompt abuse or a runaway loop). While the
-median is zero, nothing is flagged.
+subscription), plus the top-up packs paid for this month at their price before
+tax; trials and comps bring in nothing but their top-ups. MRR counts the plans
+only, since a top-up does not recur. Margin is revenue less model cost. A
+workspace whose cost per reply this month is more than 3 times the median,
+across every workspace with replies this month, is flagged as an anomaly
+(ARCHITECTURE section 10: prompt abuse or a runaway loop). While the median is
+zero, nothing is flagged.
 
 Every query here needs the app.platform_admin capability. Money is in micro
 dollars, 1 USD = 1,000,000, like usage_events.cost_micros.
@@ -63,9 +65,16 @@ month_cost as (
   where occurred_at >= date_trunc('month', now())
   group by tenant_id
 ),
+month_topups as (
+  select tenant_id, sum(amount_cents)::bigint * 10000 as topup_micros
+  from topups
+  where period_start = date_trunc('month', now())::date
+  group by tenant_id
+),
 figures as (
   select t.id, t.name, t.slug, t.created_at, s.plan_id, s.provider, {STATE_SQL} as state,
          coalesce(up.replies_used, 0)::bigint as replies_used,
+         coalesce(up.replies_topup, 0)::bigint as replies_topup,
          coalesce(mc.cost_micros, 0)::bigint as cost_micros
   from tenants t
   left join subscriptions s on s.tenant_id = t.id
@@ -73,11 +82,18 @@ figures as (
     on up.tenant_id = t.id and up.period_start = date_trunc('month', now())::date
   left join month_cost mc on mc.tenant_id = t.id
 ),
-money as (
+plan_money as (
   select f.*,
          case when f.state = 'paying' then coalesce(p.price_micros, 0) else 0 end
-           as revenue_micros
-  from figures f left join prices p on p.plan_id = f.plan_id
+           as plan_revenue_micros,
+         coalesce(mt.topup_micros, 0)::bigint as topup_micros
+  from figures f
+  left join prices p on p.plan_id = f.plan_id
+  left join month_topups mt on mt.tenant_id = f.id
+),
+money as (
+  select pm.*, (pm.plan_revenue_micros + pm.topup_micros)::bigint as revenue_micros
+  from plan_money pm
 ),
 median as (
   select percentile_cont(0.5) within group (order by cost_micros::float8 / replies_used)
@@ -122,6 +138,7 @@ class Overview:
     by_plan_state: list[asyncpg.Record]
     paying_workspaces: int
     mrr_micros: int
+    topups_micros: int
     new_workspaces_30d: int
     new_accounts_30d: int
     replies_this_month: int
@@ -151,7 +168,9 @@ def figures(row: asyncpg.Record, current: Entitlement | None, median: float | No
     plan = current.plan if current else PLAN_BY_ID.get(row["plan_id"] or "", TRIAL)
     return Figures(
         replies_used=replies,
-        replies_cap=plan.replies_per_month if current and current.active else 0,
+        replies_cap=(
+            plan.replies_per_month + row["replies_topup"] if current and current.active else 0
+        ),
         cost_micros=cost,
         revenue_micros=revenue,
         margin_micros=revenue - cost,
@@ -177,7 +196,8 @@ async def overview(conn: Connection) -> Overview:
           date_trunc('month', now())::date as period_start,
           (select count(*) from money) as workspaces,
           (select count(*) from money where state = 'paying') as paying,
-          (select coalesce(sum(revenue_micros), 0) from money)::bigint as mrr,
+          (select coalesce(sum(plan_revenue_micros), 0) from money)::bigint as mrr,
+          (select coalesce(sum(topup_micros), 0) from money)::bigint as topups,
           (select count(*) from money where created_at > now() - interval '30 days')
             as new_workspaces,
           (select count(*) from users where created_at > now() - interval '30 days')
@@ -212,17 +232,19 @@ async def overview(conn: Connection) -> Overview:
         ANOMALY_FACTOR,
     )
     mrr, cost = totals["mrr"], totals["cost"]
+    revenue = mrr + totals["topups"]
     return Overview(
         period_start=totals["period_start"],
         workspaces=totals["workspaces"],
         by_plan_state=by_plan_state,
         paying_workspaces=totals["paying"],
         mrr_micros=mrr,
+        topups_micros=totals["topups"],
         new_workspaces_30d=totals["new_workspaces"],
         new_accounts_30d=totals["new_accounts"],
         replies_this_month=totals["replies"],
         cost_this_month_micros=cost,
-        gross_margin=(mrr - cost) / mrr if mrr > 0 else None,
+        gross_margin=(revenue - cost) / revenue if revenue > 0 else None,
         median_cost_per_reply_micros=median,
         anomalies=anomalies,
     )

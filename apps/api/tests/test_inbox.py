@@ -12,7 +12,7 @@ from docent.email.sender import MemoryEmailSender, OutgoingEmail, sender_address
 from docent.inbox import metrics
 from docent.jobs.handlers import make_handlers
 from docent.jobs.worker import Worker
-from tests.conftest import ClientFactory, Drain, verified_owner
+from tests.conftest import ClientFactory, Drain, make_settings, verified_owner
 from tests.inbox_helpers import handoff, join, tid
 
 
@@ -295,7 +295,12 @@ async def test_failing_email_retries_then_shows_dead_with_its_error(
     await drain()
     await owner.post(f"/v1/inbox/{made['id']}/replies", json={"body": "Hello"})
     failing = FailingSender()
-    worker = Worker(worker_pool, make_handlers(failing), idle_poll_seconds=60, lease_seconds=30)
+    worker = Worker(
+        worker_pool,
+        make_handlers(failing, make_settings().secret_key.get_secret_value()),
+        idle_poll_seconds=60,
+        lease_seconds=30,
+    )
     await worker.drain()
     delivery = (await detail(owner, made["id"]))["deliveries"][0]
     assert (delivery["status"], delivery["attempts"]) == ("retrying", 1)
