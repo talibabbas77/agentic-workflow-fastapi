@@ -369,10 +369,11 @@ Docent with a line-by-line preview: prorated upgrades charged now, downgrades
 scheduled for the end of the paid period (refused while usage is over the
 smaller plan), cancel at period end with resume, and a 14 day money-back refund
 (ARCHITECTURE section 10). Checks 2, 4, and 5 run in the API suite; the gateway
-runs against stripe-mock in CI. Not yet
-built: top-up packs, the internal cost and margin dashboard, the Redis command
-budget alerts, and the load test in check 1. Live payments need your Stripe
-keys; see the README.
+runs against stripe-mock in CI. The internal cost and margin dashboard, with
+the cost-per-reply anomaly list, is part of the platform admin console at
+`/admin` (ARCHITECTURE section 12). Not yet built: top-up packs, the Redis
+command budget alerts, and the load test in check 1. Live payments need your
+Stripe keys; see the README.
 
 **Goal:** tenants pay a predictable monthly price, can never be billed past
 their cap, and their customers never hit a dead widget.
