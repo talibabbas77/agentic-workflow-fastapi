@@ -86,6 +86,7 @@ class OpenAICompatibleChat:
             model.endswith(":cloud") or "11434" in base_url or "ollama" in base_url
         )
         self._reasoning_effort = reasoning_effort
+        self._reasons = reasoning_effort not in (None, "", "none")
         self._timeout = timeout
         self._temperature = temperature
         self._slots = asyncio.Semaphore(max_concurrency)
@@ -133,7 +134,8 @@ class OpenAICompatibleChat:
             "model": self.model,
             "messages": messages,
             "temperature": self._temperature,
-            "max_tokens": max_tokens,
+            # A model that reasons counts those tokens against the limit too: leave room.
+            "max_tokens": max_tokens + (1024 if self._reasons else 0),
         }
         if self._reasoning_effort:
             body["reasoning_effort"] = self._reasoning_effort

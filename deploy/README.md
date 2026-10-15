@@ -20,6 +20,43 @@ script uses `sslip.io` hostnames that point at the server's IP address.
 - An ollama.com account. The chat model runs on Ollama's cloud; the embedding
   model runs on the server.
 
+## Free, no card: Hugging Face Spaces
+
+A free Hugging Face Space (2 CPUs, 16 GB of memory) runs the whole showcase in
+one container: the database, the embedding model, the API, the app, and the
+demo sites, all at `https://<username>-<space>.hf.space`. Answers come from
+Groq's free API. No credit card anywhere.
+
+1. Create an account at huggingface.co, and one at console.groq.com. In Groq,
+   open API Keys and create a key.
+2. Create a Space at huggingface.co/new-space: any name (for example
+   `docent`), SDK **Docker**, template **Blank**, hardware **CPU basic
+   (free)**, public.
+3. In the Space, open **Settings**, then **Variables and secrets**:
+   - New secret `LLM_API_KEY`: your Groq key.
+   - New secret `OWNER_EMAIL` and new secret `OWNER_PASSWORD` (10 or more
+     characters): your login for the app and `/admin`.
+   - New variable `PUBLIC_URL`: `https://<username>-<space>.hf.space`, all
+     lowercase.
+4. In the Space, open **Files**, then **Add file**, **Create a new file**,
+   name it `Dockerfile`, paste the contents of
+   [deploy/huggingface/Dockerfile](huggingface/Dockerfile), and commit.
+5. The Space builds (about 20 minutes the first time), then starts. Open
+   `https://<username>-<space>.hf.space`.
+
+Good to know on a free Space:
+
+- It keeps no disk: each start makes a fresh database and loads the demo
+  companies again, about two minutes after the site comes up.
+- It sleeps after two days without visitors and wakes on the next visit,
+  which takes a few minutes.
+- Share the `hf.space` address, not the huggingface.co Space page.
+- After you push new commits to GitHub, open the Space's **Settings** and
+  choose **Factory rebuild**.
+- To use Ollama's cloud instead of Groq, set `LLM_BASE_URL` to
+  `https://ollama.com/v1`, `LLM_MODEL` to `gemma4:31b`, and `LLM_API_KEY` to a
+  key from ollama.com/settings/keys.
+
 ## Free hosting: Oracle Cloud Always Free
 
 Oracle's Always Free tier includes an ARM server with up to 4 CPUs and 24 GB

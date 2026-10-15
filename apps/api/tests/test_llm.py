@@ -206,3 +206,28 @@ async def test_ollama_is_not_sent_a_forced_tool_choice() -> None:
         [{"role": "user", "content": "q"}], AgentDecision, name="d", max_tokens=10
     )
     assert "tool_choice" not in seen[0]
+
+
+async def test_a_reasoning_model_gets_room_for_its_reasoning() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        call = {"function": {"name": "d", "arguments": json.dumps(VALID)}}
+        return httpx.Response(200, json={"choices": [{"message": {"tool_calls": [call]}}]})
+
+    client = OpenAICompatibleChat(
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        base_url="https://api.groq.com/openai/v1",
+        model="openai/gpt-oss-120b",
+        api_key="k",
+        strategy="tool",
+        reasoning_effort="low",
+        timeout=5,
+        max_concurrency=1,
+    )
+    await client.structured(
+        [{"role": "user", "content": "q"}], AgentDecision, name="d", max_tokens=120
+    )
+    assert seen[0]["max_tokens"] == 1144
+    assert seen[0]["reasoning_effort"] == "low"

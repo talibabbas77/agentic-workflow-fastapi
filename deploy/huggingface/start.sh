@@ -58,7 +58,7 @@ export FORWARDED_ALLOW_IPS="127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 export OBJECT_STORE_URL="file://$DATA/objects"
 export OLLAMA_BASE_URL=http://127.0.0.1:11434
 export LLM_BASE_URL=${LLM_BASE_URL:-https://api.groq.com/openai/v1}
-export LLM_MODEL=${LLM_MODEL:-openai/gpt-oss-120b}
+export LLM_MODEL=${LLM_MODEL:-llama-3.3-70b-versatile}
 case "$LLM_MODEL" in
   *gpt-oss*) export LLM_REASONING_EFFORT=${LLM_REASONING_EFFORT:-low} ;;
   *) export LLM_REASONING_EFFORT=${LLM_REASONING_EFFORT:-} ;;
