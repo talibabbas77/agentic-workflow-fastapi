@@ -28,7 +28,8 @@ log "public address: $PUBLIC_URL"
 # Postgres with pgvector. The socket (only this container's user can reach it)
 # trusts that user; connections over TCP need the passwords made below.
 if [ ! -f "$DATA/pg/PG_VERSION" ]; then
-  "$PG/initdb" -D "$DATA/pg" -U postgres --auth-local=trust --auth-host=scram-sha-256 >/dev/null
+  "$PG/initdb" -D "$DATA/pg" -U postgres --auth-local=trust --auth-host=scram-sha-256 \
+    --encoding=UTF8 --locale=C.UTF-8 >/dev/null
 fi
 "$PG/pg_ctl" -D "$DATA/pg" -l "$LOGS/postgres.log" -w start \
   -o "-c listen_addresses=127.0.0.1 -c unix_socket_directories=$DATA -c max_connections=60" >/dev/null
