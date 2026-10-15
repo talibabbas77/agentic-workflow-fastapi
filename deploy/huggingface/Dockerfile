@@ -11,7 +11,11 @@ ARG BRANCH=main
 FROM alpine:3.22 AS source
 ARG REPO_URL
 ARG BRANCH
-RUN apk add --no-cache git && git clone --depth 1 --branch "$BRANCH" "$REPO_URL" /src
+RUN apk add --no-cache git
+# A new commit on GitHub changes this file, so the clone below runs again
+# instead of reusing the build cache.
+ADD https://api.github.com/repos/talibabbas77/agentic-workflow-fastapi/commits/main /tmp/latest-commit.json
+RUN git clone --depth 1 --branch "$BRANCH" "$REPO_URL" /src
 
 # The embeddable widget (static files the API serves).
 FROM node:24-alpine AS widget
