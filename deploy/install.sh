@@ -38,6 +38,17 @@ if ! command -v docker >/dev/null; then
 fi
 docker compose version >/dev/null || fail "docker compose is missing."
 
+# Oracle Cloud's Ubuntu images reject new connections in their own firewall, even
+# after ports 80 and 443 are opened in the cloud console. Let web traffic in.
+if iptables -S INPUT 2>/dev/null | grep -q -- "-j REJECT"; then
+  say "Opening ports 80 and 443 in this server's firewall"
+  iptables -C INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT 2>/dev/null \
+    || iptables -I INPUT 1 -p tcp -m multiport --dports 80,443 -j ACCEPT
+  iptables -C INPUT -p udp --dport 443 -j ACCEPT 2>/dev/null \
+    || iptables -I INPUT 1 -p udp --dport 443 -j ACCEPT
+  if command -v netfilter-persistent >/dev/null; then netfilter-persistent save >/dev/null 2>&1 || true; fi
+fi
+
 memory_mb=$(awk '/MemTotal/ {print int($2 / 1024)}' /proc/meminfo)
 if [ "$memory_mb" -lt 6000 ] && [ "$(swapon --show | wc -l)" -eq 0 ]; then
   say "Adding 4 GB of swap: this server has ${memory_mb} MB of memory"

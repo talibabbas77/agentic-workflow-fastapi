@@ -20,6 +20,30 @@ script uses `sslip.io` hostnames that point at the server's IP address.
 - An ollama.com account. The chat model runs on Ollama's cloud; the embedding
   model runs on the server.
 
+## Free hosting: Oracle Cloud Always Free
+
+Oracle's Always Free tier includes an ARM server with up to 4 CPUs and 24 GB
+of memory, free with no time limit. Signing up asks for a card to verify you;
+Always Free resources are not charged.
+
+1. Sign up at oracle.com/cloud/free and pick a home region near you (it cannot
+   be changed later).
+2. Create the server: Compute, Instances, Create instance.
+   - Image: Canonical Ubuntu 24.04 (the aarch64 build).
+   - Shape: Ampere, VM.Standard.A1.Flex, 4 OCPUs and 24 GB memory.
+   - Networking: create a new virtual cloud network with a public subnet, and
+     assign a public IPv4 address.
+   - SSH keys: let Oracle generate a key pair and download the private key.
+   - Boot volume: 100 GB (up to 200 GB is free).
+   If Oracle says it is out of capacity, try another availability domain, or
+   try again later; ARM capacity comes and goes.
+3. Open ports 80 and 443: open the instance's subnet, its default security
+   list, and add two ingress rules, source `0.0.0.0/0`, TCP, destination ports
+   `80` and `443`. (The install script opens them in Ubuntu's own firewall.)
+4. Log in from your Mac: `chmod 600 ~/Downloads/ssh-key-*.key`, then
+   `ssh -i ~/Downloads/ssh-key-*.key ubuntu@<public-ip>`.
+5. Continue with the steps below from step 3.
+
 ## Steps
 
 1. Push this repository to GitHub.
