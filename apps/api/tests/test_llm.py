@@ -84,6 +84,7 @@ async def test_tool_strategy_reads_function_arguments() -> None:
     )
     assert result.value.type == "answer"
     assert seen[0]["tools"][0]["function"]["name"] == "d"
+    assert seen[0]["tool_choice"] == {"type": "function", "function": {"name": "d"}}
     assert "response_format" not in seen[0]
 
 
@@ -177,4 +178,31 @@ def test_strategy_auto_selection() -> None:
     assert choose_strategy("auto", "qwen3:1.7b", "http://127.0.0.1:11434/v1") == "json_schema"
     assert choose_strategy("auto", "gemma4:cloud", "http://127.0.0.1:11434/v1") == "tool"
     assert choose_strategy("auto", "gemma4:31b", "https://ollama.com/v1") == "tool"
+    assert (
+        choose_strategy("auto", "openai/gpt-oss-120b", "https://api.groq.com/openai/v1") == "tool"
+    )
     assert choose_strategy("prompt", "anything", "http://x") == "prompt"
+
+
+async def test_ollama_is_not_sent_a_forced_tool_choice() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        call = {"function": {"name": "d", "arguments": json.dumps(VALID)}}
+        return httpx.Response(200, json={"choices": [{"message": {"tool_calls": [call]}}]})
+
+    client = OpenAICompatibleChat(
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        base_url="http://127.0.0.1:11434/v1",
+        model="gemma4:cloud",
+        api_key=None,
+        strategy="tool",
+        reasoning_effort="none",
+        timeout=5,
+        max_concurrency=1,
+    )
+    await client.structured(
+        [{"role": "user", "content": "q"}], AgentDecision, name="d", max_tokens=10
+    )
+    assert "tool_choice" not in seen[0]

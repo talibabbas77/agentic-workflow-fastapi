@@ -56,6 +56,8 @@ def choose_strategy(configured: str, model: str, base_url: str) -> Strategy:
         return configured  # type: ignore[return-value]
     if model.endswith(":cloud") or "ollama.com" in base_url:
         return "tool"  # Ollama Cloud supports tools but not structured outputs
+    if "groq.com" in base_url:
+        return "tool"  # strict JSON schema there rejects optional fields; tools do not
     return "json_schema"
 
 
@@ -78,6 +80,11 @@ class OpenAICompatibleChat:
         self._headers = {"authorization": f"Bearer {api_key}"} if api_key else {}
         self.model = model
         self._strategy = strategy
+        # Most providers honor a forced tool call. Ollama answers through the tool on its
+        # own and its OpenAI layer may not accept the field, so it is left out there.
+        self._force_tool = not (
+            model.endswith(":cloud") or "11434" in base_url or "ollama" in base_url
+        )
         self._reasoning_effort = reasoning_effort
         self._timeout = timeout
         self._temperature = temperature
@@ -146,6 +153,8 @@ class OpenAICompatibleChat:
                     },
                 }
             ]
+            if self._force_tool:
+                body["tool_choice"] = {"type": "function", "function": {"name": name}}
         else:
             body["messages"] = [
                 {

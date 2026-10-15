@@ -1,0 +1,27 @@
+# One public port for the whole showcase on a Hugging Face Space. The Space
+# serves HTTPS in front of this; here every part shares one address by path.
+
+{
+	admin off
+	auto_https off
+	servers {
+		# The Space's own proxy is on a private address: keep the visitor's IP.
+		trusted_proxies static private_ranges
+	}
+}
+
+:7860 {
+	@api path /v1/* /widget/* /healthz /readyz
+	handle @api {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	@demo path /lumen-notes /lumen-notes/* /parcelwise /parcelwise/* /assets/*
+	handle @demo {
+		reverse_proxy 127.0.0.1:5173
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}
